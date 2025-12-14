@@ -5,7 +5,7 @@
 
 **J-Card Genesis** 是一款专为磁带收藏家和 DIY 爱好者设计的桌面应用程序。它结合了现代 AI 技术，帮助你轻松制作出专业、美观的实体磁带封面（J-Card）。
 
-![App Screenshot](https://raw.githubusercontent.com/epochaudio/J-Card-Generator/main/screenshot.png) *(请自行添加截图)*
+![App Screenshot](https://raw.githubusercontent.com/epochaudio/J-Card-Generator/main/screenshot.png)
 
 ## ✨ 主要功能
 
