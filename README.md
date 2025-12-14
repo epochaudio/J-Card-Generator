@@ -78,7 +78,8 @@ npm run electron:build
 
 <img width="2722" height="1855" alt="ScreenShot_2025-12-14_202948_848" src="https://github.com/user-attachments/assets/47ffd6c7-15bb-4832-bfc1-8cb25af25e8d" />
 
-<img width="2722" height="1855" alt="ScreenShot_2025-12-14_202948_848" src="https://github.com/user-attachments/assets/2ea76c7c-a2e1-4fca-b665-041c6ca72ebf" />
+<img width="1760" height="1729" alt="ScreenShot_2025-12-14_203002_303" src="https://github.com/user-attachments/assets/7865c3f3-a907-4d38-836f-ed2c3be546af" />
+
 
 
 <img width="1965" height="1832" alt="ScreenShot_2025-12-14_203022_939" src="https://github.com/user-attachments/assets/20cb3938-2b6c-4c2b-9dfc-7545f27a3460" />
