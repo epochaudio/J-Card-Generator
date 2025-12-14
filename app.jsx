@@ -311,7 +311,7 @@ const ContentFront = ({ xOffset, width, data, theme, coverImage, isLight, textCo
       <rect x="0" y="0" width={width} height="1181" fill="url(#grid)" opacity="0.2" />
       {coverImage ? (
         <>
-          <svg x="0" y="0" width={width} height={width} viewBox="72 72 1056 1056" preserveAspectRatio="xMidYMid slice">
+          <svg x="0" y="0" width={width} height={width} viewBox="0 0 1200 1200" preserveAspectRatio="xMidYMid slice">
             <image href={coverImage} width="1200" height="1200" />
           </svg>
           <rect x="0" y={width} width={width} height="2" fill={textColor} opacity="0.5" />
@@ -328,13 +328,13 @@ const ContentFront = ({ xOffset, width, data, theme, coverImage, isLight, textCo
 
         {/* --- New Integrated Blurb/Badge (No Box, Relaxed Width) --- */}
         {badgeText && (
-          <g transform={`translate(0, ${badgeY - 880 - 100})`}>
+          <g>
             {/* Render Lines Directly without Rect Background */}
             {badgeLines.map((line, i) => (
               <text
                 key={i}
                 x="750"
-                y={880 + 100 + 28 + (i * badgeLineHeight)}
+                y={badgeY + (i * badgeLineHeight)}
                 fontFamily="Georgia, serif"
                 fontStyle="italic"
                 fontWeight="bold"
@@ -698,9 +698,53 @@ const JCardPreview = ({ data, theme, coverImage, svgRef, appearanceMode }) => {
   };
 
   const titleLayout = getTitleLayout(title);
-  const titleStartY = 870; // Adjusted for slightly shorter height
-  const badgeY = titleStartY + titleLayout.totalHeight + 20;
-  const artistY = 1120; // Adjusted for slightly shorter height
+
+  // Dynamic Layout Calculation
+  const imgBottom = 780; // Cover ends at y=780
+  const footerMargin = 40;
+  const contentHeight = 1181;
+  const safeBottom = contentHeight - footerMargin;
+
+  // Calculate heights
+  const titleH = titleLayout.totalHeight;
+  const badgeTextStr = data.coverBadge || "";
+  const badgeLines = TextUtils.getWrappedLines(badgeTextStr, 38);
+  const badgeH = badgeLines.length > 0 ? (badgeLines.length * 26 + 10) : 0; // 26px line height + padding
+  const artistH = 30; // approx height for artist line
+
+  // Define gaps
+  const gapTitleBadge = 20;
+  const gapBadgeArtist = 30;
+
+  // Calculate positions (Top-Down approach)
+  // Start title slightly below image
+  let currentY = imgBottom + 60;
+
+  // Title Position (First line baseline)
+  const titleStartY = currentY;
+  currentY += titleH + gapTitleBadge;
+
+  // Badge Position (First line baseline)
+  // Badge is optional, so it might take 0 height
+  const badgeY = currentY + 20; // +20 for visual baseline adjustment
+  if (badgeH > 0) {
+    currentY += badgeH + gapBadgeArtist;
+  } else {
+    currentY += gapBadgeArtist; // Minimum gap if no badge
+  }
+
+  // Artist Position
+  // Ensure artist is pushed down if needed, but closer to bottom if space allows
+  // But strictly, let's just stack it to avoid overlap. 
+  // We can clamp it to be at least at a certain "nice" position if the stack is short.
+  let artistY = currentY + 10;
+
+  const minArtistY = 1120;
+  // If our stack is short, push artist down to the aesthetic default.
+  // If stack is tall (long title/badge), use the calculated stack position.
+  if (artistY < minArtistY) {
+    artistY = minArtistY;
+  }
 
   const formatText = (text) => data.layout?.forceCaps ? String(text).toUpperCase() : String(text);
 
