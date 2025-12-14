@@ -1,6 +1,7 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
 
-[![Electron](https://img.shields.io/badge/Electron-31.0.0-blue)](https://www.electronjs.org/) [![React](https://img.shields.io/badge/React-18.3.1-61DAFB)](https://react.dev/) [![Vite](https://img.shields.io/badge/Vite-5.3.1-646CFF)](https://vitejs.dev/)
+<img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/acd17866-ce31-4c21-9c5c-ebf01fe85cc9" />
+
 
 **J-Card Genesis** 是一款专为磁带收藏家和 DIY 爱好者设计的桌面应用程序。它结合了现代 AI 技术，帮助你轻松制作出专业、美观的实体磁带封面（J-Card）。
 
