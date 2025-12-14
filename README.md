@@ -72,3 +72,6 @@ npm run electron:build
 
 ---
 *Made with ❤️ for Cassette Culture.*
+
+<img width="1965" height="1832" alt="ScreenShot_2025-12-14_203022_939" src="https://github.com/user-attachments/assets/20cb3938-2b6c-4c2b-9dfc-7545f27a3460" />
+
