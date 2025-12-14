@@ -718,7 +718,8 @@ const JCardPreview = ({ data, theme, coverImage, svgRef, appearanceMode }) => {
 
   // Calculate positions (Top-Down approach)
   // Start title slightly below image
-  let currentY = imgBottom + 60;
+  // Increased gap to 110 to prevent title from being too close to image (accounting for baseline)
+  let currentY = imgBottom + 110;
 
   // Title Position (First line baseline)
   const titleStartY = currentY;
