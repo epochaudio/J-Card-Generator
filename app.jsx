@@ -312,7 +312,11 @@ const ContentFront = ({ xOffset, width, data, theme, coverImage, isLight, textCo
       {coverImage ? (
         <>
           <svg x="0" y="0" width={width} height={width} viewBox="0 0 1200 1200" preserveAspectRatio="xMidYMid slice">
-            <image href={coverImage} width="1200" height="1200" />
+            {/* Layer 1: Blurred Background (Bleed Protection) - Fills the gaps */}
+            <image href={coverImage} width="1200" height="1200" preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" transform="scale(1.1)" transform-origin="center" />
+            {/* Layer 2: Main Image (No Crop) - Fits entirely within the box */}
+            {/* Modified: Scale set to 1 to remove artificial gaps and maximize fill (was 0.96) */}
+            <image href={coverImage} width="1200" height="1200" preserveAspectRatio="xMidYMid meet" transform="scale(1)" transform-origin="center" />
           </svg>
           <rect x="0" y={width} width={width} height="2" fill={textColor} opacity="0.5" />
         </>
@@ -361,7 +365,7 @@ const ContentFront = ({ xOffset, width, data, theme, coverImage, isLight, textCo
   )
 }
 
-const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTextColor, dimTextColor }) => {
+const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTextColor, dimTextColor, recordingData }) => {
   // 动态布局引擎配置
   const contentHeight = 1181; // Adjusted for Canon 4x6 height (100mm)
   const marginY = isCompact ? 60 : 80;
@@ -509,7 +513,8 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
           // --- 方案 A: 行内紧凑模式 ---
           const joinedText = item.tracks.map((t, tidx) => {
             const roman = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"][tidx] || (tidx + 1);
-            let cleanTitle = t.displayTitle.replace(/^[IVX]+\.\s*/, '');
+            let cleanTitle = t.displayTitle.replace(/^[IVX0-9]+\.\s*/, '');
+            if (isClassical) return cleanTitle;
             return `${roman}. ${cleanTitle}`;
           }).join(" / ");
 
@@ -568,7 +573,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
               <tspan fontWeight="bold" dx={isFirstLine ? 5 : 28}>{line}</tspan>
 
               {/* 艺术家/时间：只在第一行(或最后一行? 暂时第一行更整齐) 且 非Compact模式 */}
-              {isFirstLine && !isClassical && !isCompact && <tspan fill={dimTextColor}> - {item.artist}</tspan>}
+              {isFirstLine && (data.layout?.mode === 'COMPILATION') && !isCompact && <tspan fill={dimTextColor}> - {item.artist}</tspan>}
               {isFirstLine && !isCompact && <tspan fontSize={Math.max(trackFontSize - 4, 10)} fill={dimTextColor}> ({item.duration})</tspan>}
             </text>
           )
@@ -593,72 +598,83 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
 
   return (
     <g>
-      {/* Note Upper */}
-      {hasNoteUpper && (
-        <g transform={`translate(${width - 25}, 120) rotate(90)`}>
-          <text x="0" y="0" fontFamily="Arial, sans-serif" fontSize={isCompact ? 10 : 14} fill={dimTextColor} textAnchor="start" letterSpacing="2">
-            {formatVerticalText(data.layout.noteUpper)}
+      {/* Note Upper/Lower REMOVED from Side Panels (Moved to Spine) per request */}
+
+      {/* Short Back Title REMOVED per user request */}
+
+      {/* --- Tracklist Container OR Tech Specs (Classical Swap) --- */}
+      {/* Case 1: Classical Mode + Short Back (Compact) -> TECH SPECS (Rotated) */}
+      {(isClassical && isCompact) ? (
+        <g transform={`translate(${width}, 0) rotate(90)`} fontFamily="Courier New, monospace">
+          {/* Tech Specs Layout (Long edge is X axis 0..1181, Short edge is Y axis 0..width) */}
+
+          {/* 1. Label / Header (Top) */}
+          <text x="50" y="40" fontSize="24" fontWeight="bold" fill={textColor} letterSpacing="2" dominantBaseline="hanging">
+            {(recordingData?.labelOverride || data.tapeSubtitle || "LABEL INFO").toUpperCase()}
           </text>
+          <line x1="50" y1="80" x2={contentHeight - 50} y2="80" stroke={textColor} strokeWidth="2" />
+
+          {/* 2. Equipment (Upper Middle) */}
+          <g transform={`translate(450, 40)`}>
+            <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" uppercase="true">EQUIPMENT</text>
+            {/* Wrap text if needed, though on short back usually short. */}
+            <text x="0" y="30" fontSize="18" fill={subTextColor} fontFamily="Arial, sans-serif" fontWeight="bold">
+              {recordingData?.equipment || "N/A"}
+            </text>
+          </g>
+
+          {/* 3. Recording Mode (Lower Middle) */}
+          <g transform={`translate(800, 40)`}>
+            <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" uppercase="true">RECORDING MODE</text>
+            <text x="0" y="35" fontSize="36" fontWeight="bold" fill={theme.accent} letterSpacing="4">
+              {recordingData?.mode || "AAA"}
+            </text>
+          </g>
+
+          {/* 4. Released Date (Bottom) */}
+          <g transform={`translate(${contentHeight - 50}, 40)`}>
+            <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" textAnchor="end">RELEASED</text>
+            <text x="0" y="30" fontSize="24" fill={textColor} fontWeight="bold" textAnchor="end">{data.coverBadge || data.layout.noteUpper || "2024"}</text>
+          </g>
+        </g>
+      ) : (
+        // Case 2: Everything else (Standard Modes OR Classical Main Panel) -> TRACKLIST
+        <g transform={`translate(0, 0)`}>
+          {/* Side A Header */}
+          <g transform={`translate(${verticalPadding}, ${yHeaderA})`}>
+            <rect x="0" y="-15" width="40" height="20" fill={textColor} rx="4" />
+            <text x="20" y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={isLight ? "#fff" : "#121212"} textAnchor="middle" dominantBaseline="middle">A</text>
+            {showSideLabel && <text x="50" y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={theme.accent} letterSpacing="1" dominantBaseline="middle">SIDE A</text>}
+            <text x={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0) - (isCompact ? 0 : 20)} y="0" fontFamily="Arial, sans-serif" fontSize={12} fill={dimTextColor} textAnchor="end" dominantBaseline="middle">{data.sideADuration}</text>
+          </g>
+
+          {/* Side A List */}
+          <g transform={`translate(${verticalPadding}, ${yListA})`} fontFamily="Arial, sans-serif">
+            {renderGroupList(groupsA, 0)}
+          </g>
+
+          {/* Divider */}
+          <line x1={verticalPadding} y1={yDivider} x2={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0)} y2={yDivider} stroke={dimTextColor} strokeWidth="1" opacity="0.5" />
+
+          {/* Side B Header */}
+          <g transform={`translate(${verticalPadding}, ${yHeaderB})`}>
+            <rect x="0" y="-15" width="40" height="20" fill={textColor} rx="4" />
+            <text x="20" y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={isLight ? "#fff" : "#121212"} textAnchor="middle" dominantBaseline="middle">B</text>
+            {showSideLabel && <text x="50" y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={theme.accent} letterSpacing="1" dominantBaseline="middle">SIDE B</text>}
+            <text x={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0) - (isCompact ? 0 : 20)} y="0" fontFamily="Arial, sans-serif" fontSize={12} fill={dimTextColor} textAnchor="end" dominantBaseline="middle">{data.sideBDuration}</text>
+          </g>
+
+          {/* Side B List */}
+          <g transform={`translate(${verticalPadding}, ${yListB})`} fontFamily="Arial, sans-serif">
+            {renderGroupList(groupsB, data.sideA.length)}
+          </g>
         </g>
       )}
-
-      {/* Note Lower */}
-      {hasNoteLower && (
-        <g transform={`translate(20, ${contentHeight - 100}) rotate(-90)`}>
-          <text x="0" y="0" fontFamily="Arial, sans-serif" fontSize={isCompact ? 10 : 14} fill={dimTextColor} textAnchor="start" letterSpacing="2">
-            {formatVerticalText(data.layout.noteLower)}
-          </text>
-        </g>
-      )}
-
-      {/* Short Back Title */}
-      {isCompact && (
-        <g transform={`translate(25, ${titleStartYAnchor}) rotate(-90)`}>
-          <text x="0" y="0" fontFamily="Arial Black, sans-serif" fontWeight="bold" fontSize={14} fill={textColor} textAnchor="start" letterSpacing="1">
-            {formatVerticalText(data.title)}
-          </text>
-          <text x="0" y="18" fontFamily="Arial, sans-serif" fontSize={10} fill={subTextColor} textAnchor="start" letterSpacing="1">
-            {formatVerticalText(data.artist)}
-          </text>
-        </g>
-      )}
-
-      {/* --- Tracklist Container --- */}
-      <g transform={`translate(0, 0)`}>
-        {/* Side A Header */}
-        <g transform={`translate(${verticalPadding}, ${yHeaderA})`}>
-          <rect x="0" y="-15" width="40" height="20" fill={textColor} rx="4" />
-          <text x="20" y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={isLight ? "#fff" : "#121212"} textAnchor="middle" dominantBaseline="middle">A</text>
-          {showSideLabel && <text x="50" y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={theme.accent} letterSpacing="1" dominantBaseline="middle">SIDE A</text>}
-          <text x={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0) - (isCompact ? 0 : 20)} y="0" fontFamily="Arial, sans-serif" fontSize={12} fill={dimTextColor} textAnchor="end" dominantBaseline="middle">{data.sideADuration}</text>
-        </g>
-
-        {/* Side A List */}
-        <g transform={`translate(${verticalPadding}, ${yListA})`} fontFamily="Arial, sans-serif">
-          {renderGroupList(groupsA, 0)}
-        </g>
-
-        {/* Divider */}
-        <line x1={verticalPadding} y1={yDivider} x2={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0)} y2={yDivider} stroke={dimTextColor} strokeWidth="1" opacity="0.5" />
-
-        {/* Side B Header */}
-        <g transform={`translate(${verticalPadding}, ${yHeaderB})`}>
-          <rect x="0" y="-15" width="40" height="20" fill={textColor} rx="4" />
-          <text x="20" y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={isLight ? "#fff" : "#121212"} textAnchor="middle" dominantBaseline="middle">B</text>
-          {showSideLabel && <text x="50" y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={theme.accent} letterSpacing="1" dominantBaseline="middle">SIDE B</text>}
-          <text x={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0) - (isCompact ? 0 : 20)} y="0" fontFamily="Arial, sans-serif" fontSize={12} fill={dimTextColor} textAnchor="end" dominantBaseline="middle">{data.sideBDuration}</text>
-        </g>
-
-        {/* Side B List */}
-        <g transform={`translate(${verticalPadding}, ${yListB})`} fontFamily="Arial, sans-serif">
-          {renderGroupList(groupsB, data.sideA.length)}
-        </g>
-      </g>
     </g>
   )
 }
 
-const JCardPreview = ({ data, theme, coverImage, svgRef, appearanceMode }) => {
+const JCardPreview = ({ data, theme, coverImage, svgRef, appearanceMode, recordingData }) => {
   const { title, artist, sideA, sideB, sideADuration, sideBDuration, tapeId, tapeSubtitle, coverBadge } = data;
   const width = 1748; // Adjusted for Canon 4x6 (148mm)
   const height = 1181; // Adjusted for Canon 4x6 (100mm)
@@ -666,7 +682,7 @@ const JCardPreview = ({ data, theme, coverImage, svgRef, appearanceMode }) => {
   const textColor = isLight ? "#1a1a1a" : "#ffffff";
   const subTextColor = isLight ? "#4a4a4a" : "#e0e0e0";
   const dimTextColor = isLight ? "#666666" : "#888888";
-  const maskOpacity = isLight ? 0.3 : 0.85;
+  const maskOpacity = isLight ? 0.3 : 0.75;
   const maskColor = isLight ? "#ffffff" : "#050505";
 
   const isMinimalSpine = !!data.layout?.minimalSpine;
@@ -822,14 +838,27 @@ const JCardPreview = ({ data, theme, coverImage, svgRef, appearanceMode }) => {
 
       {/* Short Back Content (Flap/Inner) */}
       <g clipPath="url(#panel-short-back)">
-        <ContentBack width={wShort} data={data} theme={theme} isCompact={true} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} />
+        <ContentBack width={wShort} data={data} theme={theme} isCompact={true} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} />
       </g>
 
       {/* Spine Content */}
       <g transform={`translate(${xSpine + wSpine / 2}, ${height / 2})`}>
         <text x="0" y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize={getSpineTitleSize(title)} fill={spineTitleColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>{formatText(title)}</text>
-        <text x="0" y={-height / 2 + 100} fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={spineIdColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>{tapeId}</text>
-        <text x="0" y={height / 2 - 150} fontFamily="Arial, sans-serif" fontSize="18" fill={isMinimalSpine ? dimTextColor : "rgba(255,255,255,0.7)"} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>{formatText(artist)}</text>
+        <text x={(height / 2) - 100} y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={spineIdColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>{tapeId}</text>
+        {/* Note Upper (Spine Top) */}
+        {data.layout?.noteUpper && (
+          <text x={(height / 2) - 50} y="0" fontFamily="Arial, sans-serif" fontSize="10" fill={spineIdColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" letterSpacing="1" opacity="0.8">
+            {formatText(data.layout.noteUpper)}
+          </text>
+        )}
+
+        <text x={-((height / 2) - 150)} y="0" fontFamily="Arial, sans-serif" fontSize="18" fill={spineTitleColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>{formatText(artist)}</text>
+        {/* Note Lower (Spine Bottom) */}
+        {data.layout?.noteLower && (
+          <text x={-((height / 2) - 50)} y="0" fontFamily="Arial, sans-serif" fontSize="10" fill={spineTitleColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" letterSpacing="1" opacity="0.8">
+            {formatText(data.layout.noteLower)}
+          </text>
+        )}
       </g>
 
       {/* Front Content */}
@@ -839,7 +868,7 @@ const JCardPreview = ({ data, theme, coverImage, svgRef, appearanceMode }) => {
 
       {/* Back Content (Tracklist) */}
       <g clipPath="url(#panel-flap)" transform={`translate(${xBack}, 0)`}>
-        <ContentBack width={wBack} data={data} theme={theme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} />
+        <ContentBack width={wBack} data={data} theme={theme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} />
       </g>
     </svg>
   );
@@ -860,7 +889,6 @@ export default function App() {
   // 修改默认主题为 'light'
   const [appearanceMode, setAppearanceMode] = useState('light');
   const [imagePrompt, setImagePrompt] = useState("");
-
   const [searchQuery, setSearchQuery] = useState({ album: '', artist: '' });
   const [searchResults, setSearchResults] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
@@ -909,6 +937,34 @@ export default function App() {
     ]
   });
 
+  // --- NEW: Custom Recording Metadata State with Persistence ---
+  const [recordingData, setRecordingData] = useState({
+    equipment: "",
+    mode: "AAA", // AAA, ADD, DDD, etc.
+    labelOverride: ""
+  });
+
+  // Load recording data from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('jcard_recording_data');
+    if (saved) {
+      try {
+        setRecordingData(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse saved recording data", e);
+      }
+    }
+  }, []);
+
+  // Save recording data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('jcard_recording_data', JSON.stringify(recordingData));
+  }, [recordingData]);
+
+  const updateRecordingData = (field, value) => {
+    setRecordingData(prev => ({ ...prev, [field]: value }));
+  };
+
   const [theme, setTheme] = useState({
     background: "#121212",
     accent: "#cc3300",
@@ -916,12 +972,7 @@ export default function App() {
   });
 
   // Set default prompt when data changes
-  useEffect(() => {
-    if (!imagePrompt) {
-      const newPrompt = `Album cover art for "${data.title}" by ${data.artist}. Style: ${theme.mood_description}, abstract, minimalist, high fidelity, color palette ${theme.background} and ${theme.accent}. No text, just pure art.`;
-      setImagePrompt(newPrompt);
-    }
-  }, [data.title, data.artist, theme]);
+  // Removed automatic prompt generation useEffect per user request
 
   const getApiKeyOrWarn = () => {
     return apiKey || "";
@@ -1096,10 +1147,16 @@ export default function App() {
   };
 
   const handleGenerateCover = async () => {
+    // Validation: Prompt must not be empty
+    if (!imagePrompt.trim()) {
+      alert("请先在下方【AI 图片提示词】框中输入描述，再点击生成。");
+      return;
+    }
+
     const key = getApiKeyOrWarn();
     setLoadingImage(true); setError('');
     try {
-      const finalPrompt = imagePrompt.trim() || `Album cover art for "${data.title}" by ${data.artist}. Style: ${theme.mood_description}, abstract, minimalist, high fidelity, color palette ${theme.background} and ${theme.accent}. No text, just pure art.`;
+      const finalPrompt = imagePrompt.trim();
       const imgDataUrl = await DashScopeService.generateImage(finalPrompt, key);
       setCoverImage(imgDataUrl);
     } catch (err) { setError(err.message); } finally { setLoadingImage(false); }
@@ -1333,68 +1390,135 @@ export default function App() {
             </div>
           </section>
 
-          {/* Style Section */}
-          <section className="space-y-4">
-            <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Palette size={14} /> 样式覆盖</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-xs text-gray-400 mb-1">强调色 (Accent)</label><div className="flex items-center gap-2"><input type="color" value={theme.accent || '#000000'} onChange={(e) => setTheme({ ...theme, accent: e.target.value })} className="h-8 w-8 rounded cursor-pointer bg-transparent border-none" /><button onClick={handleAutoColor} disabled={!coverImage} className={`p-1.5 rounded hover:bg-gray-600 transition-colors ${!coverImage ? 'opacity-30 cursor-not-allowed' : 'text-orange-400 hover:text-white'}`}><Droplet size={16} /></button></div></div>
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider border-b border-gray-700 pb-2">Custom Metadata</h3>
 
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">AI 图片提示词</label>
-                <textarea
-                  className={`w-full border rounded p-2 text-xs h-20 focus:ring-2 focus:ring-orange-500 outline-none resize-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`}
-                  placeholder="描述你想要的封面画面..."
-                  value={imagePrompt}
-                  onChange={(e) => setImagePrompt(e.target.value)}
-                />
-              </div>
-            </div>
+            {/* Equipment Input */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1">封面图片</label>
-              <div className="flex gap-2">
-                <button onClick={handleGenerateCover} disabled={loadingImage} className={`flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>{loadingImage ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingImage ? '生成中...' : '生成封面'}</button>
-                {coverImage && (<button onClick={() => setCoverImage(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
+              <label className="block text-xs text-gray-500 mb-1">Recording Equipment</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={recordingData.equipment || ""}
+                  onChange={(e) => updateRecordingData('equipment', e.target.value)}
+                  className={`w-full bg-transparent border-b ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'} py-1 text-sm focus:border-red-500 outline-none transition-colors`}
+                  placeholder="e.g. Neumann U47 / Studer A80"
+                />
+                <Database size={14} className="absolute right-0 top-1.5 text-gray-500" />
               </div>
             </div>
-          </section>
 
-          {/* Tracks Section */}
-          <div className={`flex items-center justify-between border-b pb-2 ${appearanceMode === 'light' ? 'border-gray-200' : 'border-gray-700'}`}>
-            <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Music size={14} /> 曲目列表</h2>
-            <div className="flex gap-2">
-              <button onClick={() => setShowImport(true)} className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-orange-600' : 'bg-gray-700 hover:bg-gray-600 text-orange-400'}`}><FileText size={12} /> 粘贴文本</button>
-              <button onClick={() => setShowSearch(true)} className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-orange-600' : 'bg-gray-700 hover:bg-gray-600 text-orange-400'}`}><Globe size={12} /> 搜索 MusicBrainz</button>
+            {/* Mode Input */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Recording Mode</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={recordingData.mode || ""}
+                  onChange={(e) => updateRecordingData('mode', e.target.value)}
+                  className={`w-full bg-transparent border-b ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'} py-1 text-sm focus:border-red-500 outline-none transition-colors`}
+                  placeholder="e.g. AAA / Live"
+                />
+                <Disc size={14} className="absolute right-0 top-1.5 text-gray-500" />
+              </div>
+            </div>
+
+            {/* Label Override */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Label Override</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={recordingData.labelOverride || ""}
+                  onChange={(e) => updateRecordingData('labelOverride', e.target.value)}
+                  className={`w-full bg-transparent border-b ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'} py-1 text-sm focus:border-red-500 outline-none transition-colors`}
+                  placeholder="Overrides standard label info"
+                />
+                <Type size={14} className="absolute right-0 top-1.5 text-gray-500" />
+              </div>
             </div>
           </div>
-          <section className="space-y-4">
-            <h3 className="text-xs font-bold text-gray-500 pl-1">A 面 (SIDE A)</h3>
-            {data.sideA.map((track, i) => (
-              <div key={i} className={`p-3 rounded border space-y-2 group ${appearanceMode === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'}`}>
-                <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className={`flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-900 placeholder-gray-400' : 'bg-gray-900 text-white placeholder-gray-600'}`} placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideA', i, 'title', e.target.value)} /><input className={`w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600' : 'bg-gray-900 text-gray-400'}`} placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideA', i, 'duration', e.target.value)} /></div>
-                <div className="flex gap-2 pl-8"><input className={`flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600 placeholder-gray-400' : 'bg-gray-900 text-gray-300 placeholder-gray-500'}`} placeholder="艺术家" value={track.artist || ''} onChange={(e) => updateTrack('sideA', i, 'artist', e.target.value)} /></div>
-                <input className={`w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-500 placeholder-gray-400' : 'bg-gray-900 text-gray-400 placeholder-gray-700'}`} placeholder="备注/心情..." value={track.note || ''} onChange={(e) => updateTrack('sideA', i, 'note', e.target.value)} />
+
+          {/* Advanced Settings */}
+          <div className="space-y-4">
+
+            {/* Style Section */}
+            <section className="space-y-4">
+              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Palette size={14} /> 样式覆盖</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-xs text-gray-400 mb-1">强调色 (Accent)</label><div className="flex items-center gap-2"><input type="color" value={theme.accent || '#000000'} onChange={(e) => setTheme({ ...theme, accent: e.target.value })} className="h-8 w-8 rounded cursor-pointer bg-transparent border-none" /><button onClick={handleAutoColor} disabled={!coverImage} className={`p-1.5 rounded hover:bg-gray-600 transition-colors ${!coverImage ? 'opacity-30 cursor-not-allowed' : 'text-orange-400 hover:text-white'}`}><Droplet size={16} /></button></div></div>
+
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">AI 图片提示词</label>
+                  <textarea
+                    className={`w-full border rounded p-2 text-xs h-20 focus:ring-2 focus:ring-orange-500 outline-none resize-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`}
+                    placeholder="描述你想要的封面画面..."
+                    value={imagePrompt}
+                    onChange={(e) => setImagePrompt(e.target.value)}
+                  />
+                </div>
               </div>
-            ))}
-          </section>
-          <section className="space-y-4">
-            <h3 className="text-xs font-bold text-gray-500 pl-1">B 面 (SIDE B)</h3>
-            {data.sideB.map((track, i) => (
-              <div key={i} className={`p-3 rounded border space-y-2 group ${appearanceMode === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'}`}>
-                <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className={`flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-900 placeholder-gray-400' : 'bg-gray-900 text-white placeholder-gray-600'}`} placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideB', i, 'title', e.target.value)} /><input className={`w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600' : 'bg-gray-900 text-gray-400'}`} placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideB', i, 'duration', e.target.value)} /></div>
-                <div className="flex gap-2 pl-8"><input className={`flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600 placeholder-gray-400' : 'bg-gray-900 text-gray-300 placeholder-gray-500'}`} placeholder="艺术家" value={track.artist || ''} onChange={(e) => updateTrack('sideB', i, 'artist', e.target.value)} /></div>
-                <input className={`w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-500 placeholder-gray-400' : 'bg-gray-900 text-gray-400 placeholder-gray-700'}`} placeholder="备注/心情..." value={track.note || ''} onChange={(e) => updateTrack('sideB', i, 'note', e.target.value)} />
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">封面图片</label>
+                <div className="flex gap-2">
+                  <button onClick={handleGenerateCover} disabled={loadingImage} className={`flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>{loadingImage ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingImage ? '生成中...' : '生成封面'}</button>
+                  {coverImage && (<button onClick={() => setCoverImage(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
+                </div>
               </div>
-            ))}
-          </section>
+            </section>
+
+            {/* Tracks Section */}
+            <div className={`flex items-center justify-between border-b pb-2 ${appearanceMode === 'light' ? 'border-gray-200' : 'border-gray-700'}`}>
+              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Music size={14} /> 曲目列表</h2>
+              <div className="flex gap-2">
+                <button onClick={() => setShowImport(true)} className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-orange-600' : 'bg-gray-700 hover:bg-gray-600 text-orange-400'}`}><FileText size={12} /> 粘贴文本</button>
+                <button onClick={() => setShowSearch(true)} className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-orange-600' : 'bg-gray-700 hover:bg-gray-600 text-orange-400'}`}><Globe size={12} /> 搜索 MusicBrainz</button>
+              </div>
+            </div>
+            <section className="space-y-4">
+              <h3 className="text-xs font-bold text-gray-500 pl-1">A 面 (SIDE A)</h3>
+              {data.sideA.map((track, i) => (
+                <div key={i} className={`p-3 rounded border space-y-2 group ${appearanceMode === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'}`}>
+                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className={`flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-900 placeholder-gray-400' : 'bg-gray-900 text-white placeholder-gray-600'}`} placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideA', i, 'title', e.target.value)} /><input className={`w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600' : 'bg-gray-900 text-gray-400'}`} placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideA', i, 'duration', e.target.value)} /></div>
+                  <div className="flex gap-2 pl-8"><input className={`flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600 placeholder-gray-400' : 'bg-gray-900 text-gray-300 placeholder-gray-500'}`} placeholder="艺术家" value={track.artist || ''} onChange={(e) => updateTrack('sideA', i, 'artist', e.target.value)} /></div>
+                  <input className={`w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-500 placeholder-gray-400' : 'bg-gray-900 text-gray-400 placeholder-gray-700'}`} placeholder="备注/心情..." value={track.note || ''} onChange={(e) => updateTrack('sideA', i, 'note', e.target.value)} />
+                </div>
+              ))}
+            </section>
+            <section className="space-y-4">
+              <h3 className="text-xs font-bold text-gray-500 pl-1">B 面 (SIDE B)</h3>
+              {data.sideB.map((track, i) => (
+                <div key={i} className={`p-3 rounded border space-y-2 group ${appearanceMode === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'}`}>
+                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className={`flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-900 placeholder-gray-400' : 'bg-gray-900 text-white placeholder-gray-600'}`} placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideB', i, 'title', e.target.value)} /><input className={`w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600' : 'bg-gray-900 text-gray-400'}`} placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideB', i, 'duration', e.target.value)} /></div>
+                  <div className="flex gap-2 pl-8"><input className={`flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600 placeholder-gray-400' : 'bg-gray-900 text-gray-300 placeholder-gray-500'}`} placeholder="艺术家" value={track.artist || ''} onChange={(e) => updateTrack('sideB', i, 'artist', e.target.value)} /></div>
+                  <input className={`w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-500 placeholder-gray-400' : 'bg-gray-900 text-gray-400 placeholder-gray-700'}`} placeholder="备注/心情..." value={track.note || ''} onChange={(e) => updateTrack('sideB', i, 'note', e.target.value)} />
+                </div>
+              ))}
+            </section>
+          </div>
+
         </div>
 
         {/* Right Panel */}
         <div className={`flex-1 flex flex-col items-center justify-center relative p-8 ${appearanceMode === 'light' ? 'bg-gray-200' : 'bg-black'}`}>
           <div className={`w-full transition-all duration-500 max-w-5xl`}>
-            <JCardPreview data={data} theme={theme} coverImage={coverImage} svgRef={svgRef} appearanceMode={appearanceMode} />
+            <JCardPreview
+              data={data}
+              theme={theme}
+              coverImage={coverImage}
+              svgRef={svgRef}
+              appearanceMode={appearanceMode}
+              recordingData={recordingData}
+            />
           </div>
           <p className={`mt-6 text-sm font-mono ${appearanceMode === 'light' ? 'text-gray-500' : 'text-gray-600'}`}>预览：J-CARD 四折页布局 (U-CARD 风格)</p>
           <p className={`mt-2 text-xs font-mono opacity-50 ${appearanceMode === 'light' ? 'text-gray-400' : 'text-gray-700'}`}>© 门耳朵</p>
+          <div className={`mt-4 text-xs font-mono flex flex-col items-center gap-1 opacity-60 ${appearanceMode === 'light' ? 'text-gray-400' : 'text-gray-600'}`}>
+            <span>v1.1.5</span>
+
+            加入群聊【磁带封面生成器】(QQ: 140785966)
+
+          </div>
         </div>
       </main>
     </div>
