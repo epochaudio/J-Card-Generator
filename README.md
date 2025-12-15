@@ -1,6 +1,6 @@
 # J-Card Genesis 📼
 
-> **v2.0.0 Update**: **Global Localization & Multi-AI Support**. The app is now fully localized in English and supports **OpenAI (GPT-4/DALL-E)** and **Google Gemini** in addition to Alibaba DashScope.
+> **v2.0.0 Update**: **Global Localization & Multi-AI Support**. The app is now fully localized in English and supports **OpenAI (GPT-5.2 / GPT-Image-1)** and **Google Gemini (v2.5 / Imagen 3)** in addition to Alibaba DashScope.
 
 <img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/acd17866-ce31-4c21-9c5c-ebf01fe85cc9" />
 
@@ -37,8 +37,8 @@
 This app relies on AI services (LLMs) to function. You need an API key from one of the supported providers:
 
 *   **Alibaba DashScope**: [Get Key](https://bailian.console.aliyun.com/) (Supports Qwen & Wanx).
-*   **OpenAI**: [Get Key](https://platform.openai.com/api-keys) (Supports GPT-4 & DALL-E 3).
-*   **Google Gemini**: [Get Key](https://aistudio.google.com/app/apikey) (Supports Gemini 2.5 & Imagen 3).
+*   **OpenAI**: [Get Key](https://platform.openai.com/api-keys) (Supports **GPT-5.2** & **GPT-Image-1**).
+*   **Google Gemini**: [Get Key](https://aistudio.google.com/app/apikey) (Supports **Gemini 2.5 Flash** & **Imagen 3**).
 
 **Setup**:
 1.  Open the app and click the **Settings (⚙️)** icon in the top right.
