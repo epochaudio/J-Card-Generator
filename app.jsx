@@ -640,7 +640,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
             {/* RELEASED */}
             <g transform={`translate(0, 0)`}>
               <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" textAnchor="end">RELEASED</text>
-              <text x="0" y="30" fontSize="24" fill={textColor} fontWeight="bold" textAnchor="end">{data.coverBadge || data.layout.noteUpper || "2024"}</text>
+              <text x="0" y="30" fontSize="24" fill={textColor} fontWeight="bold" textAnchor="end">{data.layout.noteUpper || "2024"}</text>
             </g>
 
             {/* RECORDED (New Field) - Stacked above Released or to the left? 
@@ -1670,10 +1670,13 @@ export default function App() {
           </div>
           <p className={`mt-6 text-sm font-mono ${appearanceMode === 'light' ? 'text-gray-500' : 'text-gray-600'}`}>预览：J-CARD 四折页布局 (U-CARD 风格)</p>
           <div className={`mt-4 text-xs font-mono flex flex-col items-center gap-1 opacity-60 ${appearanceMode === 'light' ? 'text-gray-400' : 'text-gray-600'}`}>
-            <span>v1.2.1</span>
-
-            加入群聊【磁带封面生成器】(QQ: 140785966)
-
+            {/* 
+              * Update: Version is now injected via Vite's `define` config
+              * sourced from package.json.
+              */}
+            <span>{__APP_VERSION__}</span>
+            <span>@ 门耳朵制作</span>
+            <span>加入群聊【磁带封面生成器】(QQ群: 140785966)</span>
           </div>
         </div>
       </main>

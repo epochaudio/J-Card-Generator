@@ -238,6 +238,7 @@ const DashScopeService = {
         "sideB": [ { "title": "string", "artist": "string", "duration": "string", "note": "string" } ]
       }
     `;
+        return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt, "qwen3-max");
     },
 
     // --- New Granular AI Methods ---
