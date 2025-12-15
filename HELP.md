@@ -56,6 +56,20 @@ A: 推荐导出 SVG 格式，使用 Adobe Illustrator 或浏览器打开打印�
 
 ---
 
+### 版本 v1.2.0 更新说明 (Update Log)
+
+#### 1. 档案级元数据 (Archival Metadata)
+*   **Media Source (音源)**: 新增字段，用于记录录音源（如 Vinyl, SACD, Streaming）。支持持久化保存。
+*   **Recording Date (录制日期)**: 新增字段，默认抓取当天日期，记录磁带制作的具体时间。
+*   **Tech Specs 布局升级**: 古典模式 (Classical Compact) 下采用全新的三段式布局（左：音源/厂牌，中：设备，右：时间线），更显专业。
+
+#### 2. 工作流优化 (Workflow)
+*   **一键重置 (New Project)**: 顶部新增重置按钮（旋转图标），可快速清空当前专辑信息开启新项目，同时保留您的硬件设置。
+*   **手动封面上传 (Manual Upload)**: 侧边栏新增“上传图片”按钮，支持直接选择本地图片作为封面，并自动适配主题色。
+*   **设备字段升级**: 录音设备 (Equipment) 输入框升级为多行文本域，支持更长的设备清单。
+
+---
+
 ### 版本 v1.1.5 更新说明 (Update Log)
 
 #### 1. 核心布局与视觉 (Layout & Visuals)

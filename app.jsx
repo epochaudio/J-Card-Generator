@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Search, X, Settings, Key, Image as ImageIcon, Trash2, Database, Globe, Loader2, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree } from 'lucide-react';
+import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Search, X, Settings, Key, Image as ImageIcon, Trash2, Database, Globe, Loader2, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw } from 'lucide-react';
 
 // --- Color Extraction Service ---
 const ColorExtractor = {
@@ -608,33 +608,50 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         <g transform={`translate(${width}, 0) rotate(90)`} fontFamily="Courier New, monospace">
           {/* Tech Specs Layout (Long edge is X axis 0..1181, Short edge is Y axis 0..width) */}
 
-          {/* 1. Label / Header (Top) */}
+          {/* 1. Label / Header (Top/Left) */}
           <text x="50" y="40" fontSize="24" fontWeight="bold" fill={textColor} letterSpacing="2" dominantBaseline="hanging">
             {(recordingData?.labelOverride || data.tapeSubtitle || "LABEL INFO").toUpperCase()}
           </text>
-          <line x1="50" y1="80" x2={contentHeight - 50} y2="80" stroke={textColor} strokeWidth="2" />
 
-          {/* 2. Equipment (Upper Middle) */}
-          <g transform={`translate(450, 40)`}>
+          {/* SOURCE (New Field) - Below Label */}
+          <g transform={`translate(50, 90)`}>
+            <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" uppercase="true">SOURCE</text>
+            <text x="90" y="0" fontSize="18" fill={subTextColor} fontWeight="bold" textAnchor="start" dominantBaseline="middle" dy="1">{recordingData?.source || "N/A"}</text>
+          </g>
+
+          <line x1="50" y1="130" x2={contentHeight - 50} y2="130" stroke={textColor} strokeWidth="2" />
+
+          {/* 2. Equipment (Middle - Adjusted X) */}
+          <g transform={`translate(380, 40)`}>
             <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" uppercase="true">EQUIPMENT</text>
-            {/* Wrap text if needed, though on short back usually short. */}
-            <text x="0" y="30" fontSize="18" fill={subTextColor} fontFamily="Arial, sans-serif" fontWeight="bold">
-              {recordingData?.equipment || "N/A"}
-            </text>
+            {(() => {
+              // Increased width for equipment description (approx 600px available space now)
+              // 600px / ~11px per char ~= 54 chars
+              const eqLines = TextUtils.getWrappedLines(recordingData?.equipment || "N/A", 54);
+              return eqLines.map((line, i) => (
+                <text key={i} x="0" y={30 + (i * 24)} fontSize="18" fill={subTextColor} fontFamily="Arial, sans-serif" fontWeight="bold">
+                  {line}
+                </text>
+              ));
+            })()}
           </g>
 
-          {/* 3. Recording Mode (Lower Middle) */}
-          <g transform={`translate(800, 40)`}>
-            <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" uppercase="true">RECORDING MODE</text>
-            <text x="0" y="35" fontSize="36" fontWeight="bold" fill={theme.accent} letterSpacing="4">
-              {recordingData?.mode || "AAA"}
-            </text>
-          </g>
-
-          {/* 4. Released Date (Bottom) */}
+          {/* 4. Dates Zone (Right - Stacked or Side-by-Side) */}
           <g transform={`translate(${contentHeight - 50}, 40)`}>
-            <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" textAnchor="end">RELEASED</text>
-            <text x="0" y="30" fontSize="24" fill={textColor} fontWeight="bold" textAnchor="end">{data.coverBadge || data.layout.noteUpper || "2024"}</text>
+            {/* RELEASED */}
+            <g transform={`translate(0, 0)`}>
+              <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" textAnchor="end">RELEASED</text>
+              <text x="0" y="30" fontSize="24" fill={textColor} fontWeight="bold" textAnchor="end">{data.coverBadge || data.layout.noteUpper || "2024"}</text>
+            </g>
+
+            {/* RECORDED (New Field) - Stacked above Released or to the left? 
+                Let's put it to the left of Released to form a "Timestamp Block" 
+                x offset = -140 (approx width of a date block)
+            */}
+            <g transform={`translate(-140, 0)`}>
+              <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" textAnchor="end">RECORDED</text>
+              <text x="0" y="30" fontSize="24" fill={theme.accent} fontWeight="bold" textAnchor="end">{recordingData?.recDate || "2025.01.01"}</text>
+            </g>
           </g>
         </g>
       ) : (
@@ -940,8 +957,10 @@ export default function App() {
   // --- NEW: Custom Recording Metadata State with Persistence ---
   const [recordingData, setRecordingData] = useState({
     equipment: "",
-    mode: "AAA", // AAA, ADD, DDD, etc.
-    labelOverride: ""
+    mode: "AAA",
+    labelOverride: "",
+    source: "",
+    recDate: ""
   });
 
   // Load recording data from localStorage on mount
@@ -949,10 +968,22 @@ export default function App() {
     const saved = localStorage.getItem('jcard_recording_data');
     if (saved) {
       try {
-        setRecordingData(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // Merge saved data but FORCE recDate to be Today
+        const today = new Date().toISOString().split('T')[0];
+        setRecordingData({
+          ...parsed,
+          recDate: today
+        });
       } catch (e) {
         console.error("Failed to parse saved recording data", e);
       }
+    } else {
+      // Init default date if no save found
+      setRecordingData(prev => ({
+        ...prev,
+        recDate: new Date().toISOString().split('T')[0]
+      }));
     }
   }, []);
 
@@ -1230,6 +1261,56 @@ export default function App() {
 
   useEffect(() => { if (coverImage) handleAutoColor(); }, [coverImage]);
 
+  const handleReset = () => {
+    if (window.confirm("确定要清空当前所有内容并开始新项目吗？\n（将保留API Key、录音设备和媒体来源设置）")) {
+      // 1. Reset Data to Defaults
+      setData({
+        title: "ALBUM TITLE",
+        artist: "ARTIST NAME",
+        tapeId: "ID-001",
+        tapeSubtitle: "STEREO",
+        coverBadge: "",
+        sideADuration: "20:00",
+        sideBDuration: "20:00",
+        layout: {
+          noteUpper: "",
+          noteLower: "",
+          forceCaps: true,
+          minimalSpine: false,
+          mode: 'STANDARD'
+        },
+        sideA: [
+          { title: "Track Name 1", artist: "Artist Name", duration: "3:45", note: "" },
+          { title: "Track Name 2", artist: "Artist Name", duration: "4:20", note: "" },
+          { title: "Track Name 3", artist: "Artist Name", duration: "3:15", note: "" },
+          { title: "Track Name 4", artist: "Artist Name", duration: "5:10", note: "" },
+          { title: "Track Name 5", artist: "Artist Name", duration: "4:05", note: "" }
+        ],
+        sideB: [
+          { title: "Track Name 6", artist: "Artist Name", duration: "3:50", note: "" },
+          { title: "Track Name 7", artist: "Artist Name", duration: "4:15", note: "" },
+          { title: "Track Name 8", artist: "Artist Name", duration: "3:30", note: "" },
+          { title: "Track Name 9", artist: "Artist Name", duration: "4:45", note: "" },
+          { title: "Track Name 10", artist: "Artist Name", duration: "3:55", note: "" }
+        ]
+      });
+
+      // 2. Clear Images & Search
+      setCoverImage(null);
+      setSearchResults([]);
+      setImportText("");
+      setImagePrompt("");
+      setError("");
+
+      // 3. Update Rec Date to Today
+      const today = new Date().toISOString().split('T')[0];
+      setRecordingData(prev => ({
+        ...prev,
+        recDate: today
+      }));
+    }
+  };
+
   return (
     <div className={`flex flex-col h-screen overflow-hidden font-sans relative ${appearanceMode === 'light' ? 'bg-gray-100 text-gray-900' : 'bg-gray-900 text-gray-100'}`}>
 
@@ -1333,6 +1414,8 @@ export default function App() {
           <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
           <button onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-colors ${!apiKey ? 'text-gray-400 hover:text-gray-500 hover:bg-gray-200' : 'text-orange-400 hover:text-orange-300'}`}><Settings size={20} /></button>
           <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
+          <button onClick={handleReset} className={`p-2 rounded-full transition-colors ${appearanceMode === 'light' ? 'text-gray-500 hover:bg-gray-200 hover:text-red-500' : 'text-gray-400 hover:bg-gray-700 hover:text-red-400'}`} title="新建/重置项目"><RotateCcw size={20} /></button>
+          <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
           <button onClick={handleAIEnhance} disabled={loading} className={`flex items-center gap-2 px-4 py-2 rounded-md font-semibold transition-all ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg hover:shadow-indigo-500/20'}`}>{loading ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}{loading ? 'AI 美化中...' : 'AI 风格与备注'}</button>
 
           {/* Export Buttons */}
@@ -1397,31 +1480,17 @@ export default function App() {
             <div>
               <label className="block text-xs text-gray-500 mb-1">Recording Equipment</label>
               <div className="relative">
-                <input
-                  type="text"
+                <textarea
                   value={recordingData.equipment || ""}
                   onChange={(e) => updateRecordingData('equipment', e.target.value)}
-                  className={`w-full bg-transparent border-b ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'} py-1 text-sm focus:border-red-500 outline-none transition-colors`}
-                  placeholder="e.g. Neumann U47 / Studer A80"
+                  rows={4}
+                  className={`w-full bg-transparent border rounded p-2 text-sm focus:border-red-500 outline-none transition-colors resize-none ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'}`}
+                  placeholder="e.g. Neumann U47 / Studer A80..."
                 />
-                <Database size={14} className="absolute right-0 top-1.5 text-gray-500" />
               </div>
             </div>
 
-            {/* Mode Input */}
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Recording Mode</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={recordingData.mode || ""}
-                  onChange={(e) => updateRecordingData('mode', e.target.value)}
-                  className={`w-full bg-transparent border-b ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'} py-1 text-sm focus:border-red-500 outline-none transition-colors`}
-                  placeholder="e.g. AAA / Live"
-                />
-                <Disc size={14} className="absolute right-0 top-1.5 text-gray-500" />
-              </div>
-            </div>
+
 
             {/* Label Override */}
             <div>
@@ -1435,6 +1504,36 @@ export default function App() {
                   placeholder="Overrides standard label info"
                 />
                 <Type size={14} className="absolute right-0 top-1.5 text-gray-500" />
+              </div>
+            </div>
+
+            {/* NEW: Media Source */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Media Source</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={recordingData.source || ""}
+                  onChange={(e) => updateRecordingData('source', e.target.value)}
+                  className={`w-full bg-transparent border-b ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'} py-1 text-sm focus:border-red-500 outline-none transition-colors`}
+                  placeholder="e.g. Vinyl / SACD ISO"
+                />
+                <Database size={14} className="absolute right-0 top-1.5 text-gray-500" />
+              </div>
+            </div>
+
+            {/* NEW: Tape Rec. Date */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Tape Rec. Date</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={recordingData.recDate || ""}
+                  onChange={(e) => updateRecordingData('recDate', e.target.value)}
+                  className={`w-full bg-transparent border-b ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'} py-1 text-sm focus:border-red-500 outline-none transition-colors`}
+                  placeholder="YYYY-MM-DD"
+                />
+                <Disc size={14} className="absolute right-0 top-1.5 text-gray-500" />
               </div>
             </div>
           </div>
@@ -1461,7 +1560,15 @@ export default function App() {
               <div>
                 <label className="block text-xs text-gray-400 mb-1">封面图片</label>
                 <div className="flex gap-2">
-                  <button onClick={handleGenerateCover} disabled={loadingImage} className={`flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>{loadingImage ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingImage ? '生成中...' : '生成封面'}</button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <button onClick={() => fileInputRef.current?.click()} className={`flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}><Upload size={14} /> 上传图片</button>
+                  <button onClick={handleGenerateCover} disabled={loadingImage} className={`flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>{loadingImage ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingImage ? '生成中...' : 'AI 生成'}</button>
                   {coverImage && (<button onClick={() => setCoverImage(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
                 </div>
               </div>
@@ -1512,9 +1619,8 @@ export default function App() {
             />
           </div>
           <p className={`mt-6 text-sm font-mono ${appearanceMode === 'light' ? 'text-gray-500' : 'text-gray-600'}`}>预览：J-CARD 四折页布局 (U-CARD 风格)</p>
-          <p className={`mt-2 text-xs font-mono opacity-50 ${appearanceMode === 'light' ? 'text-gray-400' : 'text-gray-700'}`}>© 门耳朵</p>
           <div className={`mt-4 text-xs font-mono flex flex-col items-center gap-1 opacity-60 ${appearanceMode === 'light' ? 'text-gray-400' : 'text-gray-600'}`}>
-            <span>v1.1.5</span>
+            <span>v1.2.0</span>
 
             加入群聊【磁带封面生成器】(QQ: 140785966)
 
