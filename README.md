@@ -1,4 +1,5 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
+> **v1.2.1 Update**: Introduced **Granular AI Control**. New independent buttons for **Poetic Slogans** and **Styled Image Prompts**. Now includes a "Magic Wand" for copy and a "Prompt Generator" directly in the UI.
 
 <img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/acd17866-ce31-4c21-9c5c-ebf01fe85cc9" />
 
@@ -11,6 +12,9 @@
 
 *   **智能 AI 驱动**:
     *   集成 **阿里云 DashScope (通义千问)**，自动根据曲目列表生成配色方案、心情描述和中文听感备注。
+    *   **[NEW] 颗粒度 AI 控制**:
+        *   **✨ 文案生成**: 独立的 "魔法棒" 按钮，一键生成 1-3 句俳句式短诗文案 (拒绝营销词)。
+        *   **🎨 提示词生成**: 独立的 "AI 生成提示词" 按钮，自动分析曲风并从 4 种特定画风 (水彩/杂志/日记/平面) 中锁定一种，生成可落地的绘画指令。
     *   集成 **通义万相 (Wanx)**，一键生成高质量、富有艺术感的封面图。
 *   **不仅仅是 J-Card**:
     *   支持 **4 折页布局 (U-Card)**，提供比传统 J-Card 更多的展示空间，完美包裹磁带盒。

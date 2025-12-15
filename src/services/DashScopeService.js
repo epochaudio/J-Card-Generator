@@ -4,7 +4,7 @@
 const DashScopeService = {
     // Use the OpenAI-compatible endpoint for Qwen for easier JSON handling
     // Doc: https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
-    callQwen: async (prompt, userApiKey, systemPrompt = "You are a helpful assistant.") => {
+    callQwen: async (prompt, userApiKey, systemPrompt = "You are a helpful assistant.", modelName = "qwen-plus") => {
         const apiKey = userApiKey || "";
         if (!apiKey) throw new Error("API Key is required");
 
@@ -18,7 +18,7 @@ const DashScopeService = {
                         "Authorization": `Bearer ${apiKey}`
                     },
                     body: JSON.stringify({
-                        model: "qwen-plus",
+                        model: modelName,
                         messages: [
                             { role: "system", content: systemPrompt },
                             { role: "user", content: prompt }
@@ -149,28 +149,65 @@ const DashScopeService = {
 
     // Wrapper for App Specific Logic
     enhanceContent: async (data, apiKey) => {
-        const tracksListText = `Title: ${data.title}\nSide A:\n${data.sideA.map(t => `${t.title} by ${t.artist}`).join('\n')}\nSide B:\n${data.sideB.map(t => `${t.title} by ${t.artist}`).join('\n')}`;
+        const tracksListText = `A-Side:\n${data.sideA.map(t => `${t.title} ${t.artist ? `by ${t.artist}` : ''}`).join('\n')}\nB-Side:\n${data.sideB.map(t => `${t.title} ${t.artist ? `by ${t.artist}` : ''}`).join('\n')}`;
 
-        const systemPrompt = `You are a high-end audiophile graphic designer. Analyze the mixtape tracklist.
-    Output MUST be a valid JSON object.
-    `;
+        const systemPrompt = `You are a legendary Art Director for an indie music label. 
+    Your taste is impeccable, avant-garde, and visually evocative. 
+    You DO NOT write marketing copy. You create "vibes" and "narratives".`;
 
         const userPrompt = `
-      1. Suggest a 2-color theme (background hex, accent hex).
-      2. Write a short 'mood_description' (e.g. "NEON SYNTHWAVE SELECTION").
-      3. For EACH track, write a very short (max 20 characters) audiophile listening note strictly in Simplified Chinese. 
+      Analyze the tracklist below. Capture the core mood/atmosphere.
+      
+      Tasks:
+      
+      1. [Album Title]
+         - Extract 3-6 keyword clusters (Chinese mainly, some English allowed).
+         - Generate ONE final Album Title. 
+         - Must be distinct, avoiding generic words like "Collection/Best of/Classic".
+         - Format: Chinese 2-8 chars OR English 2-5 words. Optional subtitle (max 12 chars).
+         - The title must reflect the keyword clusters (e.g. Night/Stage/Echo/Road/Solitude).
+      
+      2. [Album Copy (Artsy)]
+         - Generate 1-3 sentences.
+         - STRICT LIMIT: Max 20 Chinese characters per sentence (including punctuation).
+         - Style: Poetic, diaristic, cinematic. Like a short poem or inscription.
+         - NO marketing slogans (e.g. "Shocking", "Must Listen", "Epic").
+      
+      3. [Cover Art Prompt] 
+         - First, determine the dominant genre/vibe.
+         - Select EXACTLY ONE art style from:
+           A) Watercolor/Gouache (Fluid emotion, dreamy, echo)
+           B) 90s Magazine Illustration (Oversized composition, negative space, retro-pop/city vibe)
+           C) Hand-drawn Diary (Pencil/Pen doodle, paper texture, intimate, solitude)
+           D) Flat Design/Risograph (Geometric, blocky, screenprint texture, electronic/minimal)
+         - Rules: 
+           * ABSOLUTELY NO PHOTOGRAPHIC TERMS (No "photo", "realistic", "8k", "DSLR").
+           * Must be concrete: Scene + Objects + Lighting + Colors + Texture/Stroke.
+           * Live tracks -> Stage lights, silhouettes, noise particles, soundwaves.
+           * Lyrical tracks -> Negative space, soft light, heavy texture, still life metaphors.
+         - Output: 
+           * "cover_prompt": 150-250 words, mixed English/Chinese. Explicitly state the chosen style (A/B/C/D).
+           * "negative_prompt": One line of negative constraints.
       
       Tracklist:
       ${tracksListText}
 
-      Respond with this JSON structure:
+      Respond with this JSON structure ONLY:
       {
-        "theme": { "background": "#hex", "accent": "#hex", "mood_description": "string" },
-        "tracks_enhanced": [ { "note": "string" }, ... ] // Order must match input tracks
+        "model_used": "qwen3-max", 
+        "album_title": "string",
+        "album_copy": "string (multiline joined with \\n)",
+        "cover_prompt": "string",
+        "negative_prompt": "string"
       }
     `;
 
-        return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt);
+        // User requested strict model usage: qwen3-max
+        // Note: We need to override the default "qwen-plus" in callQwen if possible, 
+        // or just pass it as an argument if callQwen supports it. 
+        // Since callQwen hardcodes "qwen-plus", we need to modify callQwen or create a new call.
+        // Let's modify callQwen to accept model name.
+        return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt, "qwen3-max");
     },
 
     suggestTitle: async (tracks, apiKey) => {
@@ -201,7 +238,78 @@ const DashScopeService = {
         "sideB": [ { "title": "string", "artist": "string", "duration": "string", "note": "string" } ]
       }
     `;
-        return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt);
+    },
+
+    // --- New Granular AI Methods ---
+
+    generateSlogan: async (tracks, apiKey) => {
+        const tracksListText = tracks.map(t => `${t.title} ${t.artist ? `by ${t.artist}` : ''}`).join('\n');
+
+        const systemPrompt = `You are a poetic copywriter for an indie music label.
+        You specialize in "haiku-like" short, atmospheric descriptions.
+        NO marketing speak. NO clichés. NO "Best of".
+        Writing style: Intimate, Abstract, Visual, Nostalgic.`;
+
+        const userPrompt = `
+        Based on these tracks, generate a short album cover slogan (copy).
+        
+        Constraints:
+        1. Output MUST be 1 to 3 sentences/phrases.
+        2. EACH sentence must be UNDER 20 Chinese characters (including punctuation).
+        3. Tone: Like a diary entry, a whisper, or a line of poetry.
+        4. ABSOLUTELY NO adjectives like "Shocking", "Perfect", "Ultimate".
+        5. It should feel like a "Subtitle" for a memory.
+
+        Tracklist context:
+        ${tracksListText.substring(0, 2000)}
+
+        Respond with JSON:
+        { "slogan": "Line 1.\\nLine 2.\\nLine 3" }
+        `;
+
+        return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt, "qwen3-max");
+    },
+
+    generateImagePrompt: async (isDark, tracks, notes, apiKey) => {
+        // Consolidate context
+        const contextText = `
+        Tracks: ${tracks.map(t => t.title).join(', ')}
+        Notes/Mood: ${notes || "No specific notes"}
+        Theme: ${isDark ? "Dark/Night" : "Light/Day"}
+        `;
+
+        const systemPrompt = `You are an Art Director. You convert music vibes into visual illustration prompts.
+        You NEVER ask for "Photorealistic" images. You ONLY ask for stylistic illustrations.`;
+
+        const userPrompt = `
+        Analyze the mood of this playlist and create an illustration prompt for a music album cover.
+
+        STEP 1: Determine the dominant vibe.
+        STEP 2: Select ONE style from the list below that matches the vibe best:
+           A) Watercolor/Gouache (Fluid emotion, dreamy, echo, soft edges)
+           B) 90s Magazine Illustration (Bold composition, retro-pop, city vibe, vector-like)
+           C) Hand-drawn Diary (Pencil/Pen doodle, paper texture, intimate, rough sketch)
+           D) Flat Design/Risograph (Geometric, blocky, screenprint texture, noise, minimal)
+
+        STEP 3: Write the prompt.
+           - START with the Style Name (e.g. "Style A: Watercolor...").
+           - Describe specific SCENES or OBJECTS (e.g. "An empty chair in rain", "A glowing neon phone").
+           - Add details about Lighting, Texture, and Color Palette.
+           - Rules:
+             * NO "Photo", "Realistic", "4k", "Octane Render".
+             * MUST look like an ARTWORK (Illustration/Drawing/Painting).
+        
+        Input Context:
+        ${contextText.substring(0, 2000)}
+
+        Respond with JSON:
+        {
+          "cover_prompt": "string (150-250 words, mixed English/Chinese key phrases)",
+          "negative_prompt": "string (low quality, photo, 3d render, watermark, text)"
+        }
+        `;
+
+        return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt, "qwen3-max");
     }
 };
 

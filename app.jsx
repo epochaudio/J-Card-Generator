@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Search, X, Settings, Key, Image as ImageIcon, Trash2, Database, Globe, Loader2, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw } from 'lucide-react';
 
+import DashScopeService from './src/services/DashScopeService.js';
+
 // --- Color Extraction Service ---
 const ColorExtractor = {
   extractColor: (imageSrc) => {
@@ -291,9 +293,6 @@ const LayoutEngine = {
     return result;
   }
 };
-
-// --- DashScope Service Imported ---
-import DashScopeService from './src/services/DashScopeService';
 
 // --- Sub Components ---
 
@@ -897,8 +896,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [loadingTitle, setLoadingTitle] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
-  const [loadingImage, setLoadingImage] = useState(false);
   const [loadingImport, setLoadingImport] = useState(false);
+  const [loadingImage, setLoadingImage] = useState(false);
+  const [loadingSlogan, setLoadingSlogan] = useState(false);
+  const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
@@ -1158,12 +1159,19 @@ export default function App() {
     setLoading(true); setError('');
     try {
       const parsed = await DashScopeService.enhanceContent(data, key);
-      if (parsed.theme) setTheme(parsed.theme);
-      if (parsed.tracks_enhanced) {
-        let newSideA = data.sideA.map((t, idx) => ({ ...t, note: parsed.tracks_enhanced[idx]?.note || t.note }));
-        let newSideB = data.sideB.map((t, idx) => { const offset = data.sideA.length; return { ...t, note: parsed.tracks_enhanced[idx + offset]?.note || t.note }; });
-        setData(prev => ({ ...prev, sideA: newSideA, sideB: newSideB }));
+
+      const updates = {};
+      if (parsed.album_title) updates.title = parsed.album_title.toUpperCase();
+      if (parsed.album_copy) updates.coverBadge = parsed.album_copy;
+
+      // Update data state
+      setData(prev => ({ ...prev, ...updates }));
+
+      // Update Image Prompt State (so user can see it and click generation)
+      if (parsed.cover_prompt) {
+        setImagePrompt(parsed.cover_prompt + (parsed.negative_prompt ? `\n\nNegative: ${parsed.negative_prompt}` : ""));
       }
+
     } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoading(false); }
   };
 
@@ -1191,6 +1199,42 @@ export default function App() {
       const imgDataUrl = await DashScopeService.generateImage(finalPrompt, key);
       setCoverImage(imgDataUrl);
     } catch (err) { setError(err.message); } finally { setLoadingImage(false); }
+  };
+
+  const handleGenerateCoverPrompt = async () => {
+    const key = getApiKeyOrWarn();
+    setLoadingPrompt(true); setError('');
+    try {
+      const allTracks = [...data.sideA, ...data.sideB];
+      // Check if dark mode is active for theme context
+      const isDark = appearanceMode === 'dark'; // Or derive from actual theme.background if complex
+      // Collect notes
+      const notes = allTracks.map(t => t.note).join(' ');
+
+      const result = await DashScopeService.generateImagePrompt(isDark, allTracks, notes, key);
+
+      if (result.cover_prompt) {
+        let fullPrompt = result.cover_prompt;
+        if (result.negative_prompt) {
+          fullPrompt += `\n\nNegative: ${result.negative_prompt}`;
+        }
+        setImagePrompt(fullPrompt);
+      }
+    } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoadingPrompt(false); }
+  };
+
+  const handleGenerateSlogan = async () => {
+    const key = getApiKeyOrWarn();
+    setLoadingSlogan(true); setError('');
+    try {
+      const allTracks = [...data.sideA, ...data.sideB];
+      const result = await DashScopeService.generateSlogan(allTracks, key);
+      if (result.slogan) {
+        // Ensure it respects the newline format
+        const formattedSlogan = Array.isArray(result.slogan) ? result.slogan.join('\n') : result.slogan;
+        setData(prev => ({ ...prev, coverBadge: formattedSlogan }));
+      }
+    } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoadingSlogan(false); }
   };
 
   const handleFileUpload = (event) => {
@@ -1416,7 +1460,7 @@ export default function App() {
           <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
           <button onClick={handleReset} className={`p-2 rounded-full transition-colors ${appearanceMode === 'light' ? 'text-gray-500 hover:bg-gray-200 hover:text-red-500' : 'text-gray-400 hover:bg-gray-700 hover:text-red-400'}`} title="新建/重置项目"><RotateCcw size={20} /></button>
           <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
-          <button onClick={handleAIEnhance} disabled={loading} className={`flex items-center gap-2 px-4 py-2 rounded-md font-semibold transition-all ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg hover:shadow-indigo-500/20'}`}>{loading ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}{loading ? 'AI 美化中...' : 'AI 风格与备注'}</button>
+          <button onClick={handleAIEnhance} disabled={loading} className={`flex items-center gap-2 px-4 py-2 rounded-md font-semibold transition-all ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg hover:shadow-indigo-500/20'}`}>{loading ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}{loading ? 'AI 策划中...' : 'AI 创意总监'}</button>
 
           {/* Export Buttons */}
           <button onClick={downloadSVG} className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${appearanceMode === 'light' ? 'bg-gray-200 hover:bg-gray-300 text-gray-800' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}><Download size={18} />导出 SVG</button>
@@ -1435,7 +1479,7 @@ export default function App() {
                 <div><label className="block text-xs text-gray-400 mb-1">艺术家</label><input type="text" value={data.artist || ''} onChange={(e) => setData({ ...data, artist: e.target.value })} className={`w-full border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} /></div>
                 <div><label className="block text-xs text-gray-400 mb-1">目录编号</label><input type="text" value={data.tapeId || ''} onChange={(e) => setData({ ...data, tapeId: e.target.value })} className={`w-full border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} /></div>
               </div>
-              <div><label className="block text-xs text-gray-400 mb-1">封面标语</label><textarea rows={3} maxLength={200} value={data.coverBadge || ''} onChange={(e) => setData({ ...data, coverBadge: e.target.value })} className={`w-full border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none placeholder-gray-500 resize-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} placeholder="例如：永恒的经典..." /></div>
+              <div><label className="block text-xs text-gray-400 mb-1">封面标语</label><div className="flex gap-2"><textarea rows={3} maxLength={200} value={data.coverBadge || ''} onChange={(e) => setData({ ...data, coverBadge: e.target.value })} className={`flex-1 border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none placeholder-gray-500 resize-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} placeholder="例如：永恒的经典..." /><button onClick={handleGenerateSlogan} disabled={loadingSlogan} className={`px-2 border rounded self-start transition-colors h-20 flex items-center justify-center ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-purple-600 hover:bg-purple-50' : 'bg-gray-700 border-gray-600 text-purple-400 hover:text-purple-300'}`}>{loadingSlogan ? <span className="animate-spin text-xs">⏳</span> : <Sparkles size={16} />}</button></div></div>
             </div>
           </section>
 
@@ -1548,7 +1592,13 @@ export default function App() {
                 <div><label className="block text-xs text-gray-400 mb-1">强调色 (Accent)</label><div className="flex items-center gap-2"><input type="color" value={theme.accent || '#000000'} onChange={(e) => setTheme({ ...theme, accent: e.target.value })} className="h-8 w-8 rounded cursor-pointer bg-transparent border-none" /><button onClick={handleAutoColor} disabled={!coverImage} className={`p-1.5 rounded hover:bg-gray-600 transition-colors ${!coverImage ? 'opacity-30 cursor-not-allowed' : 'text-orange-400 hover:text-white'}`}><Droplet size={16} /></button></div></div>
 
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">AI 图片提示词</label>
+                  <label className="block text-xs text-gray-400 mb-1 flex justify-between items-center">
+                    AI 图片提示词
+                    <button onClick={handleGenerateCoverPrompt} disabled={loadingPrompt} className="text-[10px] bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded flex items-center gap-1">
+                      {loadingPrompt ? <span className="animate-spin">⏳</span> : <Wand2 size={10} />}
+                      {loadingPrompt ? '生成中...' : 'AI 生成提示词'}
+                    </button>
+                  </label>
                   <textarea
                     className={`w-full border rounded p-2 text-xs h-20 focus:ring-2 focus:ring-orange-500 outline-none resize-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`}
                     placeholder="描述你想要的封面画面..."
@@ -1620,7 +1670,7 @@ export default function App() {
           </div>
           <p className={`mt-6 text-sm font-mono ${appearanceMode === 'light' ? 'text-gray-500' : 'text-gray-600'}`}>预览：J-CARD 四折页布局 (U-CARD 风格)</p>
           <div className={`mt-4 text-xs font-mono flex flex-col items-center gap-1 opacity-60 ${appearanceMode === 'light' ? 'text-gray-400' : 'text-gray-600'}`}>
-            <span>v1.2.0</span>
+            <span>v1.2.1</span>
 
             加入群聊【磁带封面生成器】(QQ: 140785966)
 
