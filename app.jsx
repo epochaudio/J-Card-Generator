@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Search, X, Settings, Key, Image as ImageIcon, Trash2, Database, Globe, Loader2, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw } from 'lucide-react';
 
-import DashScopeService from './src/services/DashScopeService.js';
+import AIService from './src/services/AIService.js';
+import { TRANS } from './src/locales/en.js';
 
 // --- Color Extraction Service ---
 const ColorExtractor = {
@@ -892,6 +893,7 @@ const JCardPreview = ({ data, theme, coverImage, svgRef, appearanceMode, recordi
 
 export default function App() {
   const [apiKey, setApiKey] = useState("");
+  const [aiProvider, setAiProvider] = useState("dashscope");
   const svgRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [loadingTitle, setLoadingTitle] = useState(false);
@@ -904,8 +906,7 @@ export default function App() {
   const fileInputRef = useRef(null);
 
   const [coverImage, setCoverImage] = useState(null);
-  // 修改默认主题为 'light'
-  const [appearanceMode, setAppearanceMode] = useState('light');
+  const [appearanceMode, setAppearanceMode] = useState('light'); // Default to light
   const [imagePrompt, setImagePrompt] = useState("");
   const [searchQuery, setSearchQuery] = useState({ album: '', artist: '' });
   const [searchResults, setSearchResults] = useState([]);
@@ -914,14 +915,24 @@ export default function App() {
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
 
+  // Initial Load of AI Settings
   useEffect(() => {
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if (savedKey) setApiKey(savedKey);
+    const savedProvider = AIService.getProviderName();
+    const savedKey = AIService.getApiKey(savedProvider);
+    setAiProvider(savedProvider);
+    setApiKey(savedKey);
   }, []);
 
   const saveApiKey = (key) => {
     setApiKey(key);
-    localStorage.setItem('gemini_api_key', key);
+    AIService.setApiKey(aiProvider, key);
+  };
+
+  const handleDbProviderChange = (provider) => {
+    setAiProvider(provider);
+    AIService.setProviderName(provider);
+    const savedKey = AIService.getApiKey(provider);
+    setApiKey(savedKey);
   };
 
   const [data, setData] = useState({
@@ -1082,7 +1093,8 @@ export default function App() {
     setLoadingImport(true);
     setError('');
     try {
-      const parsed = await DashScopeService.parseImportData(importText, key);
+      const parsed = await AIService.parseImportData(importText); // AIService needs to expose this.
+
       const updates = {};
 
       // Helper: Parse "MM:SS" string to milliseconds for calculation
@@ -1115,17 +1127,15 @@ export default function App() {
       if (parsed.album_title) updates.title = parsed.album_title.toUpperCase();
       if (parsed.album_artist) updates.artist = parsed.album_artist.toUpperCase();
       if (parsed.cover_url) {
-        const base64Cover = await urlToBase64(parsed.cover_url);
+        const base64Cover = await AIService.urlToBase64(parsed.cover_url);
         setCoverImage(base64Cover);
       }
 
-      // 自动检测布局模式
-      // Merge new tracks with structure for detection
+      // Auto-detect layout mode
       const testTracksA = updates.sideA || data.sideA;
       const testTracksB = updates.sideB || data.sideB;
       const allTestTracks = [...testTracksA, ...testTracksB];
 
-      // Mock release data for detection (since we don't have full MB data here)
       const mockReleaseData = {
         'artist-credit': [{ name: updates.artist || data.artist }],
         'release-group': { 'secondary-types': [] }
@@ -1158,7 +1168,7 @@ export default function App() {
     const key = getApiKeyOrWarn();
     setLoading(true); setError('');
     try {
-      const parsed = await DashScopeService.enhanceContent(data, key);
+      const parsed = await AIService.enhanceContent(data);
 
       const updates = {};
       if (parsed.album_title) updates.title = parsed.album_title.toUpperCase();
@@ -1167,7 +1177,7 @@ export default function App() {
       // Update data state
       setData(prev => ({ ...prev, ...updates }));
 
-      // Update Image Prompt State (so user can see it and click generation)
+      // Update Image Prompt State
       if (parsed.cover_prompt) {
         setImagePrompt(parsed.cover_prompt + (parsed.negative_prompt ? `\n\nNegative: ${parsed.negative_prompt}` : ""));
       }
@@ -1180,7 +1190,7 @@ export default function App() {
     setLoadingTitle(true);
     try {
       const allTracks = [...data.sideA, ...data.sideB];
-      const result = await DashScopeService.suggestTitle(allTracks, key);
+      const result = await AIService.suggestTitle(allTracks);
       if (result.suggested_title) setData(prev => ({ ...prev, title: result.suggested_title.toUpperCase() }));
     } catch (err) { setError(err.message); } finally { setLoadingTitle(false); }
   };
@@ -1188,7 +1198,7 @@ export default function App() {
   const handleGenerateCover = async () => {
     // Validation: Prompt must not be empty
     if (!imagePrompt.trim()) {
-      alert("请先在下方【AI 图片提示词】框中输入描述，再点击生成。");
+      alert(TRANS.promptEmptyAlert);
       return;
     }
 
@@ -1196,7 +1206,7 @@ export default function App() {
     setLoadingImage(true); setError('');
     try {
       const finalPrompt = imagePrompt.trim();
-      const imgDataUrl = await DashScopeService.generateImage(finalPrompt, key);
+      const imgDataUrl = await AIService.generateImage(finalPrompt);
       setCoverImage(imgDataUrl);
     } catch (err) { setError(err.message); } finally { setLoadingImage(false); }
   };
@@ -1207,11 +1217,11 @@ export default function App() {
     try {
       const allTracks = [...data.sideA, ...data.sideB];
       // Check if dark mode is active for theme context
-      const isDark = appearanceMode === 'dark'; // Or derive from actual theme.background if complex
+      const isDark = appearanceMode === 'dark';
       // Collect notes
       const notes = allTracks.map(t => t.note).join(' ');
 
-      const result = await DashScopeService.generateImagePrompt(isDark, allTracks, notes, key);
+      const result = await AIService.generateImagePrompt(isDark, allTracks, notes);
 
       if (result.cover_prompt) {
         let fullPrompt = result.cover_prompt;
@@ -1228,7 +1238,7 @@ export default function App() {
     setLoadingSlogan(true); setError('');
     try {
       const allTracks = [...data.sideA, ...data.sideB];
-      const result = await DashScopeService.generateSlogan(allTracks, key);
+      const result = await AIService.generateSlogan(allTracks);
       if (result.slogan) {
         // Ensure it respects the newline format
         const formattedSlogan = Array.isArray(result.slogan) ? result.slogan.join('\n') : result.slogan;
@@ -1363,25 +1373,49 @@ export default function App() {
         <div className="absolute inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-md border border-gray-700 text-white">
             <div className="flex justify-between items-center p-4 border-b border-gray-700">
-              <h3 className="text-lg font-bold flex items-center gap-2"><Settings size={20} className="text-gray-400" /> 设置</h3>
+              <h3 className="text-lg font-bold flex items-center gap-2"><Settings size={20} className="text-gray-400" /> {TRANS.settings}</h3>
               <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
             </div>
             <div className="p-6 space-y-4">
+
+              {/* Provider Selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                  <Database size={16} className="text-blue-500" />
+                  {TRANS.providerLabel}
+                </label>
+                <select
+                  value={aiProvider}
+                  onChange={(e) => handleDbProviderChange(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm appearance-none"
+                >
+                  <option value="dashscope">Alibaba Cloud (DashScope / Qwen)</option>
+                  <option value="openai">OpenAI (GPT-4 / DALL-E)</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
                   <Key size={16} className="text-orange-500" />
-                  DashScope API Key (阿里云)
+                  {TRANS.apiKeyLabel} ({aiProvider === 'dashscope' ? 'DashScope' : aiProvider === 'openai' ? 'OpenAI Types' : 'Gemini AI'})
                 </label>
-                <input type="password" value={apiKey || ''} onChange={(e) => saveApiKey(e.target.value)} className="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white focus:ring-2 focus:ring-orange-500 outline-none font-mono text-sm" placeholder="sk-..." />
+                <input
+                  type="password"
+                  value={apiKey || ''}
+                  onChange={(e) => saveApiKey(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white focus:ring-2 focus:ring-orange-500 outline-none font-mono text-sm"
+                  placeholder={TRANS.apiKeyPlaceholder}
+                />
                 <p className="mt-2 text-xs text-gray-400">
-                  <a href="https://help.aliyun.com/zh/model-studio/get-started-with-models/" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline flex items-center gap-1">
-                    如何获取 API Key? <Globe size={10} />
-                  </a>
+                  {aiProvider === 'dashscope' && <a href="https://help.aliyun.com/zh/model-studio/get-started-with-models/" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline flex items-center gap-1">{TRANS.howToGet} <Globe size={10} /></a>}
+                  {aiProvider === 'openai' && <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline flex items-center gap-1">{TRANS.howToGet} <Globe size={10} /></a>}
+                  {aiProvider === 'gemini' && <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline flex items-center gap-1">{TRANS.howToGet} <Globe size={10} /></a>}
                 </p>
               </div>
             </div>
             <div className="p-4 border-t border-gray-700 flex justify-end">
-              <button onClick={() => setShowSettings(false)} className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium">完成</button>
+              <button onClick={() => setShowSettings(false)} className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium">{TRANS.done}</button>
             </div>
           </div>
         </div>
@@ -1392,27 +1426,27 @@ export default function App() {
         <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-lg border border-gray-700 flex flex-col max-h-[90vh] text-white">
             <div className="flex justify-between items-center p-4 border-b border-gray-700">
-              <h3 className="text-lg font-bold flex items-center gap-2"><FileText size={20} className="text-orange-500" /> 粘贴曲目列表</h3>
+              <h3 className="text-lg font-bold flex items-center gap-2"><FileText size={20} className="text-orange-500" /> {TRANS.importTitle}</h3>
               <button onClick={() => setShowImport(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
             </div>
             <div className="p-4 flex-1 overflow-hidden flex flex-col">
-              <p className="text-sm text-gray-400 mb-2">在下方粘贴原始文本、HTML 或 JSON。AI 将自动提取信息。</p>
+              <p className="text-sm text-gray-400 mb-2">{TRANS.importDesc}</p>
               <textarea
                 className="w-full flex-1 bg-gray-900 p-4 rounded text-sm font-mono border border-gray-700 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none resize-none"
-                placeholder={`1. Song A - Artist (3:20)\n2. Song B - Artist\n...`}
+                placeholder={TRANS.importPlaceholder}
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
               />
             </div>
             <div className="p-4 border-t border-gray-700 flex justify-end gap-3">
-              <button onClick={() => setShowImport(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-white">取消</button>
+              <button onClick={() => setShowImport(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-white">{TRANS.cancel}</button>
               <button
                 onClick={handleSmartImport}
                 disabled={loadingImport || !importText}
                 className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loadingImport ? <span className="animate-spin">⏳</span> : <Sparkles size={16} />}
-                {loadingImport ? '分析中...' : '解析并导入'}
+                {loadingImport ? TRANS.analyzing : TRANS.analyze}
               </button>
             </div>
           </div>
@@ -1424,14 +1458,14 @@ export default function App() {
         <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-2xl border border-gray-700 flex flex-col max-h-[85vh] text-white">
             <div className="flex justify-between items-center p-4 border-b border-gray-700">
-              <h3 className="text-lg font-bold flex items-center gap-2"><Database size={20} className="text-orange-500" /> MusicBrainz 搜索</h3>
+              <h3 className="text-lg font-bold flex items-center gap-2"><Database size={20} className="text-orange-500" /> {TRANS.searchTitle}</h3>
               <button onClick={() => setShowSearch(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
             </div>
             <div className="p-4 bg-gray-900/50 space-y-3 border-b border-gray-700">
               <div className="flex gap-3">
-                <input className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:border-orange-500 outline-none" placeholder="专辑标题 (例如：Abbey Road)" value={searchQuery.album} onChange={(e) => setSearchQuery({ ...searchQuery, album: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
-                <input className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:border-orange-500 outline-none" placeholder="艺术家 (例如：The Beatles)" value={searchQuery.artist} onChange={(e) => setSearchQuery({ ...searchQuery, artist: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
-                <button onClick={handleSearch} disabled={loadingSearch} className="px-4 bg-orange-600 hover:bg-orange-500 text-white rounded font-bold text-sm flex items-center gap-2">{loadingSearch ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />} 搜索</button>
+                <input className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:border-orange-500 outline-none" placeholder={TRANS.searchPlaceholderAlbum} value={searchQuery.album} onChange={(e) => setSearchQuery({ ...searchQuery, album: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
+                <input className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:border-orange-500 outline-none" placeholder={TRANS.searchPlaceholderArtist} value={searchQuery.artist} onChange={(e) => setSearchQuery({ ...searchQuery, artist: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
+                <button onClick={handleSearch} disabled={loadingSearch} className="px-4 bg-orange-600 hover:bg-orange-500 text-white rounded font-bold text-sm flex items-center gap-2">{loadingSearch ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />} {TRANS.searchBtn}</button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
@@ -1439,7 +1473,7 @@ export default function App() {
               {searchResults.map((rg) => (
                 <div key={rg.id} className="bg-gray-700/50 hover:bg-gray-700 p-3 rounded flex justify-between items-center cursor-pointer transition-colors border border-transparent hover:border-orange-500/50" onClick={() => handleSelectReleaseGroup(rg)}>
                   <div><h4 className="font-bold text-white">{rg.title}</h4><p className="text-sm text-gray-400">{rg['artist-credit']?.[0]?.name} · {rg['first-release-date']?.slice(0, 4)} · {rg['primary-type']}</p></div>
-                  <button className="px-3 py-1 bg-gray-600 hover:bg-orange-600 text-xs rounded text-white transition-colors">选择</button>
+                  <button className="px-3 py-1 bg-gray-600 hover:bg-orange-600 text-xs rounded text-white transition-colors">{TRANS.select}</button>
                 </div>
               ))}
             </div>
@@ -1449,7 +1483,7 @@ export default function App() {
 
       {/* Header */}
       <header className={`flex items-center justify-between px-6 py-4 border-b shrink-0 ${appearanceMode === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'}`}>
-        <div className="flex items-center gap-2"><Disc className="text-orange-500 w-6 h-6" /><h1 className="text-xl font-bold tracking-wider">磁带封面生成器 <span className="text-orange-500 text-sm">(J-CARD GENESIS)</span></h1></div>
+        <div className="flex items-center gap-2"><Disc className="text-orange-500 w-6 h-6" /><h1 className="text-xl font-bold tracking-wider">{TRANS.appName} <span className="text-orange-500 text-sm">({TRANS.appSubtitle})</span></h1></div>
         <div className="flex items-center gap-3">
           <div className={`flex items-center gap-1 p-1 rounded-lg ${appearanceMode === 'light' ? 'bg-gray-200' : 'bg-gray-700'}`}>
             <button onClick={() => setAppearanceMode('dark')} className={`p-1.5 rounded-md transition-colors ${appearanceMode === 'dark' ? 'bg-gray-600 text-white shadow' : 'text-gray-400 hover:text-gray-500'}`}><Moon size={16} /></button>
@@ -1458,13 +1492,13 @@ export default function App() {
           <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
           <button onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-colors ${!apiKey ? 'text-gray-400 hover:text-gray-500 hover:bg-gray-200' : 'text-orange-400 hover:text-orange-300'}`}><Settings size={20} /></button>
           <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
-          <button onClick={handleReset} className={`p-2 rounded-full transition-colors ${appearanceMode === 'light' ? 'text-gray-500 hover:bg-gray-200 hover:text-red-500' : 'text-gray-400 hover:bg-gray-700 hover:text-red-400'}`} title="新建/重置项目"><RotateCcw size={20} /></button>
+          <button onClick={handleReset} className={`p-2 rounded-full transition-colors ${appearanceMode === 'light' ? 'text-gray-500 hover:bg-gray-200 hover:text-red-500' : 'text-gray-400 hover:bg-gray-700 hover:text-red-400'}`} title={TRANS.resetProject}><RotateCcw size={20} /></button>
           <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
-          <button onClick={handleAIEnhance} disabled={loading} className={`flex items-center gap-2 px-4 py-2 rounded-md font-semibold transition-all ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg hover:shadow-indigo-500/20'}`}>{loading ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}{loading ? 'AI 策划中...' : 'AI 创意总监'}</button>
+          <button onClick={handleAIEnhance} disabled={loading} className={`flex items-center gap-2 px-4 py-2 rounded-md font-semibold transition-all ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg hover:shadow-indigo-500/20'}`}>{loading ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}{loading ? TRANS.aiPlanning : TRANS.aiDirector}</button>
 
           {/* Export Buttons */}
-          <button onClick={downloadSVG} className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${appearanceMode === 'light' ? 'bg-gray-200 hover:bg-gray-300 text-gray-800' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}><Download size={18} />导出 SVG</button>
-          <button onClick={downloadPNG} className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${appearanceMode === 'light' ? 'bg-gray-200 hover:bg-gray-300 text-gray-800' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}><ImageDown size={18} />导出 PNG</button>
+          <button onClick={downloadSVG} className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${appearanceMode === 'light' ? 'bg-gray-200 hover:bg-gray-300 text-gray-800' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}><Download size={18} />{TRANS.exportSVG}</button>
+          <button onClick={downloadPNG} className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${appearanceMode === 'light' ? 'bg-gray-200 hover:bg-gray-300 text-gray-800' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}><ImageDown size={18} />{TRANS.exportPNG}</button>
         </div>
       </header>
 
@@ -1472,27 +1506,27 @@ export default function App() {
         {/* Left Panel */}
         <div className={`w-1/3 min-w-[350px] overflow-y-auto border-r p-6 space-y-8 custom-scrollbar ${appearanceMode === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-gray-800/50 border-gray-700'}`}>
           <section className="space-y-4">
-            <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Type size={14} /> 专辑信息</h2>
+            <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Type size={14} /> {TRANS.albumInfo}</h2>
             <div className="space-y-3">
-              <div><label className="block text-xs text-gray-400 mb-1">专辑标题</label><div className="flex gap-2"><input type="text" value={data.title || ''} onChange={(e) => setData({ ...data, title: e.target.value })} className={`w-full border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} /><button onClick={handleTitleMagic} disabled={loadingTitle} className={`px-3 border rounded transition-colors ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-orange-600 hover:bg-gray-50' : 'bg-gray-700 border-gray-600 text-orange-400 hover:text-orange-300'}`}>{loadingTitle ? <span className="animate-spin text-xs">⏳</span> : <Wand2 size={16} />}</button></div></div>
+              <div><label className="block text-xs text-gray-400 mb-1">{TRANS.albumTitle}</label><div className="flex gap-2"><input type="text" value={data.title || ''} onChange={(e) => setData({ ...data, title: e.target.value })} className={`w-full border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} /><button onClick={handleTitleMagic} disabled={loadingTitle} className={`px-3 border rounded transition-colors ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-orange-600 hover:bg-gray-50' : 'bg-gray-700 border-gray-600 text-orange-400 hover:text-orange-300'}`}>{loadingTitle ? <span className="animate-spin text-xs">⏳</span> : <Wand2 size={16} />}</button></div></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs text-gray-400 mb-1">艺术家</label><input type="text" value={data.artist || ''} onChange={(e) => setData({ ...data, artist: e.target.value })} className={`w-full border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} /></div>
-                <div><label className="block text-xs text-gray-400 mb-1">目录编号</label><input type="text" value={data.tapeId || ''} onChange={(e) => setData({ ...data, tapeId: e.target.value })} className={`w-full border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} /></div>
+                <div><label className="block text-xs text-gray-400 mb-1">{TRANS.artist}</label><input type="text" value={data.artist || ''} onChange={(e) => setData({ ...data, artist: e.target.value })} className={`w-full border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} /></div>
+                <div><label className="block text-xs text-gray-400 mb-1">{TRANS.catalogNumber}</label><input type="text" value={data.tapeId || ''} onChange={(e) => setData({ ...data, tapeId: e.target.value })} className={`w-full border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} /></div>
               </div>
-              <div><label className="block text-xs text-gray-400 mb-1">封面标语</label><div className="flex gap-2"><textarea rows={3} maxLength={200} value={data.coverBadge || ''} onChange={(e) => setData({ ...data, coverBadge: e.target.value })} className={`flex-1 border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none placeholder-gray-500 resize-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} placeholder="例如：永恒的经典..." /><button onClick={handleGenerateSlogan} disabled={loadingSlogan} className={`px-2 border rounded self-start transition-colors h-20 flex items-center justify-center ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-purple-600 hover:bg-purple-50' : 'bg-gray-700 border-gray-600 text-purple-400 hover:text-purple-300'}`}>{loadingSlogan ? <span className="animate-spin text-xs">⏳</span> : <Sparkles size={16} />}</button></div></div>
+              <div><label className="block text-xs text-gray-400 mb-1">{TRANS.coverSlogan}</label><div className="flex gap-2"><textarea rows={3} maxLength={200} value={data.coverBadge || ''} onChange={(e) => setData({ ...data, coverBadge: e.target.value })} className={`flex-1 border rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none placeholder-gray-500 resize-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`} placeholder={TRANS.sloganPlaceholder} /><button onClick={handleGenerateSlogan} disabled={loadingSlogan} className={`px-2 border rounded self-start transition-colors h-20 flex items-center justify-center ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-purple-600 hover:bg-purple-50' : 'bg-gray-700 border-gray-600 text-purple-400 hover:text-purple-300'}`}>{loadingSlogan ? <span className="animate-spin text-xs">⏳</span> : <Sparkles size={16} />}</button></div></div>
             </div>
           </section>
 
           {/* Layout Options */}
           <section className="space-y-4">
-            <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><LayoutTemplate size={14} /> 布局选项</h2>
+            <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><LayoutTemplate size={14} /> {TRANS.layoutOptions}</h2>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="block text-xs text-gray-400 mb-1">顶部备注 (Note Upper)</label><input type="text" value={data.layout.noteUpper || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteUpper: e.target.value } })} className={`w-full border rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300' : 'bg-gray-700 border-gray-600 text-white'}`} placeholder="例如：STEREO / 录音日期" /></div>
-              <div><label className="block text-xs text-gray-400 mb-1">底部备注 (Note Lower)</label><input type="text" value={data.layout.noteLower || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteLower: e.target.value } })} className={`w-full border rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300' : 'bg-gray-700 border-gray-600 text-white'}`} placeholder="例如：2023 发行" /></div>
+              <div><label className="block text-xs text-gray-400 mb-1">{TRANS.noteUpper}</label><input type="text" value={data.layout.noteUpper || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteUpper: e.target.value } })} className={`w-full border rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300' : 'bg-gray-700 border-gray-600 text-white'}`} placeholder={TRANS.noteUpperPlaceholder} /></div>
+              <div><label className="block text-xs text-gray-400 mb-1">{TRANS.noteLower}</label><input type="text" value={data.layout.noteLower || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteLower: e.target.value } })} className={`w-full border rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none ${appearanceMode === 'light' ? 'bg-white border-gray-300' : 'bg-gray-700 border-gray-600 text-white'}`} placeholder={TRANS.noteLowerPlaceholder} /></div>
             </div>
             {/* 布局模式选择器 */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1">布局模式 (Layout Mode)</label>
+              <label className="block text-xs text-gray-400 mb-1">{TRANS.layoutMode}</label>
               <div className="flex gap-2 text-xs">
                 {['STANDARD', 'CLASSICAL', 'COMPILATION'].map(mode => (
                   <button
@@ -1502,50 +1536,48 @@ export default function App() {
                       ? 'bg-orange-600 text-white border-orange-600'
                       : (appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-600' : 'bg-gray-700 border-gray-600 text-gray-300')}`}
                   >
-                    {mode === 'STANDARD' ? '标准' : mode === 'CLASSICAL' ? '古典' : '合辑'}
+                    {mode === 'STANDARD' ? TRANS.modeStandard : mode === 'CLASSICAL' ? TRANS.modeClassical : TRANS.modeCompilation}
                   </button>
                 ))}
               </div>
             </div>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                <input type="checkbox" checked={data.layout.forceCaps} onChange={(e) => setData({ ...data, layout: { ...data.layout, forceCaps: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-gray-700 border-gray-600" /> 强制大写
+                <input type="checkbox" checked={data.layout.forceCaps} onChange={(e) => setData({ ...data, layout: { ...data.layout, forceCaps: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-gray-700 border-gray-600" /> {TRANS.forceCaps}
               </label>
               <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                <input type="checkbox" checked={data.layout.minimalSpine} onChange={(e) => setData({ ...data, layout: { ...data.layout, minimalSpine: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-gray-700 border-gray-600" /> 极简脊部
+                <input type="checkbox" checked={data.layout.minimalSpine} onChange={(e) => setData({ ...data, layout: { ...data.layout, minimalSpine: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-gray-700 border-gray-600" /> {TRANS.minimalSpine}
               </label>
             </div>
           </section>
 
           <div className="space-y-4">
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider border-b border-gray-700 pb-2">Custom Metadata</h3>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider border-b border-gray-700 pb-2">{TRANS.customMetadata}</h3>
 
             {/* Equipment Input */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Recording Equipment</label>
+              <label className="block text-xs text-gray-500 mb-1">{TRANS.recEquipment}</label>
               <div className="relative">
                 <textarea
                   value={recordingData.equipment || ""}
                   onChange={(e) => updateRecordingData('equipment', e.target.value)}
                   rows={4}
                   className={`w-full bg-transparent border rounded p-2 text-sm focus:border-red-500 outline-none transition-colors resize-none ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'}`}
-                  placeholder="e.g. Neumann U47 / Studer A80..."
+                  placeholder={TRANS.recEquipPlaceholder}
                 />
               </div>
             </div>
 
-
-
             {/* Label Override */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Label Override</label>
+              <label className="block text-xs text-gray-500 mb-1">{TRANS.labelOverride}</label>
               <div className="relative">
                 <input
                   type="text"
                   value={recordingData.labelOverride || ""}
                   onChange={(e) => updateRecordingData('labelOverride', e.target.value)}
                   className={`w-full bg-transparent border-b ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'} py-1 text-sm focus:border-red-500 outline-none transition-colors`}
-                  placeholder="Overrides standard label info"
+                  placeholder={TRANS.labelPlaceholder}
                 />
                 <Type size={14} className="absolute right-0 top-1.5 text-gray-500" />
               </div>
@@ -1553,14 +1585,14 @@ export default function App() {
 
             {/* NEW: Media Source */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Media Source</label>
+              <label className="block text-xs text-gray-500 mb-1">{TRANS.mediaSource}</label>
               <div className="relative">
                 <input
                   type="text"
                   value={recordingData.source || ""}
                   onChange={(e) => updateRecordingData('source', e.target.value)}
                   className={`w-full bg-transparent border-b ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'} py-1 text-sm focus:border-red-500 outline-none transition-colors`}
-                  placeholder="e.g. Vinyl / SACD ISO"
+                  placeholder={TRANS.sourcePlaceholder}
                 />
                 <Database size={14} className="absolute right-0 top-1.5 text-gray-500" />
               </div>
@@ -1568,14 +1600,14 @@ export default function App() {
 
             {/* NEW: Tape Rec. Date */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Tape Rec. Date</label>
+              <label className="block text-xs text-gray-500 mb-1">{TRANS.tapeRecDate}</label>
               <div className="relative">
                 <input
                   type="text"
                   value={recordingData.recDate || ""}
                   onChange={(e) => updateRecordingData('recDate', e.target.value)}
                   className={`w-full bg-transparent border-b ${appearanceMode === 'light' ? 'border-gray-300 text-gray-800' : 'border-gray-700 text-gray-200'} py-1 text-sm focus:border-red-500 outline-none transition-colors`}
-                  placeholder="YYYY-MM-DD"
+                  placeholder={TRANS.datePlaceholder}
                 />
                 <Disc size={14} className="absolute right-0 top-1.5 text-gray-500" />
               </div>
@@ -1587,28 +1619,28 @@ export default function App() {
 
             {/* Style Section */}
             <section className="space-y-4">
-              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Palette size={14} /> 样式覆盖</h2>
+              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Palette size={14} /> {TRANS.styleOverride}</h2>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs text-gray-400 mb-1">强调色 (Accent)</label><div className="flex items-center gap-2"><input type="color" value={theme.accent || '#000000'} onChange={(e) => setTheme({ ...theme, accent: e.target.value })} className="h-8 w-8 rounded cursor-pointer bg-transparent border-none" /><button onClick={handleAutoColor} disabled={!coverImage} className={`p-1.5 rounded hover:bg-gray-600 transition-colors ${!coverImage ? 'opacity-30 cursor-not-allowed' : 'text-orange-400 hover:text-white'}`}><Droplet size={16} /></button></div></div>
+                <div><label className="block text-xs text-gray-400 mb-1">{TRANS.accentColor}</label><div className="flex items-center gap-2"><input type="color" value={theme.accent || '#000000'} onChange={(e) => setTheme({ ...theme, accent: e.target.value })} className="h-8 w-8 rounded cursor-pointer bg-transparent border-none" /><button onClick={handleAutoColor} disabled={!coverImage} className={`p-1.5 rounded hover:bg-gray-600 transition-colors ${!coverImage ? 'opacity-30 cursor-not-allowed' : 'text-orange-400 hover:text-white'}`}><Droplet size={16} /></button></div></div>
 
                 <div>
                   <label className="block text-xs text-gray-400 mb-1 flex justify-between items-center">
-                    AI 图片提示词
+                    {TRANS.aiImagePrompt}
                     <button onClick={handleGenerateCoverPrompt} disabled={loadingPrompt} className="text-[10px] bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded flex items-center gap-1">
                       {loadingPrompt ? <span className="animate-spin">⏳</span> : <Wand2 size={10} />}
-                      {loadingPrompt ? '生成中...' : 'AI 生成提示词'}
+                      {loadingPrompt ? TRANS.generating : TRANS.generatePrompt}
                     </button>
                   </label>
                   <textarea
                     className={`w-full border rounded p-2 text-xs h-20 focus:ring-2 focus:ring-orange-500 outline-none resize-none ${appearanceMode === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'bg-gray-700 border-gray-600 text-white'}`}
-                    placeholder="描述你想要的封面画面..."
+                    placeholder={TRANS.imagePromptPlaceholder}
                     value={imagePrompt}
                     onChange={(e) => setImagePrompt(e.target.value)}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">封面图片</label>
+                <label className="block text-xs text-gray-400 mb-1">{TRANS.coverImageLabel}</label>
                 <div className="flex gap-2">
                   <input
                     type="file"
@@ -1617,8 +1649,8 @@ export default function App() {
                     accept="image/*"
                     className="hidden"
                   />
-                  <button onClick={() => fileInputRef.current?.click()} className={`flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}><Upload size={14} /> 上传图片</button>
-                  <button onClick={handleGenerateCover} disabled={loadingImage} className={`flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>{loadingImage ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingImage ? '生成中...' : 'AI 生成'}</button>
+                  <button onClick={() => fileInputRef.current?.click()} className={`flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}><Upload size={14} /> {TRANS.uploadImage}</button>
+                  <button onClick={handleGenerateCover} disabled={loadingImage} className={`flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>{loadingImage ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingImage ? TRANS.generating : TRANS.generateImage}</button>
                   {coverImage && (<button onClick={() => setCoverImage(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
                 </div>
               </div>
@@ -1626,29 +1658,29 @@ export default function App() {
 
             {/* Tracks Section */}
             <div className={`flex items-center justify-between border-b pb-2 ${appearanceMode === 'light' ? 'border-gray-200' : 'border-gray-700'}`}>
-              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Music size={14} /> 曲目列表</h2>
+              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Music size={14} /> {TRANS.trackListHeader}</h2>
               <div className="flex gap-2">
-                <button onClick={() => setShowImport(true)} className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-orange-600' : 'bg-gray-700 hover:bg-gray-600 text-orange-400'}`}><FileText size={12} /> 粘贴文本</button>
-                <button onClick={() => setShowSearch(true)} className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-orange-600' : 'bg-gray-700 hover:bg-gray-600 text-orange-400'}`}><Globe size={12} /> 搜索 MusicBrainz</button>
+                <button onClick={() => setShowImport(true)} className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-orange-600' : 'bg-gray-700 hover:bg-gray-600 text-orange-400'}`}><FileText size={12} /> {TRANS.pasteText}</button>
+                <button onClick={() => setShowSearch(true)} className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${appearanceMode === 'light' ? 'bg-white border border-gray-300 hover:bg-gray-50 text-orange-600' : 'bg-gray-700 hover:bg-gray-600 text-orange-400'}`}><Globe size={12} /> {TRANS.searchMusicBrainz}</button>
               </div>
             </div>
             <section className="space-y-4">
-              <h3 className="text-xs font-bold text-gray-500 pl-1">A 面 (SIDE A)</h3>
+              <h3 className="text-xs font-bold text-gray-500 pl-1">{TRANS.sideA}</h3>
               {data.sideA.map((track, i) => (
                 <div key={i} className={`p-3 rounded border space-y-2 group ${appearanceMode === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'}`}>
-                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className={`flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-900 placeholder-gray-400' : 'bg-gray-900 text-white placeholder-gray-600'}`} placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideA', i, 'title', e.target.value)} /><input className={`w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600' : 'bg-gray-900 text-gray-400'}`} placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideA', i, 'duration', e.target.value)} /></div>
-                  <div className="flex gap-2 pl-8"><input className={`flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600 placeholder-gray-400' : 'bg-gray-900 text-gray-300 placeholder-gray-500'}`} placeholder="艺术家" value={track.artist || ''} onChange={(e) => updateTrack('sideA', i, 'artist', e.target.value)} /></div>
-                  <input className={`w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-500 placeholder-gray-400' : 'bg-gray-900 text-gray-400 placeholder-gray-700'}`} placeholder="备注/心情..." value={track.note || ''} onChange={(e) => updateTrack('sideA', i, 'note', e.target.value)} />
+                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className={`flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-900 placeholder-gray-400' : 'bg-gray-900 text-white placeholder-gray-600'}`} placeholder={TRANS.trackName} value={track.title || ''} onChange={(e) => updateTrack('sideA', i, 'title', e.target.value)} /><input className={`w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600' : 'bg-gray-900 text-gray-400'}`} placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideA', i, 'duration', e.target.value)} /></div>
+                  <div className="flex gap-2 pl-8"><input className={`flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600 placeholder-gray-400' : 'bg-gray-900 text-gray-300 placeholder-gray-500'}`} placeholder={TRANS.artist} value={track.artist || ''} onChange={(e) => updateTrack('sideA', i, 'artist', e.target.value)} /></div>
+                  <input className={`w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-500 placeholder-gray-400' : 'bg-gray-900 text-gray-400 placeholder-gray-700'}`} placeholder={TRANS.note} value={track.note || ''} onChange={(e) => updateTrack('sideA', i, 'note', e.target.value)} />
                 </div>
               ))}
             </section>
             <section className="space-y-4">
-              <h3 className="text-xs font-bold text-gray-500 pl-1">B 面 (SIDE B)</h3>
+              <h3 className="text-xs font-bold text-gray-500 pl-1">{TRANS.sideB}</h3>
               {data.sideB.map((track, i) => (
                 <div key={i} className={`p-3 rounded border space-y-2 group ${appearanceMode === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'}`}>
-                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className={`flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-900 placeholder-gray-400' : 'bg-gray-900 text-white placeholder-gray-600'}`} placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideB', i, 'title', e.target.value)} /><input className={`w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600' : 'bg-gray-900 text-gray-400'}`} placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideB', i, 'duration', e.target.value)} /></div>
-                  <div className="flex gap-2 pl-8"><input className={`flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600 placeholder-gray-400' : 'bg-gray-900 text-gray-300 placeholder-gray-500'}`} placeholder="艺术家" value={track.artist || ''} onChange={(e) => updateTrack('sideB', i, 'artist', e.target.value)} /></div>
-                  <input className={`w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-500 placeholder-gray-400' : 'bg-gray-900 text-gray-400 placeholder-gray-700'}`} placeholder="备注/心情..." value={track.note || ''} onChange={(e) => updateTrack('sideB', i, 'note', e.target.value)} />
+                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className={`flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-900 placeholder-gray-400' : 'bg-gray-900 text-white placeholder-gray-600'}`} placeholder={TRANS.trackName} value={track.title || ''} onChange={(e) => updateTrack('sideB', i, 'title', e.target.value)} /><input className={`w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600' : 'bg-gray-900 text-gray-400'}`} placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideB', i, 'duration', e.target.value)} /></div>
+                  <div className="flex gap-2 pl-8"><input className={`flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-600 placeholder-gray-400' : 'bg-gray-900 text-gray-300 placeholder-gray-500'}`} placeholder={TRANS.artist} value={track.artist || ''} onChange={(e) => updateTrack('sideB', i, 'artist', e.target.value)} /></div>
+                  <input className={`w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 ${appearanceMode === 'light' ? 'bg-gray-50 text-gray-500 placeholder-gray-400' : 'bg-gray-900 text-gray-400 placeholder-gray-700'}`} placeholder={TRANS.note} value={track.note || ''} onChange={(e) => updateTrack('sideB', i, 'note', e.target.value)} />
                 </div>
               ))}
             </section>
@@ -1668,11 +1700,11 @@ export default function App() {
               recordingData={recordingData}
             />
           </div>
-          <p className={`mt-6 text-sm font-mono ${appearanceMode === 'light' ? 'text-gray-500' : 'text-gray-600'}`}>预览：J-CARD 四折页布局 (U-CARD 风格)</p>
+          <p className={`mt-6 text-sm font-mono ${appearanceMode === 'light' ? 'text-gray-500' : 'text-gray-600'}`}>{TRANS.previewLabel}</p>
           <div className={`mt-4 text-xs font-mono flex flex-col items-center gap-1 opacity-60 ${appearanceMode === 'light' ? 'text-gray-400' : 'text-gray-600'}`}>
-            <span>v1.2.1</span>
+            <span>{TRANS.versionInfo}</span>
 
-            加入群聊【磁带封面生成器】(QQ: 140785966)
+            {TRANS.communityInfo}
 
           </div>
         </div>

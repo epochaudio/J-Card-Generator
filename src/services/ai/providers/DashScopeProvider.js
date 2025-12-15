@@ -1,11 +1,13 @@
 
-// --- DashScope Service (Alibaba Cloud) ---
+// src/services/ai/providers/DashScopeProvider.js
 
-const DashScopeService = {
-    // Use the OpenAI-compatible endpoint for Qwen for easier JSON handling
-    // Doc: https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
-    callQwen: async (prompt, userApiKey, systemPrompt = "You are a helpful assistant.", modelName = "qwen-plus") => {
-        const apiKey = userApiKey || "";
+const DashScopeProvider = {
+    name: "DashScope",
+    defaultModel: "qwen-plus",
+    
+    // --- Core API Calls ---
+
+    callQwen: async (prompt, apiKey, systemPrompt = "You are a helpful assistant.", modelName = "qwen-plus") => {
         if (!apiKey) throw new Error("API Key is required");
 
         try {
@@ -48,9 +50,8 @@ const DashScopeService = {
         }
     },
 
-    // --- Wanx Image Generation (Async) ---
-    generateImage: async (prompt, userApiKey) => {
-        const apiKey = userApiKey || "";
+    // --- Image Generation (Wanx) ---
+    generateImage: async (prompt, apiKey, options = {}) => {
         if (!apiKey) throw new Error("API Key is required");
 
         // 1. Create Task
@@ -114,14 +115,12 @@ const DashScopeService = {
                     const imageUrl = data.output?.results?.[0]?.url;
                     if (!imageUrl) throw new Error("Task Succeeded but no URL found");
                     // Convert to Base64 to avoid CORS/Hotlink issues in canvas
-                    return await DashScopeService.urlToBase64(imageUrl);
+                    return await DashScopeProvider.urlToBase64(imageUrl);
                 } else if (status === "FAILED" || status === "CANCELED" || status === "UNKNOWN") {
                     throw new Error(`Wanx Task Failed: ${data.output?.message || status}`);
                 }
-                // If PENDING or RUNNING, continue loop
             } catch (e) {
                 console.warn("Polling error:", e);
-                // Verify if we should abort or continue. For now continue.
             }
         }
 
@@ -130,9 +129,6 @@ const DashScopeService = {
 
     urlToBase64: async (url) => {
         try {
-            // Use a CORS proxy if needed, but for now try direct.
-            // DashScope OSS URLs usually allow Get, but might restrict CORS?
-            // Let's try fetching.
             const response = await fetch(url);
             const blob = await response.blob();
             return new Promise((resolve, reject) => {
@@ -147,9 +143,10 @@ const DashScopeService = {
         }
     },
 
-    // Wrapper for App Specific Logic
-    enhanceContent: async (data, apiKey) => {
-        const tracksListText = `A-Side:\n${data.sideA.map(t => `${t.title} ${t.artist ? `by ${t.artist}` : ''}`).join('\n')}\nB-Side:\n${data.sideB.map(t => `${t.title} ${t.artist ? `by ${t.artist}` : ''}`).join('\n')}`;
+    // --- Business Logic Methods ---
+
+    enhanceContent: async (data, apiKey, options = {}) => {
+         const tracksListText = `A-Side:\n${data.sideA.map(t => `${t.title} ${t.artist ? `by ${t.artist}` : ''}`).join('\n')}\nB-Side:\n${data.sideB.map(t => `${t.title} ${t.artist ? `by ${t.artist}` : ''}`).join('\n')}`;
 
         const systemPrompt = `You are a legendary Art Director for an indie music label. 
     Your taste is impeccable, avant-garde, and visually evocative. 
@@ -202,47 +199,21 @@ const DashScopeService = {
       }
     `;
 
-        // User requested strict model usage: qwen3-max
-        // Note: We need to override the default "qwen-plus" in callQwen if possible, 
-        // or just pass it as an argument if callQwen supports it. 
-        // Since callQwen hardcodes "qwen-plus", we need to modify callQwen or create a new call.
-        // Let's modify callQwen to accept model name.
-        return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt, "qwen3-max");
+        const model = options.model || "qwen3-max";
+        return DashScopeProvider.callQwen(userPrompt, apiKey, systemPrompt, model);
     },
 
-    suggestTitle: async (tracks, apiKey) => {
+    suggestTitle: async (tracks, apiKey, options = {}) => {
         const systemPrompt = "You are a creative naming expert. Output JSON.";
         const userPrompt = `Suggest a short, cool, abstract audiophile mixtape title (max 3 words). 
     Tracks: ${tracks.map(t => t.title).join(', ')}
     
     Respond with JSON: { "suggested_title": "string" }
     `;
-        return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt);
+        return DashScopeProvider.callQwen(userPrompt, apiKey, systemPrompt, options.model);
     },
 
-    parseImportData: async (rawText, apiKey) => {
-        const systemPrompt = "You are a music data extraction expert. Output JSON.";
-        const userPrompt = `
-      Analyze the text. Extract album info and tracklist. Split into Side A/B.
-      Default duration: "0:00".
-      
-      Raw Input:
-      ${rawText.substring(0, 10000)}
-
-      Respond with JSON:
-      {
-        "album_title": "string",
-        "album_artist": "string",
-        "cover_url": "string",
-        "sideA": [ { "title": "string", "artist": "string", "duration": "string", "note": "string" } ],
-        "sideB": [ { "title": "string", "artist": "string", "duration": "string", "note": "string" } ]
-      }
-    `;
-    },
-
-    // --- New Granular AI Methods ---
-
-    generateSlogan: async (tracks, apiKey) => {
+    generateSlogan: async (tracks, apiKey, options = {}) => {
         const tracksListText = tracks.map(t => `${t.title} ${t.artist ? `by ${t.artist}` : ''}`).join('\n');
 
         const systemPrompt = `You are a poetic copywriter for an indie music label.
@@ -266,13 +237,13 @@ const DashScopeService = {
         Respond with JSON:
         { "slogan": "Line 1.\\nLine 2.\\nLine 3" }
         `;
-
-        return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt, "qwen3-max");
+        
+        const model = options.model || "qwen3-max";
+        return DashScopeProvider.callQwen(userPrompt, apiKey, systemPrompt, model);
     },
 
-    generateImagePrompt: async (isDark, tracks, notes, apiKey) => {
-        // Consolidate context
-        const contextText = `
+    generateImagePrompt: async (isDark, tracks, notes, apiKey, options = {}) => {
+         const contextText = `
         Tracks: ${tracks.map(t => t.title).join(', ')}
         Notes/Mood: ${notes || "No specific notes"}
         Theme: ${isDark ? "Dark/Night" : "Light/Day"}
@@ -309,8 +280,9 @@ const DashScopeService = {
         }
         `;
 
-        return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt, "qwen3-max");
+        const model = options.model || "qwen3-max";
+        return DashScopeProvider.callQwen(userPrompt, apiKey, systemPrompt, model);
     }
 };
 
-export default DashScopeService;
+export default DashScopeProvider;
