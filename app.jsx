@@ -858,23 +858,59 @@ const JCardPreview = ({ data, theme, coverImage, svgRef, appearanceMode, recordi
       </g>
 
       {/* Spine Content */}
+      {/* Spine Content - Dynamic Stacking to Prevent Overlap */}
       <g transform={`translate(${xSpine + wSpine / 2}, ${height / 2})`}>
+        {/* Center: Title (Middle Anchor) */}
         <text x="0" y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize={getSpineTitleSize(title)} fill={spineTitleColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>{formatText(title)}</text>
-        <text x={(height / 2) - 100} y="0" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={spineIdColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>{tapeId}</text>
-        {/* Note Upper (Spine Top) */}
-        {data.layout?.noteUpper && (
-          <text x={(height / 2) - 50} y="0" fontFamily="Arial, sans-serif" fontSize="10" fill={spineIdColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" letterSpacing="1" opacity="0.8">
-            {formatText(data.layout.noteUpper)}
-          </text>
-        )}
 
-        <text x={-((height / 2) - 150)} y="0" fontFamily="Arial, sans-serif" fontSize="18" fill={spineTitleColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>{formatText(artist)}</text>
-        {/* Note Lower (Spine Bottom) */}
-        {data.layout?.noteLower && (
-          <text x={-((height / 2) - 50)} y="0" fontFamily="Arial, sans-serif" fontSize="10" fill={spineTitleColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)" letterSpacing="1" opacity="0.8">
-            {formatText(data.layout.noteLower)}
-          </text>
-        )}
+        {/* TOP ZONE (Anchor: Top Edge) */}
+        {/* Strategy: Use Y-axis separation (two lines) to avoid X-axis overlap dependencies */}
+        {(() => {
+          const topEdge = (height / 2) - 40;
+          const hasNote = !!data.layout?.noteUpper;
+          const hasId = !!tapeId;
+          // If both exist, separate by Y (width-wise). If one, center.
+          const offsetY = (hasNote && hasId) ? 14 : 0;
+
+          const noteUpperNode = hasNote ? (
+            <text key="sp-note-up" x={topEdge} y={hasId ? -12 : 0} fontFamily="Arial, sans-serif" fontSize="10" fill={spineIdColor} textAnchor="end" dominantBaseline="middle" transform="rotate(-90)" letterSpacing="1" opacity="0.8">
+              {formatText(data.layout.noteUpper)}
+            </text>
+          ) : null;
+
+          const idNode = hasId ? (
+            <text key="sp-id" x={topEdge} y={hasNote ? 12 : 0} fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="14" fill={spineIdColor} textAnchor="end" dominantBaseline="middle" transform="rotate(-90)" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
+              {tapeId}
+            </text>
+          ) : null;
+
+          return <>{noteUpperNode}{idNode}</>;
+        })()}
+
+        {/* BOTTOM ZONE (Anchor: Bottom Edge, Grow: Upwards) */}
+        {/* Strategy: Linear Stacking with Safe Gap */}
+        {(() => {
+          const bottomEdge = -((height / 2) - 40);
+          let currentX = bottomEdge;
+          // Use a generous safe gap (80px) to clear even long "Note Lowers" (like dates or copyrights)
+          const safeGap = 80;
+
+          const noteLowerNode = data.layout?.noteLower ? (
+            <text key="sp-note-low" x={currentX} y="0" fontFamily="Arial, sans-serif" fontSize="10" fill={spineTitleColor} textAnchor="start" dominantBaseline="middle" transform="rotate(-90)" letterSpacing="1" opacity="0.8">
+              {formatText(data.layout.noteLower)}
+            </text>
+          ) : null;
+
+          if (data.layout?.noteLower) currentX += safeGap;
+
+          const artistNode = (
+            <text key="sp-artist" x={currentX} y="0" fontFamily="Arial, sans-serif" fontSize="18" fill={spineTitleColor} textAnchor="start" dominantBaseline="middle" transform="rotate(-90)" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
+              {formatText(artist)}
+            </text>
+          );
+
+          return <>{noteLowerNode}{artistNode}</>;
+        })()}
       </g>
 
       {/* Front Content */}
@@ -1379,6 +1415,25 @@ export default function App() {
                   </a>
                 </p>
               </div>
+
+              {/* About & Copyright Section */}
+              <div className="pt-4 border-t border-gray-700">
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">关于 (About)</h4>
+                <div className="text-[10px] text-gray-400 leading-relaxed space-y-2">
+                  <p>
+                    <span className="text-gray-300 font-bold">© 2025 门耳朵 (Epoch Audio). 保留所有权利。</span>
+                  </p>
+                  <p>
+                    本软件为开源软件，仅供个人<span className="text-gray-300">非商业目的</span>免费使用、学习与研究。
+                  </p>
+                  <p className="text-red-400/80">
+                    🚫 禁止商业化用途：禁止售卖、会员付费下载或提供有偿代制作服务。
+                  </p>
+                  <p>
+                    允许非商业转载，但必须完整保留本声明且不得收费。详情请参阅 HELP.md。
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="p-4 border-t border-gray-700 flex justify-end">
               <button onClick={() => setShowSettings(false)} className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium">完成</button>
@@ -1676,7 +1731,10 @@ export default function App() {
               */}
             <span>{__APP_VERSION__}</span>
             <span>@ 门耳朵制作</span>
-            <span>加入群聊【磁带封面生成器】(QQ群: 140785966)</span>
+            <span>本软件为开源软件，允许个人在非商业目的下免费使用、学习与研究。</span>
+            <span>禁止任何商业化用途，包括但不限于：售卖软件/安装包/激活服务、以本软件提供有偿服务（如有偿打印/代处理/代制作）、付费下载或会员专享、广告/引流/分成等变相变现、用于企业/门店经营场景等。</span>
+            <span>加入群聊【磁带封面生成器】(QQ群: 140785966) 免费下载</span>
+            <span>官网：http://www.epochaudio.cn/</span>
           </div>
         </div>
       </main>
