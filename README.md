@@ -1,7 +1,7 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
 > **v1.2.1 Update**: Introduced **Granular AI Control**. New independent buttons for **Poetic Slogans** and **Styled Image Prompts**. Now includes a "Magic Wand" for copy and a "Prompt Generator" directly in the UI.
 
-<img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/acd17866-ce31-4c21-9c5c-ebf01fe85cc9" />
+<img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/24c966b2-d6dc-4ae6-ac17-30d6252503e9" />
 
 
 **J-Card Genesis** 是一款专为磁带收藏家和 DIY 爱好者设计的桌面应用程序。它结合了现代 AI 技术，帮助你轻松制作出专业、美观的实体磁带封面（J-Card）。
