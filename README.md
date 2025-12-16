@@ -1,14 +1,12 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
+
 > **v1.2.1 Update**: Introduced **Granular AI Control**. New independent buttons for **Poetic Slogans** and **Styled Image Prompts**. Now includes a "Magic Wand" for copy and a "Prompt Generator" directly in the UI.
 
 <img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/24c966b2-d6dc-4ae6-ac17-30d6252503e9" />
 
-
 **J-Card Genesis** 是一款专为磁带收藏家和 DIY 爱好者设计的桌面应用程序。它结合了现代 AI 技术，帮助你轻松制作出专业、美观的实体磁带封面（J-Card）。
 
-
-
-## ✨ 主要功能
+## ✨ 主要功能 (Key Features)
 
 *   **智能 AI 驱动**:
     *   集成 **阿里云 DashScope (通义千问)**，自动根据曲目列表生成配色方案、心情描述和中文听感备注。
@@ -25,54 +23,83 @@
 *   **专业打印适配**:
     *   专为 **Canon SELPHY CP1500** 等 6 寸 (4R, 100x148mm) 照片打印机优化。
     *   支持导出 **SVG** (矢量) 和 **PNG** (高清) 格式。
-*   **个性化定制**:
-    *   支持深色/浅色模式。
-    *   自定义脊部样式、字体大小、强调色等。
-    *   **档案级元数据 (Archival Metadata)**: v1.2.0 新增，支持记录 **音源 (Source)**、**录音设备 (Equipment)** 和 **录制日期**。
-    *   **手动封面上传**: 支持直接上传本地图片作为封面，并自动提取主题色。
-    *   **一键重置**: 顶部新增重置按钮，快速开启新项目流程。
-    *   **无边框封面 (Borderless)**: v1.1.5 新增，封面图片自动撑满整个面板，零缝隙设计。
-    *   **布局引擎优化**: 修复了物理尺寸换算，打印更精准；古典模式增加硬核元数据展示。
-    *   更多布局细节请参考 [HELP.md](HELP.md)。
+*   **档案级元数据 (Archival Metadata)**:
+    *   支持记录 **音源 (Source)**、**录音设备 (Equipment)** 和 **录制日期**，并持久化保存。
 
-## 🚀 快速开始
-
-### 安装
+## 🚀 下载与安装 (Installation)
 
 请在 [Releases](https://github.com/epochaudio/J-Card-Generator/releases) 页面下载适合您系统的版本：
-*   **macOS**: `.dmg` (支持 Apple Silicon)
+*   **macOS**: `.dmg` (支持 Apple Silicon / Intel)
 *   **Windows**: `.exe` (支持 x64)
 
-### 配置 API Key
+## 📖 使用指南 (User Guide)
 
-本应用依赖阿里云模型服务生成 AI 内容。
+### 1. 配置 API Key (必填)
+本应用使用阿里云 DashScope (通义千问 & 通义万相) 提供 AI 服务。
+1.  访问 [阿里云百炼控制台](https://bailian.console.aliyun.com/?apiKey=1&tab=api#/api) 开通并获取 API Key (以 `sk-` 开头)。
+2.  在软件右上角点击 **设置 (⚙️)**，粘贴 Key 并保存。
 
-1.  访问 [阿里云百炼控制台](https://bailian.console.aliyun.com/?apiKey=1&tab=api#/api) 获取 API Key。
-2.  打开应用，点击右上角 **设置 (⚙️)** 图标。
-3.  输入你的 DashScope API Key (以 `sk-` 开头)。
+### 2. 制作流程
+1.  **输入信息**:
+    *   **文本导入 (推荐)**: 点击 "粘贴文本"，粘贴任意格式的曲目列表（如网易云/Spotify 歌单文本），AI 会自动识别。
+    *   **MusicBrainz**: 点击搜索按钮，输入专辑名查找填入。
+    *   **手动输入**: 在左侧面板修改细节。注意：UI 上不支持对单首曲目进行详细编辑，建议通过"粘贴文本"重新导入修正。
+2.  **AI 创意策划**:
+    *   **自动重塑**: 点击右上角 **"AI 创意总监"**，补全专辑基础信息（标题、配色、听感备注）。
+    *   **Slogan**: 点击"封面标语"旁的 ✨ 按钮，生成私密感短诗。
+    *   **Prompt**: 点击"AI 图片提示词"旁的按钮，生成适配曲风的绘画指令。
+3.  **生成封面**:
+    *   点击 **"生成封面"**，AI 将根据提示词生成艺术封面（约需30-60秒）。
+    *   或点击 **"上传 (Upload)"** 使用本地图片（自动零裁剪填充）。
+4.  **调整布局**:
+    *   切换 `标准` / `古典` / `合辑` 模式。
+    *   `古典模式` 特性：自动归类乐章，背面展示详细录音设备与时间信息 (Tech Specs)。
+5.  **导出**:
+    *   点击 **"导出 SVG"** (矢量打印) 或 **"导出 PNG"**。
 
-## 🖨️ 打印指南
+### 3. 功能详解
+*   **Toolbar**: `旋转箭头`图标可一键重置项目（保留硬件设置）。支持深浅色模式切换。
+*   **Spine Layout**:
+    *   **Note Upper**: 脊部顶部备注（常填年份）。
+    *   **Note Lower**: 脊部底部备注（常填格式/版权）。
+    *   支持“极简脊部”与“强制大写”选项。
+*   **Data Persistence**: 录音设备 (Equipment) 和 音源 (Media Source) 会自动保存，方便制作系列磁带。
 
-推荐使用 **佳能炫飞 (Canon SELPHY)** 系列打印机（如 CP1500）。
+## ❓ 常见问题 (FAQ)
 
-*   **相纸**: 6 寸 (RP-108 / KP-108IN), 4x6 英寸 (100x148mm)。
-*   **操作**: 导出 PNG 图片后，无需裁剪，直接打印即可获得完美尺寸的 J-Card。
+**Q: 为什么生成图片很慢？**
+A: 高清图像模型 (Wanx 2.5) 计算量大，通常需要 30-60 秒，请耐心等待。
 
-## 🛠️ 开发与构建
+**Q: 生成的图片不满意？**
+A: 可手动修改 "AI 图片提示词" 框中的描述（如增加“赛博朋克”等关键词），再点击生成。
 
-如果你是开发者，想要自行构建：
+**Q: MusicBrainz 搜不到？**
+A: 建议直接 Google 搜索专辑曲目列表，复制文本后使用软件的 **"粘贴文本"** 功能导入，这是最高效的方式。
+
+## 🖨️ 打印与规格说明
+
+### 推荐设备：Canon SELPHY CP1500
+*   **相纸**: 6 寸 (4R / 4x6 英寸 / 100x148mm)。
+*   **打印**: 导出 PNG 后直接打印，**无需裁剪**，即打即用。
+
+### J-Card 布局 (U-Card)
+本生成器采用四折页布局：
+1.  **Front**: 封面 (正方形)。
+2.  **Spine**: 脊部。
+3.  **Back**: 封底 (A面曲目)。
+4.  **Extension**: 扩展折页 (B面曲目/歌词/详情)。
+
+## 🛠️ 开发与构建 (Development)
 
 ```bash
 # 克隆仓库
 git clone https://github.com/epochaudio/J-Card-Generator.git
-
-# 安装依赖
 npm install
 
-# 启动开发模式
+# 启动开发
 npm run electron:dev
 
-# 构建应用 (根据当前系统)
+# 构建应用
 npm run electron:build
 ```
 
@@ -121,6 +148,21 @@ npm run electron:build
 ## 6. 违约处理
 
 如发现违反本声明的行为，权利人有权要求立即停止侵权、下架相关内容，并保留追究法律责任及索赔的权利。
+
+---
+*Made with ❤️ for Cassette Culture.*
+
+<img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/9d7e703d-70e4-4b97-aaad-8d623784b8fc" />
+
+
+<img width="2722" height="1855" alt="ScreenShot_2025-12-14_202948_848" src="https://github.com/user-attachments/assets/47ffd6c7-15bb-4832-bfc1-8cb25af25e8d" />
+
+<img width="1760" height="1729" alt="ScreenShot_2025-12-14_203002_303" src="https://github.com/user-attachments/assets/7865c3f3-a907-4d38-836f-ed2c3be546af" />
+
+
+
+<img width="1965" height="1832" alt="ScreenShot_2025-12-14_203022_939" src="https://github.com/user-attachments/assets/20cb3938-2b6c-4c2b-9dfc-7545f27a3460" />
+
 
 ---
 *Made with ❤️ for Cassette Culture.*
