@@ -1,7 +1,9 @@
 {
   "name": "tape-cover-generator",
+  "description": "A desktop application designed for cassette collectors and DIY enthusiasts to generate professional J-Card covers.",
+  "author": "epochaudio",
   "private": true,
-  "version": "1.2.5",
+  "version": "1.2.6",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",

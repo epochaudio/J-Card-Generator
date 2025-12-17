@@ -832,52 +832,61 @@ const JCardPreview = ({ data, theme, coverImage, svgRef, recordingData, jCardThe
 
   const titleLayout = getTitleLayout(title);
 
-  // Dynamic Layout Calculation
+  // --- Dynamic Layout Calculation (Optimized for Harmony) ---
   const imgBottom = 780; // Cover ends at y=780
-  const footerMargin = 40;
-  const contentHeight = 1181;
-  const safeBottom = contentHeight - footerMargin;
 
-  // Calculate heights
-  const titleH = titleLayout.totalHeight;
+  // 1. Fixed Anchors
+  // Using a solid bottom anchor for the Artist to ensure a consistent specific visual frame.
+  // 1125 gives ~55px margin from bottom edge (1181), balancing the header top/bottom.
+  const fixedArtistY = 1125;
+
+  // 2. Measure Content Blocks
+  const titleLineH = titleLayout.lineHeight;
+  const titleTotalH = titleLayout.lines.length * titleLineH;
+
   const badgeTextStr = data.coverBadge || "";
-  const badgeLines = TextUtils.getWrappedLines(badgeTextStr, 38);
-  const badgeH = badgeLines.length > 0 ? (badgeLines.length * 26 + 10) : 0; // 26px line height + padding
-  const artistH = 30; // approx height for artist line
+  // Slightly relaxed wrap limit for better aesthetic
+  const badgeLines = TextUtils.getWrappedLines(badgeTextStr, 42);
+  const badgeLineH = 26;
+  const badgeTotalH = badgeLines.length > 0 ? (badgeLines.length * badgeLineH) : 0;
 
-  // Define gaps
-  const gapTitleBadge = 20;
-  const gapBadgeArtist = 30;
+  // 3. Define Spacing (The Harmony Factors)
+  // Tight gap to visually group Slogan with Title
+  const gapTitleToSlogan = 32;
 
-  // Calculate positions (Top-Down approach)
-  // Start title slightly below image
-  // Increased gap to 110 to prevent title from being too close to image (accounting for baseline)
-  let currentY = imgBottom + 110;
-
-  // Title Position (First line baseline)
-  const titleStartY = currentY;
-  currentY += titleH + gapTitleBadge;
-
-  // Badge Position (First line baseline)
-  // Badge is optional, so it might take 0 height
-  const badgeY = currentY + 20; // +20 for visual baseline adjustment
-  if (badgeH > 0) {
-    currentY += badgeH + gapBadgeArtist;
-  } else {
-    currentY += gapBadgeArtist; // Minimum gap if no badge
+  // 4. Calculate Total Text Block Height
+  let totalContentBlockH = titleTotalH;
+  if (badgeTotalH > 0) {
+    totalContentBlockH += gapTitleToSlogan + badgeTotalH;
   }
 
-  // Artist Position
-  // Ensure artist is pushed down if needed, but closer to bottom if space allows
-  // But strictly, let's just stack it to avoid overlap. 
-  // We can clamp it to be at least at a certain "nice" position if the stack is short.
-  let artistY = currentY + 10;
+  // 5. Vertical Centering Logic
+  // We want to center the [Title + Slogan] block within the available whitespace 
+  // between [Cover Bottom] and [Artist Line].
+  // Available Zone: from 780 to 1125 (Height = 345px)
+  const availableZoneCenterY = imgBottom + (fixedArtistY - imgBottom) / 2;
 
-  const minArtistY = 1120;
-  // If our stack is short, push artist down to the aesthetic default.
-  // If stack is tall (long title/badge), use the calculated stack position.
-  if (artistY < minArtistY) {
-    artistY = minArtistY;
+  // The Top Y of our text block
+  const blockTopY = availableZoneCenterY - (totalContentBlockH / 2);
+
+  // 6. Final Coordinates (Baselines)
+  // Title Baseline: Top + ~0.8 * LineHeight (Visual correction for Cap Height/Ascender)
+  const titleStartY = blockTopY + (titleLineH * 0.8);
+
+  // Badge coordinates
+  const badgeBlockTopY = blockTopY + titleTotalH + gapTitleToSlogan;
+  // Badge Baseline: Top + ~0.8 * LineHeight
+  const badgeY = badgeBlockTopY + (badgeLineH * 0.8);
+
+  // Artist Position
+  // We stick to the fixed anchor for cleanliness, unless content is absurdly huge (overflow protection)
+  let artistY = fixedArtistY;
+
+  // Overflow protection (e.g. 4-line title + long slogan)
+  // If badge extends below artist area, push artist down.
+  const contentBottomY = badgeBlockTopY + badgeTotalH;
+  if (contentBottomY > artistY - 20) {
+    artistY = contentBottomY + 30;
   }
 
   const formatText = (text) => data.layout?.forceCaps ? String(text).toUpperCase() : String(text);
