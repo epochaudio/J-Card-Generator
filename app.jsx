@@ -602,7 +602,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
 
               {/* 艺术家/时间：只在第一行(或最后一行? 暂时第一行更整齐) 且 非Compact模式 */}
               {isFirstLine && (data.layout?.mode === 'COMPILATION') && !isCompact && <tspan fill={dimTextColor}> - {item.artist}</tspan>}
-              {isFirstLine && !isCompact && <tspan fontSize={Math.max(trackFontSize - 4, 10)} fill={dimTextColor}> ({item.duration})</tspan>}
+              {isFirstLine && !isCompact && !isClassical && <tspan fontSize={Math.max(trackFontSize - 4, 10)} fill={dimTextColor}> ({item.duration})</tspan>}
             </text>
           )
         });
