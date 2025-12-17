@@ -1,6 +1,6 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
 
-> **v1.2.1 Update**: Introduced **Granular AI Control**. New independent buttons for **Poetic Slogans** and **Styled Image Prompts**. Now includes a "Magic Wand" for copy and a "Prompt Generator" directly in the UI.
+> **v1.2.5 Update**: **Quad-Font System & Domestic Mirror!** Now offering 4 distinct typography themes: **Moderno**, **Analog**, **Handwritten**, and **Digital**. All fonts served via `fonts.loli.net` for lightning-fast loading in China. UI optimized with a new top-bar selector.
 
 <img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/24c966b2-d6dc-4ae6-ac17-30d6252503e9" />
 
@@ -8,12 +8,21 @@
 
 ## ✨ 主要功能 (Key Features)
 
+*   **[NEW] 字体与排版系统 (Typography System)**:
+    *   **四重奏风格**: 提供 `Moderno (现代)`, `Analog (复古)`, `Handwritten (手写)`, `Digital (数码)` 四种截然不同的字体组合。
+    *   **国内加速**: 全线切换至国内镜像源，解决字体加载失效问题。
+    *   **所见即所得**: 顶部工具栏新增字体切换开关，实时预览变化。
 *   **智能 AI 驱动**:
     *   集成 **阿里云 DashScope (通义千问)**，自动根据曲目列表生成配色方案、心情描述和中文听感备注。
-    *   **[NEW] 颗粒度 AI 控制**:
+    *   **颗粒度 AI 控制**:
         *   **✨ 文案生成**: 独立的 "魔法棒" 按钮，一键生成 1-3 句俳句式短诗文案 (拒绝营销词)。
         *   **🎨 提示词生成**: 独立的 "AI 生成提示词" 按钮，自动分析曲风并从 4 种特定画风 (水彩/杂志/日记/平面) 中锁定一种，生成可落地的绘画指令。
     *   集成 **通义万相 (Wanx)**，一键生成高质量、富有艺术感的封面图。
+*   **主题系统 (Theme System)**:
+    *   **🌑 Dark**: 经典的深色模式，专业冷静。
+    *   **☀️ Light**: 纯白背景，极简主义，适合白纸打印。
+    *   **🖼️ Cover**: 沉浸式封面背景，自动应用高斯模糊滤镜。
+    *   **🎨 Color**: 智能取色，自动提取封面主色调作为背景，并智能反转文字颜色。
 *   **不仅仅是 J-Card**:
     *   支持 **4 折页布局 (U-Card)**，提供比传统 J-Card 更多的展示空间，完美包裹磁带盒。
     *   提供 **标准**、**古典**、**合辑** 三种排版模式。
