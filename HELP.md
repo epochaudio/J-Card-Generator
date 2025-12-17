@@ -109,6 +109,10 @@ A: 推荐导出 PNG 格式，使用 Adobe Illustrator 或浏览器打开打印�
 *   **导出无忧 (Robust Export)**: 针对 PNG 导出开发了全新的 `ExportService`。现在，导出的图片会强制内嵌当前主题所需的字体文件 (Base64 Embedding)，彻底解决了“预览正常、导出后字体丢失”的顽疾，且完全无需联网。
 *   **手写体升级**: Handwritten 主题引入了 **Rock Salt** (马克笔标题) + **Shadows Into Light** (圆珠笔正文) + **霞鹜文楷** (中文) 的黄金组合，手写质感大幅提升。
 
+#### 2. MusicBrainz 深度集成 (Advanced Integration)
+*   **古典乐结构可视化 (Classical Works)**: 彻底重构了古典音乐的解析逻辑。现在系统能识别 MusicBrainz 的 `Work` 实体，自动将曲目按 "作品-乐章" (如 *Symphony No. 5 -> I. Allegro*) 进行归类排版，告别冗长的重复标题。
+*   **专业演职员表 (Enhanced Credits)**: 自动抓取并显示 **制作人 (Producer)**、**录音/混音师 (Engineer)** 等幕后功臣。这些信息会自动填充到 J-Card 背面的 "Tech Specs" 区域，让您的磁带封面更具专业收藏质感。
+
 ### 版本 v1.2.6 更新说明 (Update Log)
 #### 1. 前封面排版和谐化 (Front Panel Harmony)
 *   **动态垂直居中 (Dynamic Vertical Centering)**: 废弃了基于固定像素的机械布局。现在的排版引擎会自动计算封面底部到页脚之间的剩余空间，并将“专辑名+标语”作为整体完美居中放置。

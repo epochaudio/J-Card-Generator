@@ -192,9 +192,86 @@ const MusicBrainzService = {
   },
 
   getReleaseDetails: async (releaseId) => {
-    const url = `https://musicbrainz.org/ws/2/release/${releaseId}?inc=recordings+artist-credits+labels&fmt=json`;
+    // UPDATED: Added recording-level-rels, work-level-rels, artist-rels
+    const url = `https://musicbrainz.org/ws/2/release/${releaseId}?inc=recordings+artist-credits+labels+recording-level-rels+work-level-rels+artist-rels&fmt=json`;
     const res = await fetch(url, { headers: { 'User-Agent': MusicBrainzService.userAgent } });
-    return await res.json();
+    const data = await res.json();
+
+    // Parse Advanced Credits
+    data.credits = MusicBrainzService.parseCredits(data);
+    // Parse Classical Works
+    data.works = MusicBrainzService.parseWorks(data);
+
+    return data;
+  },
+
+  parseCredits: (data) => {
+    const credits = { producers: [], engineers: [], performers: [] };
+    const add = (arr, name) => { if (!arr.includes(name)) arr.push(name); };
+
+    // 1. Release Level
+    if (data.relations) {
+      data.relations.forEach(r => {
+        const name = r.artist?.name;
+        if (!name) return;
+        if (r.type === 'producer') add(credits.producers, name);
+        if (['mix', 'engineer', 'mastering'].some(k => r.type.includes(k))) add(credits.engineers, name);
+      });
+    }
+
+    // 2. Track Level (Sample all tracks for comprehensive credits)
+    if (data.media) {
+      data.media.forEach(m => {
+        m.tracks?.forEach(t => {
+          t.recording?.relations?.forEach(r => {
+            const name = r.artist?.name;
+            if (!name) return;
+            if (r.type === 'producer') add(credits.producers, name);
+            // Relaxed filter for engineering to catch more roles
+            if (['mix', 'engineer', 'recording'].some(k => r.type.includes(k))) add(credits.engineers, name);
+            // Limit performers to avoid clutter? No, let's grab them and filter in UI if needed.
+            // But 'conductor' is important for Tech Specs in Classical.
+            if (['conductor'].some(k => r.type.includes(k))) add(credits.performers, `${name} (Conductor)`);
+          });
+        });
+      });
+    }
+    // Limit arrays to top 3 to avoid overflow in UI? Let's keep data raw, limit in UI.
+    return credits;
+  },
+
+  parseWorks: (data) => {
+    // Map: WorkID -> { title, composer, tracks: [TrackID...] }
+    const workMap = {};
+    if (!data.media) return null;
+
+    data.media.forEach(m => {
+      m.tracks?.forEach(t => {
+        // Find Work Relation
+        const workRel = t.recording?.relations?.find(r => r['target-type'] === 'work');
+        if (workRel && workRel.work) {
+          const w = workRel.work;
+          if (!workMap[w.id]) {
+            const composerRel = w.relations?.find(r => r.type === 'composer');
+            workMap[w.id] = {
+              id: w.id,
+              title: w.title,
+              composer: composerRel?.artist?.name,
+              tracks: []
+            };
+          }
+          workMap[w.id].tracks.push(t.id);
+          // Store reference on track object for easy access later in LayoutEngine
+          t._workId = w.id;
+          t._workTitle = w.title;
+          t._workComposer = composerRel?.artist?.name;
+        }
+      });
+    });
+
+    // Convert map to array
+    const works = Object.values(workMap);
+    return works.length > 0 ? works : null;
   },
 
   getCoverArt: async (rgId) => {
@@ -220,6 +297,9 @@ const MusicBrainzService = {
 // --- Layout Engine (Hierarchy Logic) ---
 const LayoutEngine = {
   detectMode: (releaseData, tracks) => {
+    // 1. API Derived Mode (Highest Priority)
+    if (releaseData.works && releaseData.works.length > 0) return 'CLASSICAL';
+
     const primaryType = releaseData['release-group']?.['primary-type'];
     const secondaryTypes = releaseData['release-group']?.['secondary-types'] || [];
     const albumArtist = releaseData['artist-credit']?.[0]?.name;
@@ -261,6 +341,45 @@ const LayoutEngine = {
 
   // 核心重构：返回嵌套结构而不是扁平结构
   groupTracksNested: (tracks) => {
+    // Strategy A: Work ID Based Grouping (New MusicBrainz Logic)
+    const hasWorkData = tracks.some(t => t._workId);
+    if (hasWorkData) {
+      const result = [];
+      let i = 0;
+      while (i < tracks.length) {
+        const current = tracks[i];
+        if (current._workId) {
+          // Find all consecutive tracks with same workId
+          let j = i + 1;
+          while (j < tracks.length && tracks[j]._workId === current._workId) {
+            j++;
+          }
+          // Prepend Composer to Title if available for professional look
+          const groupTitle = current._workComposer
+            ? `${current._workComposer}: ${current._workTitle}`
+            : current._workTitle;
+
+          const subTracks = tracks.slice(i, j).map(t => {
+            // Clean title: remove work title prefix + separators
+            let suffix = t.title.replace(groupTitle, '').trim();
+            suffix = suffix.replace(/^[:\-,\s]+/, '').replace(/^I+\.\s+/, ''); // Remove Roman numerals too? No, keep logic simple first.
+            // Usually "IV. Presto" -> suffix "IV. Presto"
+            // MB often gives full title "Symphony 5: I. Allegro".
+            // If we remove "Symphony 5", we get ": I. Allegro" -> "I. Allegro".
+            if (!suffix) suffix = t.title;
+            return { ...t, displayTitle: suffix };
+          });
+          result.push({ type: 'group', title: groupTitle, tracks: subTracks });
+          i = j;
+        } else {
+          result.push({ type: 'track', ...current, displayTitle: current.title });
+          i++;
+        }
+      }
+      return result;
+    }
+
+    // Strategy B: Legacy Prefix Matching (Fallback)
     const result = [];
     let i = 0;
     while (i < tracks.length) {
@@ -635,51 +754,109 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       {/* Case 1: Classical Mode + Short Back (Compact) -> TECH SPECS (Rotated) */}
       {(isClassical && isCompact) ? (
         <g transform={`translate(${width}, 0) rotate(90)`} fontFamily={fontConfig?.fonts?.mono || "Courier New, monospace"}>
-          {/* Tech Specs Layout (Long edge is X axis 0..1181, Short edge is Y axis 0..width) */}
+          {/* Tech Specs Layout (Long edge is X axis 0..1181) */}
 
-          {/* 1. Label / Header (Top/Left) */}
-          <text x="50" y="40" fontSize="24" fontWeight="bold" fill={textColor} letterSpacing="2" dominantBaseline="hanging">
-            {(recordingData?.labelOverride || data.tapeSubtitle || "LABEL INFO").toUpperCase()}
-          </text>
+          {/* ZONE 1: Left Info (Dynamic Height) - x=50 */}
+          {(() => {
+            const labelText = (recordingData?.labelOverride || data.tapeSubtitle || "LABEL INFO").toUpperCase();
+            // Wrap Label text (approx 280px width / 14px per char ~ 20 chars)
+            const labelLines = TextUtils.getWrappedLines(labelText, 20);
+            const labelY = 40;
+            const lineHeight = 28;
 
-          {/* SOURCE (New Field) - Below Label */}
-          <g transform={`translate(50, 90)`}>
-            <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" uppercase="true">SOURCE</text>
-            <text x="90" y="0" fontSize="18" fill={subTextColor} fontWeight="bold" textAnchor="start" dominantBaseline="middle" dy="1">{recordingData?.source || "N/A"}</text>
+            // Dynamic Source Y Position
+            const sourceY = labelY + (labelLines.length * lineHeight) + 20;
+
+            return (
+              <g>
+                {/* Label */}
+                {labelLines.map((line, i) => (
+                  <text key={`l-${i}`} x="50" y={labelY + (i * lineHeight)} fontSize="24" fontWeight="bold" fill={textColor} letterSpacing="2" dominantBaseline="hanging">
+                    {line}
+                  </text>
+                ))}
+
+                {/* Source */}
+                <g transform={`translate(50, ${sourceY})`}>
+                  <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" uppercase="true">SOURCE</text>
+                  <text x="0" y="25" fontSize="18" fill={subTextColor} fontWeight="bold" textAnchor="start">{recordingData?.source || "N/A"}</text>
+                </g>
+              </g>
+            )
+          })()}
+
+          {/* ZONE 2: Credits (Middle Left) - x=380 */}
+          {/* Dedicated column for Credits only. Width approx 350px. */}
+          <g transform={`translate(380, 40)`}>
+            {(() => {
+              const lines = [];
+              const credits = recordingData?.credits;
+
+              if (credits) {
+                if (credits.producers?.length) {
+                  lines.push({ type: 'header', text: 'PRODUCED BY' });
+                  lines.push({ type: 'body', text: credits.producers.slice(0, 2).join(', ').toUpperCase() });
+                }
+                if (credits.engineers?.length) {
+                  lines.push({ type: 'header', text: 'ENGINEERED BY' });
+                  lines.push({ type: 'body', text: credits.engineers.slice(0, 2).join(', ').toUpperCase() });
+                }
+              }
+
+              let cursorY = 0;
+              return lines.map((item, idx) => {
+                if (item.type === 'header') {
+                  const node = <text key={idx} x="0" y={cursorY} fontSize="14" fill={dimTextColor} letterSpacing="3">{item.text}</text>;
+                  cursorY += 24;
+                  return node;
+                } else {
+                  // Wrap to fit Col 2 (approx 350px width -> 30 chars)
+                  const wrapped = TextUtils.getWrappedLines(item.text, 30);
+                  const nodes = wrapped.map((w, wIdx) => (
+                    <text key={`${idx}-${wIdx}`} x="0" y={cursorY + (wIdx * 20)} fontSize="18" fill={subTextColor} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontWeight="bold">
+                      {w}
+                    </text>
+                  ));
+                  cursorY += wrapped.length * 20 + 25;
+                  return nodes;
+                }
+              });
+            })()}
           </g>
 
-          <line x1="50" y1="130" x2={contentHeight - 50} y2="130" stroke={textColor} strokeWidth="2" />
-
-          {/* 2. Equipment (Middle - Adjusted X) */}
-          <g transform={`translate(380, 40)`}>
+          {/* ZONE 3: Equipment (Middle Right) - x=750 */}
+          {/* New Dedicated Column for Equipment. Width approx 350px. */}
+          <g transform={`translate(750, 40)`}>
             <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" uppercase="true">EQUIPMENT</text>
             {(() => {
-              // Increased width for equipment description (approx 600px available space now)
-              // 600px / ~11px per char ~= 54 chars
-              const eqLines = TextUtils.getWrappedLines(recordingData?.equipment || "N/A", 54);
+              const eqText = recordingData?.equipment || "N/A";
+              // Wrap to fit Col 3 (approx 350px width -> 30 chars)
+              const eqLines = TextUtils.getWrappedLines(eqText.toUpperCase(), 30);
               return eqLines.map((line, i) => (
-                <text key={i} x="0" y={30 + (i * 24)} fontSize="18" fill={subTextColor} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontWeight="bold">
+                <text key={i} x="0" y={30 + (i * 20)} fontSize="18" fill={subTextColor} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontWeight="bold">
                   {line}
                 </text>
               ));
             })()}
           </g>
 
-          {/* 4. Dates Zone (Right - Stacked or Side-by-Side) */}
+          {/* ZONE 4: Right Dates (Vertical Stack) - x=End */}
           <g transform={`translate(${contentHeight - 50}, 40)`}>
-            {/* RELEASED */}
-            <g transform={`translate(0, 0)`}>
+            {/* RELEASED (Top) */}
+            <g>
               <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" textAnchor="end">RELEASED</text>
-              <text x="0" y="30" fontSize="24" fill={textColor} fontWeight="bold" textAnchor="end">{data.layout.noteUpper || "2024"}</text>
+              <text x="0" y="30" fontSize="24" fill={textColor} fontWeight="bold" textAnchor="end">
+                {/* Extract Year Only */}
+                {(data.releaseDate || "2024").split(/[-.]/)[0]}
+              </text>
             </g>
 
-            {/* RECORDED (New Field) - Stacked above Released or to the left? 
-                Let's put it to the left of Released to form a "Timestamp Block" 
-                x offset = -140 (approx width of a date block)
-            */}
-            <g transform={`translate(-140, 0)`}>
+            {/* RECORDED (Bottom - Stacked) */}
+            <g transform={`translate(0, 80)`}>
               <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" textAnchor="end">RECORDED</text>
-              <text x="0" y="30" fontSize="24" fill={theme.accent} fontWeight="bold" textAnchor="end">{recordingData?.recDate || "2025.01.01"}</text>
+              <text x="0" y="30" fontSize="24" fill={theme.accent} fontWeight="bold" textAnchor="end">
+                {recordingData?.recDate || "2025.01.01"}
+              </text>
             </g>
           </g>
         </g>
@@ -1132,6 +1309,7 @@ export default function App() {
     artist: "ARTIST NAME",
     tapeId: "ID-001",
     tapeSubtitle: "STEREO",
+    releaseDate: "",
     coverBadge: "",
     sideADuration: "20:00",
     sideBDuration: "20:00",
@@ -1240,39 +1418,61 @@ export default function App() {
       const labelName = labelInfo?.label?.name;
       const date = releaseData.date;
 
+      // Update Recording Data with Extended Credits
+      if (releaseData.credits) {
+        setRecordingData(prev => ({
+          ...prev,
+          credits: releaseData.credits
+        }));
+      }
+
       const rawTracks = (releaseData.media || []).flatMap(m => m.tracks || []).map(t => ({
         title: t.title,
         artist: t['artist-credit']?.[0]?.name || rg['artist-credit']?.[0]?.name || "Unknown",
-        durationMs: t.length || 0,
-        duration: MusicBrainzService.formatDuration(t.length)
+        duration: MusicBrainzService.formatDuration(t.length),
+        note: "",
+        _workId: t._workId, // Persist internal ID for grouping
+        _workTitle: t._workTitle,
+        _workComposer: t._workComposer
       }));
-      const totalMs = rawTracks.reduce((sum, t) => sum + t.durationMs, 0);
-      const halfMs = totalMs / 2;
-      let currentMs = 0; let splitIndex = 0;
-      if (releaseData.media && releaseData.media.length >= 2) { splitIndex = releaseData.media[0]['track-count']; }
-      else { for (let i = 0; i < rawTracks.length; i++) { currentMs += rawTracks[i].durationMs; if (currentMs >= halfMs) { splitIndex = i + 1; break; } } }
-      const sideA = rawTracks.slice(0, splitIndex).map(t => ({ ...t, note: '' }));
-      const sideB = rawTracks.slice(splitIndex).map(t => ({ ...t, note: '' }));
 
-      // 自动检测布局模式
-      const detectedMode = LayoutEngine.detectMode(releaseData, rawTracks);
+      // Helper to sum durations from "MM:SS" strings
+      const sumDur = (tracks) => {
+        const parseDurationToMs = (durationStr) => {
+          if (!durationStr || !durationStr.includes(':')) return 0;
+          const parts = durationStr.split(':').map(Number);
+          if (parts.length === 2) {
+            return (parts[0] * 60 + parts[1]) * 1000;
+          }
+          return 0;
+        };
+        const ms = tracks.reduce((acc, t) => acc + parseDurationToMs(t.duration), 0);
+        return MusicBrainzService.formatDuration(ms); // returns MIN:SEC
+      };
+
+      // Calculate Sides with updated logic
+      const half = Math.ceil(rawTracks.length / 2);
+      const sideA = rawTracks.slice(0, half);
+      const sideB = rawTracks.slice(half);
 
       setData({
-        ...data,
-        title: rg.title.toUpperCase(),
-        artist: (rg['artist-credit']?.[0]?.name || "").toUpperCase(),
-        tapeId: catalogNumber ? catalogNumber.toUpperCase() : "MB-" + rg.id.slice(0, 4).toUpperCase(),
-        tapeSubtitle: labelName ? labelName.toUpperCase() : "STEREO",
-        coverBadge: date ? date.slice(0, 4) : "",
-        sideADuration: MusicBrainzService.formatDuration(sideA.reduce((sum, t) => sum + t.durationMs, 0)),
-        sideBDuration: MusicBrainzService.formatDuration(sideB.reduce((sum, t) => sum + t.durationMs, 0)),
+        title: rg.title,
+        artist: rg['artist-credit']?.[0]?.name,
+        releaseDate: date || "", // Set decoupled Release Date
+        tapeSubtitle: (labelName && catalogNumber) ? `${labelName} ${catalogNumber}` : (labelName || catalogNumber || ""),
+        coverBadge: "",
+        sideA: sideA,
+        sideB: sideB,
+        sideADuration: sumDur(sideA),
+        sideBDuration: sumDur(sideB),
         layout: {
           ...data.layout,
-          noteUpper: date ? date.slice(0, 4) : "RECORDED",
+          mode: LayoutEngine.detectMode(releaseData, rawTracks),
+          noteUpper: "",
           noteLower: "STEREO",
-          mode: detectedMode
-        },
-        sideA, sideB
+          forceCaps: false,
+          worksData: releaseData.works // Store Works hierarchy
+        }
       });
       if (coverUrl) setCoverImage(coverUrl);
       setShowSearch(false);
@@ -1533,6 +1733,7 @@ export default function App() {
         artist: "ARTIST NAME",
         tapeId: "ID-001",
         tapeSubtitle: "STEREO",
+        releaseDate: "",
         coverBadge: "",
         sideADuration: "20:00",
         sideBDuration: "20:00",
@@ -1786,6 +1987,7 @@ export default function App() {
                 <div><label className="block text-xs text-gray-400 mb-1">专辑标题</label><div className="flex gap-2"><input type="text" value={data.title || ''} onChange={(e) => setData({ ...data, title: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /><button onClick={handleTitleMagic} disabled={loadingTitle} className="px-3 border border-gray-300 rounded transition-colors bg-white text-orange-600 hover:bg-gray-50">{loadingTitle ? <span className="animate-spin text-xs">⏳</span> : <Wand2 size={16} />}</button></div></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="block text-xs text-gray-400 mb-1">艺术家</label><input type="text" value={data.artist || ''} onChange={(e) => setData({ ...data, artist: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /></div>
+                  <div><label className="block text-xs text-gray-400 mb-1">发行日期</label><input type="text" value={data.releaseDate || ''} onChange={(e) => setData({ ...data, releaseDate: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="YYYY" /></div>
                   <div><label className="block text-xs text-gray-400 mb-1">目录编号</label><input type="text" value={data.tapeId || ''} onChange={(e) => setData({ ...data, tapeId: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /></div>
                 </div>
                 <div><label className="block text-xs text-gray-400 mb-1">封面标语</label><div className="flex gap-2"><textarea rows={3} maxLength={200} value={data.coverBadge || ''} onChange={(e) => setData({ ...data, coverBadge: e.target.value })} className="flex-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none placeholder-gray-500 resize-none bg-white text-gray-900" placeholder="例如：永恒的经典..." /><button onClick={handleGenerateSlogan} disabled={loadingSlogan} className="px-2 border border-gray-300 rounded self-start transition-colors h-20 flex items-center justify-center bg-white text-purple-600 hover:bg-purple-50">{loadingSlogan ? <span className="animate-spin text-xs">⏳</span> : <Sparkles size={16} />}</button></div></div>

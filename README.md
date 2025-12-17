@@ -10,8 +10,12 @@
 
 *   **[NEW] 字体与排版系统 (Typography System)**:
     *   **四重奏风格**: 提供 `Moderno (现代)`, `Analog (复古)`, `Handwritten (手写)`, `Digital (数码)` 四种截然不同的字体组合。
+    *   **手写体升级**: Handwritten 主题引入了 **Rock Salt** (马克笔标题) + **Shadows Into Light** (圆珠笔正文) + **霞鹜文楷** (中文) 的黄金组合，手写质感大幅提升。
     *   **国内加速**: 全线切换至国内镜像源，解决字体加载失效问题。
     *   **所见即所得**: 顶部工具栏新增字体切换开关，实时预览变化。
+#### 2. MusicBrainz 深度集成 (Advanced Integration)
+*   **古典乐结构可视化 (Classical Works)**: 彻底重构了古典音乐的解析逻辑。现在系统能识别 MusicBrainz 的 `Work` 实体，自动将曲目按 "作品-乐章" (如 *Symphony No. 5 -> I. Allegro*) 进行归类排版，告别冗长的重复标题。
+*   **专业演职员表 (Enhanced Credits)**: 自动抓取并显示 **制作人 (Producer)**、**录音/混音师 (Engineer)** 等幕后功臣。这些信息会自动填充到 J-Card 背面的 "Tech Specs" 区域，让您的磁带封面更具专业收藏质感。
 *   **智能 AI 驱动**:
     *   集成 **阿里云 DashScope (通义千问)**，自动根据曲目列表生成配色方案、心情描述和中文听感备注。
     *   **颗粒度 AI 控制**:
