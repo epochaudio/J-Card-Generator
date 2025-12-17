@@ -17,8 +17,8 @@ export const FONT_THEMES = {
         fonts: {
             title: "'Bebas Neue', 'Songti SC', 'SimSun', 'Arial Narrow', sans-serif",
             body: "'Roboto', 'Songti SC', 'SimSun', 'Helvetica', sans-serif",
-            serif: "'Merriweather', 'Songti SC', 'SimSun', 'Times New Roman', serif",
-            mono: "'Courier Prime', 'Songti SC', 'SimSun', 'Courier New', monospace",
+            serif: "'Roboto', 'Songti SC', 'SimSun', 'Times New Roman', serif",
+            mono: "'Share Tech Mono', 'Songti SC', 'SimSun', 'Courier New', monospace",
         }
     },
     handwritten: {
@@ -26,10 +26,10 @@ export const FONT_THEMES = {
         name: 'Handwritten (Indie)',
         description: 'Personal, DIY, organic.',
         fonts: {
-            title: "'Patrick Hand', 'Kaiti SC', 'KaiTi', 'Comic Sans MS', cursive",
-            body: "'Kalam', 'Kaiti SC', 'KaiTi', 'Segoe UI', sans-serif",
-            serif: "'Kalam', 'Kaiti SC', 'KaiTi', 'Segoe UI', serif",
-            mono: "'Patrick Hand', 'Kaiti SC', 'KaiTi', 'Courier New', monospace",
+            title: "'Rock Salt', 'LXGW WenKai Lite', 'Kaiti SC', 'KaiTi', cursive",
+            body: "'Shadows Into Light', 'LXGW WenKai Lite', 'Kaiti SC', 'KaiTi', cursive",
+            serif: "'Shadows Into Light', 'LXGW WenKai Lite', 'Kaiti SC', 'KaiTi', cursive",
+            mono: "'Shadows Into Light', 'LXGW WenKai Lite', 'Kaiti SC', 'KaiTi', cursive",
         }
     },
     digital: {

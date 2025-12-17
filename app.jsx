@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Search, X, Settings, Key, Image as ImageIcon, Trash2, Database, Globe, Loader2, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw } from 'lucide-react';
 
 import DashScopeService from './src/services/DashScopeService.js';
+import ExportService from './src/services/ExportService.js';
 import { getFontConfig, FONT_THEMES } from './src/config/fonts.js';
 
 // --- Color Extraction Service ---
@@ -1463,9 +1464,25 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  const downloadPNG = () => {
+  const downloadPNG = async () => {
     if (!svgRef.current) return;
-    const svgData = new XMLSerializer().serializeToString(svgRef.current);
+
+    // Serialize current SVG
+    let svgData = new XMLSerializer().serializeToString(svgRef.current);
+
+    // Embed Fonts for stability
+    try {
+      const fontStyles = await ExportService.getEmbeddableFontStyles(fontTheme);
+      if (fontStyles) {
+        if (svgData.includes('<defs>')) {
+          svgData = svgData.replace('<defs>', `<defs><style>${fontStyles}</style>`);
+        } else {
+          svgData = svgData.replace(/<svg[^>]*>/, match => `${match}<defs><style>${fontStyles}</style></defs>`);
+        }
+      }
+    } catch (e) {
+      console.error("Font embedding failed:", e);
+    }
 
     const canvas = document.createElement("canvas");
     canvas.width = 1748;
@@ -1477,6 +1494,7 @@ export default function App() {
     const url = URL.createObjectURL(svgBlob);
 
     img.onload = () => {
+      // Small delay to ensure immediate render stability
       setTimeout(() => {
         ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);

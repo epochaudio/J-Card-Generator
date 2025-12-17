@@ -103,6 +103,12 @@ A: 推荐导出 PNG 格式，使用 Adobe Illustrator 或浏览器打开打印�
 
 ---
 
+### 版本 v1.2.7 更新说明 (Update Log)
+#### 1. 离线字体引擎 (Offline Typography Engine)
+*   **全本地化 (Fully Localized)**: 彻底移除了对 Google Fonts/Loli 等在线字体服务的依赖。Modern, Analog, Handwritten, Digital 四大主题的 100% 字体资源（含中文兜底）均已内置于安装包中。
+*   **导出无忧 (Robust Export)**: 针对 PNG 导出开发了全新的 `ExportService`。现在，导出的图片会强制内嵌当前主题所需的字体文件 (Base64 Embedding)，彻底解决了“预览正常、导出后字体丢失”的顽疾，且完全无需联网。
+*   **手写体升级**: Handwritten 主题引入了 **Rock Salt** (马克笔标题) + **Shadows Into Light** (圆珠笔正文) + **霞鹜文楷** (中文) 的黄金组合，手写质感大幅提升。
+
 ### 版本 v1.2.6 更新说明 (Update Log)
 #### 1. 前封面排版和谐化 (Front Panel Harmony)
 *   **动态垂直居中 (Dynamic Vertical Centering)**: 废弃了基于固定像素的机械布局。现在的排版引擎会自动计算封面底部到页脚之间的剩余空间，并将“专辑名+标语”作为整体完美居中放置。

@@ -1,6 +1,6 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
 
-> **v1.2.6 Update**: **Visual Harmony Refined!** Major optimization to the Front Panel layout engine. We introduced **Dynamic Vertical Centering** to eliminate awkward gaps, ensuring the album title and slogan float perfectly in the "golden zone" between the cover art and footer.
+> **v1.2.7 Update**: **Offline Typography Engine!** We have fully localized the font engines for all 4 themes. Now, whether you use Modern, Analog, Handwritten, or Digital, all fonts are embedded directly within the app. **Zero network dependency, 100% stable PNG export**.
 
 <img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/24c966b2-d6dc-4ae6-ac17-30d6252503e9" />
 
