@@ -4,10 +4,10 @@ export const FONT_THEMES = {
         name: 'Moderno (Default)',
         description: 'Clean, geometric, professional.',
         fonts: {
-            title: "'Oswald', 'Arial Black', sans-serif",
-            body: "'Inter', 'Arial', sans-serif",
-            serif: "'Playfair Display', 'Georgia', serif",
-            mono: "'JetBrains Mono', 'Courier New', monospace",
+            title: "'Oswald', 'PingFang SC', 'Microsoft YaHei', 'Arial Black', sans-serif",
+            body: "'Inter', 'PingFang SC', 'Microsoft YaHei', 'Arial', sans-serif",
+            serif: "'Playfair Display', 'Songti SC', 'SimSun', 'Georgia', serif",
+            mono: "'JetBrains Mono', 'PingFang SC', 'Microsoft YaHei', 'Courier New', monospace",
         }
     },
     retro: {
@@ -15,10 +15,10 @@ export const FONT_THEMES = {
         name: 'Analog (Cassette)',
         description: 'Mechanical, warm, tactile.',
         fonts: {
-            title: "'Bebas Neue', 'Arial Narrow', sans-serif",
-            body: "'Roboto', 'Helvetica', sans-serif",
-            serif: "'Merriweather', 'Times New Roman', serif",
-            mono: "'Courier Prime', 'Courier New', monospace",
+            title: "'Bebas Neue', 'Songti SC', 'SimSun', 'Arial Narrow', sans-serif",
+            body: "'Roboto', 'Songti SC', 'SimSun', 'Helvetica', sans-serif",
+            serif: "'Merriweather', 'Songti SC', 'SimSun', 'Times New Roman', serif",
+            mono: "'Courier Prime', 'Songti SC', 'SimSun', 'Courier New', monospace",
         }
     },
     handwritten: {
@@ -26,10 +26,10 @@ export const FONT_THEMES = {
         name: 'Handwritten (Indie)',
         description: 'Personal, DIY, organic.',
         fonts: {
-            title: "'Patrick Hand', 'Comic Sans MS', cursive",
-            body: "'Kalam', 'Segoe UI', sans-serif",
-            serif: "'Kalam', 'Segoe UI', serif", // Reusing Kalam for consistency in handwritten style
-            mono: "'Patrick Hand', 'Courier New', monospace",
+            title: "'Patrick Hand', 'Kaiti SC', 'KaiTi', 'Comic Sans MS', cursive",
+            body: "'Kalam', 'Kaiti SC', 'KaiTi', 'Segoe UI', sans-serif",
+            serif: "'Kalam', 'Kaiti SC', 'KaiTi', 'Segoe UI', serif",
+            mono: "'Patrick Hand', 'Kaiti SC', 'KaiTi', 'Courier New', monospace",
         }
     },
     digital: {
@@ -37,10 +37,10 @@ export const FONT_THEMES = {
         name: 'Digital (Cyber)',
         description: 'Futuristic, glitch, terminal.',
         fonts: {
-            title: "'Orbitron', 'Eurostile', sans-serif",
-            body: "'Share Tech Mono', 'Consolas', monospace",
-            serif: "'Share Tech Mono', 'Consolas', monospace", // Mono rules in digital
-            mono: "'Share Tech Mono', 'Consolas', monospace",
+            title: "'Orbitron', 'PingFang SC', 'SimHei', 'Eurostile', sans-serif",
+            body: "'Share Tech Mono', 'PingFang SC', 'SimHei', 'Consolas', monospace",
+            serif: "'Share Tech Mono', 'PingFang SC', 'SimHei', 'Consolas', monospace",
+            mono: "'Share Tech Mono', 'PingFang SC', 'SimHei', 'Consolas', monospace",
         }
     }
 };

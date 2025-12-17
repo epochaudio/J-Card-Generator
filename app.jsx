@@ -420,8 +420,27 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   const roughLH = roughTotalLines > 0 ? availableForTracks / roughTotalLines : 50;
   const showNotesGlobal = !isCompact && roughLH > 45; // 使用粗略估算来决定开关
 
-  const wrapCharsHeader = isCompact ? 18 : 55; // 标题换行阈值 (Compact 调小)
-  const wrapCharsContent = isCompact ? 28 : 95; // 正文换行阈值 (Inline模式)
+  // --- DYNAMIC FONT & WRAP CALCULATION ---
+  // Font constants moved up for early calculation
+  const fontRatio = 0.55;
+  const maxFont = isCompact ? 15 : 25;
+  const minFont = isCompact ? 8 : 12;
+
+  // Estimate final font size to determine safe wrapping width
+  let estFontSize = Math.floor(roughLH * fontRatio);
+  estFontSize = Math.min(Math.max(estFontSize, minFont), maxFont);
+
+  // Dynamic Wrap Limits:
+  // Usable width = PanelWidth - 80px (Vertical Padding 40px * 2)
+  // Text Width Constant = 0.6 (Conservative est for Mixed CJK/En)
+  const usableWidth = width - 80;
+  const safeTextWidthConst = 0.6;
+
+  // Ensure minimum wrap limit of 10 chars to prevent infinite wrapping loops on tiny allocs
+  const dynamicWrapLimit = Math.max(10, Math.floor(usableWidth / (estFontSize * safeTextWidthConst)));
+
+  const wrapCharsHeader = dynamicWrapLimit;
+  const wrapCharsContent = Math.floor(dynamicWrapLimit * 1.5);
 
   const calculateRealVisualLines = (groups) => {
     return groups.reduce((acc, item) => {
@@ -451,7 +470,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         // Note 也占空间 - 使用 showNotesGlobal 来判断
         let noteHeight = 0;
         if (showNotesGlobal && item.note) {
-          const noteLines = TextUtils.getWrappedLines(item.note, 60).length;
+          const noteLines = TextUtils.getWrappedLines(item.note, wrapCharsContent).length;
           noteHeight = Math.min(noteLines, 2) * 0.6; // Note 较小
         }
 
@@ -471,11 +490,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   let calculatedLH = totalVisualItems > 0 ? availableForTracks / totalVisualItems : maxLH;
   calculatedLH = Math.min(Math.max(calculatedLH, minLH), maxLH);
 
-  // --- UPDATED: Increased Font Ratio and Max Caps ---
-  const fontRatio = 0.55;
-  const maxFont = isCompact ? 15 : 25;
-  const minFont = isCompact ? 8 : 12;
-
+  // Recalculate Final Font Size based on ACTUAL wrapped lines
   let fontSize = Math.floor(calculatedLH * fontRatio);
   fontSize = Math.min(Math.max(fontSize, minFont), maxFont);
 
@@ -567,7 +582,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         localIdx++;
 
         // Note 显示逻辑 - 使用 showNotesGlobal
-        const noteWrapLimit = isCompact ? 40 : 60;
+        const noteWrapLimit = wrapCharsContent;
         const hasNote = showNotesGlobal && item.note;
         const noteLines = hasNote ? TextUtils.getWrappedLines(item.note, noteWrapLimit) : [];
 
@@ -579,7 +594,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
           return (
             <text key={`t-${i}-${lineIdx}`} x="0" y={thisY + calculatedLH * (hasNote ? 0.35 : 0.5) + (lineIdx * calculatedLH * 0.85)} fill={subTextColor} fontSize={trackFontSize} dominantBaseline="middle">
               {/* 序号只在第一行显示 */}
-              {isFirstLine && <tspan fontWeight="bold" fill={theme.accent}>{String(localIdx).padStart(2, '0')}.</tspan>}
+              {isFirstLine && !isClassical && <tspan fontWeight="bold" fill={theme.accent}>{String(localIdx).padStart(2, '0')}.</tspan>}
 
               {/* 歌名：如果有缩进(第二行)，手动加空格或dx */}
               <tspan fontWeight="bold" dx={isFirstLine ? 5 : 28}>{line}</tspan>
