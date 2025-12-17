@@ -432,14 +432,15 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
 
   // Dynamic Wrap Limits:
   // Usable width = PanelWidth - 80px (Vertical Padding 40px * 2)
-  // Text Width Constant = 0.6 (Conservative est for Mixed CJK/En)
+  // Text Width Constant = 0.7 (More conservative for Bold/Wide fonts)
   const usableWidth = width - 80;
-  const safeTextWidthConst = 0.6;
+  const safeTextWidthConst = 0.7;
 
   // Ensure minimum wrap limit of 10 chars to prevent infinite wrapping loops on tiny allocs
   const dynamicWrapLimit = Math.max(10, Math.floor(usableWidth / (estFontSize * safeTextWidthConst)));
 
-  const wrapCharsHeader = dynamicWrapLimit;
+  // Reduce header wrap limit by 10% because headers are Bold and larger than estFontSize
+  const wrapCharsHeader = Math.floor(dynamicWrapLimit * 0.9);
   const wrapCharsContent = Math.floor(dynamicWrapLimit * 1.5);
 
   const calculateRealVisualLines = (groups) => {
