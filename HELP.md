@@ -103,15 +103,17 @@ A: 推荐导出 PNG 格式，使用 Adobe Illustrator 或浏览器打开打印�
 
 ---
 
+### 版本 v1.2.8 更新说明 (Update Log)
+#### 1. MusicBrainz 深度集成 (Advanced Integration)
+*   **古典乐结构可视化 (Classical Works)**: 彻底重构了古典音乐的解析逻辑。现在系统能识别 MusicBrainz 的 `Work` 实体，自动将曲目按 "作品-乐章" (如 *Symphony No. 5 -> I. Allegro*) 进行归类排版，告别冗长的重复标题。
+*   **专业演职员表 (Enhanced Credits)**: 自动抓取并显示 **制作人 (Producer)**、**录音/混音师 (Engineer)** 等幕后功臣。这些信息会自动填充到 J-Card 背面的 "Tech Specs" 区域，让您的磁带封面更具专业收藏质感。
+
 ### 版本 v1.2.7 更新说明 (Update Log)
 #### 1. 离线字体引擎 (Offline Typography Engine)
 *   **全本地化 (Fully Localized)**: 彻底移除了对 Google Fonts/Loli 等在线字体服务的依赖。Modern, Analog, Handwritten, Digital 四大主题的 100% 字体资源（含中文兜底）均已内置于安装包中。
 *   **导出无忧 (Robust Export)**: 针对 PNG 导出开发了全新的 `ExportService`。现在，导出的图片会强制内嵌当前主题所需的字体文件 (Base64 Embedding)，彻底解决了“预览正常、导出后字体丢失”的顽疾，且完全无需联网。
 *   **手写体升级**: Handwritten 主题引入了 **Rock Salt** (马克笔标题) + **Shadows Into Light** (圆珠笔正文) + **霞鹜文楷** (中文) 的黄金组合，手写质感大幅提升。
 
-#### 2. MusicBrainz 深度集成 (Advanced Integration)
-*   **古典乐结构可视化 (Classical Works)**: 彻底重构了古典音乐的解析逻辑。现在系统能识别 MusicBrainz 的 `Work` 实体，自动将曲目按 "作品-乐章" (如 *Symphony No. 5 -> I. Allegro*) 进行归类排版，告别冗长的重复标题。
-*   **专业演职员表 (Enhanced Credits)**: 自动抓取并显示 **制作人 (Producer)**、**录音/混音师 (Engineer)** 等幕后功臣。这些信息会自动填充到 J-Card 背面的 "Tech Specs" 区域，让您的磁带封面更具专业收藏质感。
 
 ### 版本 v1.2.6 更新说明 (Update Log)
 #### 1. 前封面排版和谐化 (Front Panel Harmony)

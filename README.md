@@ -1,6 +1,6 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
 
-> **v1.2.7 Update**: **Offline Typography Engine!** We have fully localized the font engines for all 4 themes. Now, whether you use Modern, Analog, Handwritten, or Digital, all fonts are embedded directly within the app. **Zero network dependency, 100% stable PNG export**.
+> **v1.2.8 Update**: **MusicBrainz 深度集成!** 彻底重构了古典音乐解析逻辑，支持识别 Work 实体并自动归类乐章；同时引入专业演职员表（Producer/Engineer），自动填充 Tech Specs 区域。
 
 <img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/24c966b2-d6dc-4ae6-ac17-30d6252503e9" />
 
