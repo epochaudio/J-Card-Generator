@@ -3,4 +3,5 @@ dist
 dist_electron
 .DS_Store
 *.log
+.agent/
 
