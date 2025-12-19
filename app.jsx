@@ -450,7 +450,7 @@ const ContentFront = ({ xOffset, width, data, theme, coverImage, isLight, textCo
             {/* Modified: Scale set to 1 to remove artificial gaps and maximize fill (was 0.96) */}
             <image href={coverImage} width="1200" height="1200" preserveAspectRatio="xMidYMid meet" transform="scale(1)" transform-origin="center" />
           </svg>
-          <rect x="0" y={width} width={width} height="2" fill={textColor} opacity="0.5" />
+
         </>
       ) : (
         <path d={`M ${width / 2 - 200} 400 Q ${width / 2} 100 ${width / 2 + 200} 400`} stroke={theme.accent} strokeWidth="4" fill="none" opacity="0.8" />
