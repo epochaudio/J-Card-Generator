@@ -1,5 +1,7 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
 
+> **v1.2.9 Update**: **Smart Deep Clean (智能重置)**! "新建项目"功能变得更聪明了，它能深度清理专辑数据（包括 MusicBrainz 抓取的演职员表），但会贴心地**保留**您的录音设备和音源设置，无需重复输入。目录编号默认留空。**✨ 全新图标**: 我们还换上了全新的应用程序 Logo，焕然一新！
+
 > **v1.2.8 Update**: **MusicBrainz 深度集成!** 彻底重构了古典音乐解析逻辑，支持识别 Work 实体并自动归类乐章；同时引入专业演职员表（Producer/Engineer），自动填充 Tech Specs 区域。
 
 <img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/24c966b2-d6dc-4ae6-ac17-30d6252503e9" />

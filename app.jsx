@@ -1307,7 +1307,7 @@ export default function App() {
   const [data, setData] = useState({
     title: "ALBUM TITLE",
     artist: "ARTIST NAME",
-    tapeId: "ID-001",
+    tapeId: "",
     tapeSubtitle: "STEREO",
     releaseDate: "",
     coverBadge: "",
@@ -1731,7 +1731,7 @@ export default function App() {
       setData({
         title: "ALBUM TITLE",
         artist: "ARTIST NAME",
-        tapeId: "ID-001",
+        tapeId: "",
         tapeSubtitle: "STEREO",
         releaseDate: "",
         coverBadge: "",
@@ -1767,11 +1767,14 @@ export default function App() {
       setImagePrompt("");
       setError("");
 
-      // 3. Update Rec Date to Today
       const today = new Date().toISOString().split('T')[0];
       setRecordingData(prev => ({
-        ...prev,
+        equipment: prev.equipment || "",
+        source: prev.source || "",
+        mode: "AAA",
+        labelOverride: "",
         recDate: today
+        // implicitly clears 'credits' by exclusion
       }));
     }
   };

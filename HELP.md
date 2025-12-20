@@ -103,6 +103,15 @@ A: 推荐导出 PNG 格式，使用 Adobe Illustrator 或浏览器打开打印�
 
 ---
 
+### 版本 v1.2.9 更新说明 (Update Log)
+#### 1. 智能重置 (Smart Deep Clean)
+*   **智能保留**: 点击“新建/重置”按钮时，系统会**保留**您辛辛苦苦输入的“录音设备 (Recording Equipment)”和“音源 (Media Source)”信息。
+*   **深度清理**: 同时，它会彻底清除上一张专辑的所有数据，包括 MusicBrainz 自动抓取的复杂 Credits 和 Label 信息，确保新项目从零开始。
+*   **清爽启动**: 目录编号 (Catalog Number) 默认不再只有 "ID-001"，而是默认为空，减少删除操作。
+
+#### 2. 全新视觉 (New Look)
+*   **✨ 新图标**: 更新了应用程序图标 (App Icon)，带来焕然一新的视觉体验。
+
 ### 版本 v1.2.8 更新说明 (Update Log)
 #### 1. MusicBrainz 深度集成 (Advanced Integration)
 *   **古典乐结构可视化 (Classical Works)**: 彻底重构了古典音乐的解析逻辑。现在系统能识别 MusicBrainz 的 `Work` 实体，自动将曲目按 "作品-乐章" (如 *Symphony No. 5 -> I. Allegro*) 进行归类排版，告别冗长的重复标题。
