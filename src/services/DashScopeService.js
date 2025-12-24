@@ -174,20 +174,30 @@ const DashScopeService = {
          - NO marketing slogans (e.g. "Shocking", "Must Listen", "Epic").
       
       3. [Cover Art Prompt] 
-         - First, determine the dominant genre/vibe.
-         - Select EXACTLY ONE art style from:
-           A) Watercolor/Gouache (Fluid emotion, dreamy, echo)
-           B) 90s Magazine Illustration (Oversized composition, negative space, retro-pop/city vibe)
-           C) Hand-drawn Diary (Pencil/Pen doodle, paper texture, intimate, solitude)
-           D) Flat Design/Risograph (Geometric, blocky, screenprint texture, electronic/minimal)
-         - Rules: 
-           * ABSOLUTELY NO PHOTOGRAPHIC TERMS (No "photo", "realistic", "8k", "DSLR").
-           * Must be concrete: Scene + Objects + Lighting + Colors + Texture/Stroke.
-           * Live tracks -> Stage lights, silhouettes, noise particles, soundwaves.
-           * Lyrical tracks -> Negative space, soft light, heavy texture, still life metaphors.
-         - Output: 
-           * "cover_prompt": 150-250 words, mixed English/Chinese. Explicitly state the chosen style (A/B/C/D).
-           * "negative_prompt": One line of negative constraints.
+          Strictly follow these rules to generate the prompt:
+          
+          STEP 1: Analyze Main Genre/Vibe from tracks.
+          
+          STEP 2: Select "The Most Matching" Art Style (CHOOSE EXACTLY ONE):
+             A) Watercolor/Gouache (Fluid emotion, dreamy, echo, lyrical)
+             B) 90s Magazine Illustration (Bold composition, negative space, retro-pop/rock/city)
+             C) Hand-drawn Diary (Pencil/Pen doodle, paper texture, intimate narrative, solitude)
+             D) Flat Design/Risograph (Geometric, blocky, screenprint, electronic/indie/minimal)
+             * Must be an ILLUSTRATION / GRAPHIC POSTER style. 
+             * STRICTLY FORBIDDEN: photo, photorealistic, DSLR, film photo, realistic portrait.
+
+          STEP 3: Concretize the Scene (Visual details):
+             * Main Scene + Key Objects + Light/Color + Stroke/Texture + Era Design (90s-00s).
+             * Rules:
+               - Live tracks: Stage lights, silhouette, noise particles, soundwaves.
+               - Lyrical: Negative space, slow light, low saturation, still life metaphors.
+               - "Three-Axis Correspondence": detailed light/shadow changes based on album flow.
+
+          STEP 4: Output Requirements:
+             - "cover_prompt": 150-250 words, Mixed English/Chinese. 
+               * Explicitly state the chosen style (A/B/C/D).
+               * Describe the scene in detail.
+             - "negative_prompt": One line of negative constraints.
       
       Tracklist:
       ${tracksListText}
@@ -224,6 +234,17 @@ const DashScopeService = {
         const systemPrompt = "You are a music data extraction expert. Output JSON.";
         const userPrompt = `
       Analyze the text. Extract album info and tracklist. Split into Side A/B.
+      
+      [Logic 1: Classical Music (Priority)]
+      If the text contains "Works", "Sonatas", "Symphony" or logical groupings:
+      - Extract "work_title" (e.g. "Sonata Accademiche Op.2")
+      - Extract "work_composer" (e.g. "Veracini")
+      
+      [Logic 2: Pop/Jazz/Folk/Other]
+      For standard albums, ignore grouping headers. 
+      - Leave "work_title" and "work_composer" EMPTY/NULL.
+      - Just extract individual tracks.
+      
       Default duration: "0:00".
       
       Raw Input:
@@ -234,8 +255,26 @@ const DashScopeService = {
         "album_title": "string",
         "album_artist": "string",
         "cover_url": "string",
-        "sideA": [ { "title": "string", "artist": "string", "duration": "string", "note": "string" } ],
-        "sideB": [ { "title": "string", "artist": "string", "duration": "string", "note": "string" } ]
+        "sideA": [ 
+          { 
+            "title": "string (Movement Name if Classical, e.g. 'I. Allegro')", 
+            "artist": "string", 
+            "duration": "string", 
+            "note": "string",
+            "work_title": "string (Optional, for Classical Grouping)",
+            "work_composer": "string (Optional)"
+          } 
+        ],
+        "sideB": [ 
+          { 
+            "title": "string", 
+            "artist": "string", 
+            "duration": "string", 
+            "note": "string",
+            "work_title": "string (Optional)",
+            "work_composer": "string (Optional)"
+          } 
+        ]
       }
     `;
         return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt, "qwen3-max");
@@ -279,35 +318,40 @@ const DashScopeService = {
         Theme: ${isDark ? "Dark/Night" : "Light/Day"}
         `;
 
-        const systemPrompt = `You are an Art Director. You convert music vibes into visual illustration prompts.
-        You NEVER ask for "Photorealistic" images. You ONLY ask for stylistic illustrations.`;
+        const systemPrompt = `You are a Visual Director. You strictly follow brand guidelines to output illustration prompts.`;
 
         const userPrompt = `
-        Analyze the mood of this playlist and create an illustration prompt for a music album cover.
-
-        STEP 1: Determine the dominant vibe.
-        STEP 2: Select ONE style from the list below that matches the vibe best:
-           A) Watercolor/Gouache (Fluid emotion, dreamy, echo, soft edges)
-           B) 90s Magazine Illustration (Bold composition, retro-pop, city vibe, vector-like)
-           C) Hand-drawn Diary (Pencil/Pen doodle, paper texture, intimate, rough sketch)
-           D) Flat Design/Risograph (Geometric, blocky, screenprint texture, noise, minimal)
-
-        STEP 3: Write the prompt.
-           - START with the Style Name (e.g. "Style A: Watercolor...").
-           - Describe specific SCENES or OBJECTS (e.g. "An empty chair in rain", "A glowing neon phone").
-           - Add details about Lighting, Texture, and Color Palette.
-           - Rules:
-             * NO "Photo", "Realistic", "4k", "Octane Render".
-             * MUST look like an ARTWORK (Illustration/Drawing/Painting).
+        Task: Create an AI Image Prompt for a Cassette Cover (Illustration Style).
         
-        Input Context:
+        [Input Context]
         ${contextText.substring(0, 2000)}
 
-        Respond with JSON:
-        {
-          "cover_prompt": "string (150-250 words, mixed English/Chinese key phrases)",
-          "negative_prompt": "string (low quality, photo, 3d render, watermark, text)"
-        }
+        [Strict Process]
+        
+        1. DECIDE VIBE: Analyze the tracks/notes to determine the dominant music style/atmosphere.
+        
+        2. CHOOSE STYLE (Pick EXACTLY ONE from A, B, C, D):
+             A) Watercolor/Gouache (Flowing emotion, dreamy, echo, lyrical)
+             B) 90s Magazine Illustration (Strong composition, negative space, retro-pop/rock)
+             C) Hand-drawn Diary (Pencil/Pen doodle, paper texture, intimate, solitude)
+             D) Flat Design/Risograph (Geometric, blocky, screenprint, electronic/minimal)
+             
+             * Note: If needs mix, keep one as DOMINANT.
+             * STYLE MUST BE ILLUSTRATION/GRAPHIC. 
+             * DENY: Photography, Realistic, DSLR.
+
+        3. CONSTRUCT SCENE (Be Concrete):
+             * Main Subject + Objects + Light/Color + Texture + 90s Design Language.
+             * Live Music -> Stage lights, silhouette, noise, soundwaves.
+             * Lyrical -> Negative space, soft dim light, low saturation, still life metaphors.
+             * Visuals must align with the "Three-Axis" logic (Light->Dark, Sparse->Full).
+
+        4. GENERATE OUTPUT:
+           Return JSON:
+           {
+             "cover_prompt": "Your generated prompt here (150-250 words, mixed English/Chinese). MUST mention the Style (A/B/C/D) and visual details.",
+             "negative_prompt": "photorealistic, photo, camera, dslr, 3d render, watermark, text, blurry, distorted"
+           }
         `;
 
         return DashScopeService.callQwen(userPrompt, apiKey, systemPrompt, "qwen3-max");

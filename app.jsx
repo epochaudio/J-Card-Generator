@@ -897,13 +897,193 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   )
 }
 
+// --- Spine Component (Extracted) ---
+const SpineContent = ({
+  data,
+  theme,
+  height,
+  width, // unused but for standardization
+  fontConfig,
+  themeColors, // { fill, titleColor, idColor }
+  inverted // [NEW] Added prop
+}) => {
+  const { title, artist, tapeId, layout } = data;
+  const { titleColor, idColor } = themeColors;
+
+  // --- ORIENTATION CONFIG ---
+  // Defaulting to "inverted" (Top-Down) per user request "turn 180 degrees" from standard.
+  // We use the passed prop if available, otherwise default to true (inverted/top-down).
+  const isInverted = (inverted !== undefined) ? inverted : true;
+
+  const rotation = isInverted ? 90 : -90;
+
+  // Coordinate Abstraction
+  // When rotated 90 (X=Down), Top is Negative X.
+  // When rotated -90 (X=Up), Top is Positive X.
+
+  // Helper to map "Physical Position" to "Local Coordinate X"
+  // "pos" from center: + is down (physical), - is top (physical)
+  const getX = (physicalOffsetFromCenter) => {
+    return isInverted ? physicalOffsetFromCenter : -physicalOffsetFromCenter;
+  };
+
+  const getAnchor = (type) => { // type: 'start' | 'end' (visual flow)
+    if (isInverted) return type; // 90: start=top, end=bottom
+    return type === 'start' ? 'end' : 'start'; // -90: start=bottom, end=top
+  };
+
+  const formatText = (text) => layout?.forceCaps ? String(text).toUpperCase() : String(text);
+
+  const getSpineTitleSize = (text) => {
+    const len = text ? text.length : 0;
+    if (len > 30) return 32;
+    if (len > 20) return 36;
+    return 42;
+  };
+
+  // --- Layout Zones ---
+  // Physical coordinates relative to CENTER (0,0)
+  // Top Edge: -height/2 + margin
+  // Bottom Edge: height/2 - margin
+
+  const topMargin = 40;
+  const bottomMargin = 40;
+  const safeGap = 80;
+
+  const halfH = height / 2;
+  const topEdgePos = -halfH + topMargin;
+  const bottomEdgePos = halfH - bottomMargin;
+
+  // Render Logic
+  return (
+    <g>
+      {/* Center: Title (Middle Anchor) - Always Centered */}
+      <text
+        x="0"
+        y="0"
+        fontFamily={fontConfig?.fonts?.title || "Arial, sans-serif"}
+        fontWeight="bold"
+        fontSize={getSpineTitleSize(title)}
+        fill={titleColor}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        transform={`rotate(${rotation})`}
+      >
+        {formatText(title)}
+      </text>
+
+      {/* TOP ZONE (Tape ID / Note Upper) */}
+      {(() => {
+        const hasNote = !!layout?.noteUpper;
+        const hasId = !!tapeId;
+        // Visual "Top" needs to anchor to the Top Edge
+        const anchor = getAnchor('start');
+        const xPos = getX(topEdgePos);
+
+        const noteUpperNode = hasNote ? (
+          <text
+            key="sp-note-up"
+            x={xPos}
+            y={hasId ? -12 : 0}
+            fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}
+            fontSize="14"
+            fill={idColor}
+            textAnchor={anchor}
+            dominantBaseline="middle"
+            transform={`rotate(${rotation})`}
+            letterSpacing="1"
+            opacity="0.8"
+          >
+            {formatText(layout.noteUpper)}
+          </text>
+        ) : null;
+
+        const idNode = hasId ? (
+          <text
+            key="sp-id"
+            x={xPos}
+            y={hasNote ? 12 : 0}
+            fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}
+            fontWeight="bold"
+            fontSize="18"
+            fill={idColor}
+            textAnchor={anchor}
+            dominantBaseline="middle"
+            transform={`rotate(${rotation})`}
+          >
+            {tapeId}
+          </text>
+        ) : null;
+
+        return <>{noteUpperNode}{idNode}</>;
+      })()}
+
+      {/* BOTTOM ZONE (Artist / Note Lower) */}
+      {(() => {
+        // Visual "Bottom" needs to anchor to Bottom Edge and grow UPWARDS (Inwards)
+        const anchor = getAnchor('end');
+        const xPos = getX(bottomEdgePos);
+
+        // Stacking Logic: We strictly Stack INWARDS.
+        // Inverted (Down): Inwards is Negative X.
+        // Standard (Up): Inwards is Positive X.
+        const inwardDir = isInverted ? -1 : 1;
+
+        let currentX = xPos;
+        const nodes = [];
+
+        // Note Lower is the bottom-most item if present (closest to edge)
+        if (layout?.noteLower) {
+          nodes.push(
+            <text
+              key="sp-note-low"
+              x={currentX}
+              y="0"
+              fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}
+              fontSize="14"
+              fill={titleColor}
+              textAnchor={anchor}
+              dominantBaseline="middle"
+              transform={`rotate(${rotation})`}
+              letterSpacing="1"
+              opacity="0.8"
+            >
+              {formatText(layout.noteLower)}
+            </text>
+          );
+          // Move Inward for Artist (away from edge)
+          currentX += (safeGap * inwardDir);
+        }
+
+        nodes.push(
+          <text
+            key="sp-artist"
+            x={currentX}
+            y="0"
+            fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}
+            fontSize="24"
+            fill={titleColor}
+            textAnchor={anchor}
+            dominantBaseline="middle"
+            transform={`rotate(${rotation})`}
+          >
+            {formatText(artist)}
+          </text>
+        );
+
+        return nodes;
+      })()}
+    </g>
+  );
+};
+
 const JCardPreview = ({ data, theme, coverImage, svgRef, recordingData, jCardThemeMode, dominantColor, contrastTextType, fontConfig }) => {
   // Default values to handle legacy usage or initial state
   const curThemeMode = jCardThemeMode || 'dark';
   const curDominantColor = dominantColor || '#232629';
   const curContrastType = contrastTextType || 'light';
 
-  const { title, artist, sideA, sideB, sideADuration, sideBDuration, tapeId, tapeSubtitle, coverBadge } = data;
+  const { title, artist, tapeId, layout } = data;
   const width = 1748;
   const height = 1181;
 
@@ -1149,57 +1329,15 @@ const JCardPreview = ({ data, theme, coverImage, svgRef, recordingData, jCardThe
       {/* Spine Content */}
       {/* Spine Content - Dynamic Stacking to Prevent Overlap */}
       <g transform={`translate(${xSpine + wSpine / 2}, ${height / 2})`}>
-        {/* Center: Title (Middle Anchor) */}
-        <text x="0" y="0" fontFamily={fontConfig?.fonts?.title || "Arial, sans-serif"} fontWeight="bold" fontSize={getSpineTitleSize(title)} fill={spineTitleColor} textAnchor="middle" dominantBaseline="middle" transform="rotate(-90)">{formatText(title)}</text>
-
-        {/* TOP ZONE (Anchor: Top Edge) */}
-        {/* Strategy: Use Y-axis separation (two lines) to avoid X-axis overlap dependencies */}
-        {(() => {
-          const topEdge = (height / 2) - 40;
-          const hasNote = !!data.layout?.noteUpper;
-          const hasId = !!tapeId;
-          // If both exist, separate by Y (width-wise). If one, center.
-          const offsetY = (hasNote && hasId) ? 14 : 0;
-
-          const noteUpperNode = hasNote ? (
-            <text key="sp-note-up" x={topEdge} y={hasId ? -12 : 0} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontSize="14" fill={spineIdColor} textAnchor="end" dominantBaseline="middle" transform="rotate(-90)" letterSpacing="1" opacity="0.8">
-              {formatText(data.layout.noteUpper)}
-            </text>
-          ) : null;
-
-          const idNode = hasId ? (
-            <text key="sp-id" x={topEdge} y={hasNote ? 12 : 0} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontWeight="bold" fontSize="18" fill={spineIdColor} textAnchor="end" dominantBaseline="middle" transform="rotate(-90)">
-              {tapeId}
-            </text>
-          ) : null;
-
-          return <>{noteUpperNode}{idNode}</>;
-        })()}
-
-        {/* BOTTOM ZONE (Anchor: Bottom Edge, Grow: Upwards) */}
-        {/* Strategy: Linear Stacking with Safe Gap */}
-        {(() => {
-          const bottomEdge = -((height / 2) - 40);
-          let currentX = bottomEdge;
-          // Use a generous safe gap (80px) to clear even long "Note Lowers" (like dates or copyrights)
-          const safeGap = 80;
-
-          const noteLowerNode = data.layout?.noteLower ? (
-            <text key="sp-note-low" x={currentX} y="0" fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontSize="14" fill={spineTitleColor} textAnchor="start" dominantBaseline="middle" transform="rotate(-90)" letterSpacing="1" opacity="0.8">
-              {formatText(data.layout.noteLower)}
-            </text>
-          ) : null;
-
-          if (data.layout?.noteLower) currentX += safeGap;
-
-          const artistNode = (
-            <text key="sp-artist" x={currentX} y="0" fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontSize="24" fill={spineTitleColor} textAnchor="start" dominantBaseline="middle" transform="rotate(-90)">
-              {formatText(artist)}
-            </text>
-          );
-
-          return <>{noteLowerNode}{artistNode}</>;
-        })()}
+        <SpineContent
+          data={data}
+          theme={theme}
+          height={height}
+          width={wSpine}
+          fontConfig={fontConfig}
+          themeColors={{ titleColor: spineTitleColor, idColor: spineIdColor }}
+          inverted={!!data.layout?.spineInverted} // Pass through from layout state
+        />
       </g>
 
       {/* Front Content */}
@@ -1318,7 +1456,8 @@ export default function App() {
       noteLower: "",  // Cleared defaults
       forceCaps: true,
       minimalSpine: false,
-      mode: 'STANDARD' // 'STANDARD' | 'CLASSICAL' | 'COMPILATION'
+      mode: 'STANDARD', // 'STANDARD' | 'CLASSICAL' | 'COMPILATION'
+      spineInverted: true // Default to New (Top-Down)
     },
     sideA: [
       { title: "Track Name 1", artist: "Artist Name", duration: "3:45", note: "" },
@@ -1499,8 +1638,22 @@ export default function App() {
       };
 
       if (parsed.sideA || parsed.sideB) {
-        updates.sideA = parsed.sideA || [];
-        updates.sideB = parsed.sideB || [];
+        // Map AI keys to Internal Keys for LayoutEngine
+        const mapWorkFields = (tracks) => tracks.map(t => {
+          if (t.work_title) {
+            return {
+              ...t,
+              _workTitle: t.work_title,
+              _workComposer: t.work_composer,
+              // Use title as ID for grouping logic
+              _workId: t.work_title
+            };
+          }
+          return t;
+        });
+
+        updates.sideA = parsed.sideA ? mapWorkFields(parsed.sideA) : [];
+        updates.sideB = parsed.sideB ? mapWorkFields(parsed.sideB) : [];
 
         // Auto-calculate Total Duration for Side A
         if (updates.sideA.length > 0) {
@@ -1742,7 +1895,8 @@ export default function App() {
           noteLower: "",
           forceCaps: true,
           minimalSpine: false,
-          mode: 'STANDARD'
+          mode: 'STANDARD',
+          spineInverted: true
         },
         sideA: [
           { title: "Track Name 1", artist: "Artist Name", duration: "3:45", note: "" },
@@ -2027,14 +2181,18 @@ export default function App() {
                 <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                   <input type="checkbox" checked={data.layout.minimalSpine} onChange={(e) => setData({ ...data, layout: { ...data.layout, minimalSpine: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-white border-gray-300" /> 极简脊部
                 </label>
+                {/* [NEW] Spine Orientation Toggle */}
+                <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                  <input type="checkbox" checked={!!data.layout.spineInverted} onChange={(e) => setData({ ...data, layout: { ...data.layout, spineInverted: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-white border-gray-300" /> 翻转脊部
+                </label>
               </div>
             </section>
 
             {/* Custom Metadata (Technical Specs) */}
             <section className="space-y-4">
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider border-b border-gray-700 pb-2">元数据</h3>
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 pb-2">元数据</h3>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">录音设备 (Recording Equipment)</label>
+                <label className="block text-xs text-gray-400 mb-1">录音设备 (Recording Equipment)</label>
                 <div className="relative">
                   <textarea
                     value={recordingData.equipment || ""}
