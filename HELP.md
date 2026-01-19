@@ -102,6 +102,15 @@ A: 推荐导出 PNG 格式，使用 Adobe Illustrator 或浏览器打开打印�
 ---
 
 ---
+### 版本 v1.3.3 更新说明 (Update Log)
+#### 1. 双拼颠倒模式 (Reversible / Double Album Layout)
+*   **The Equator Split (赤道分割)**: 针对双张专辑 (Double Album) 或拼盘磁带 (Split Tape) 收藏者的终极解决方案。
+    *   **Side A**: 位于 Front 面板上半部，正向显示。
+    *   **Side B**: 位于 Front 面板下半部，**倒置 180 度 (Inverted)** 显示。
+    *   **玩法**: 当你拿起磁带盒，正着看是 Side A，物理旋转 180 度反过来拿，就是 Side B。
+*   **虚空填充 (Void Filler)**: 完美解决了 "正方形封面放入长方形半区" 的留白问题。系统自动提取封面色调进行高斯模糊填充，消除了黑边，带来类似高端黑胶唱片侧封的工业质感。
+*   **交互升级**: 切换到 `双拼颠倒` 模式后，左侧栏会自动出现 **"上传封面 B"** 的入口。
+
 ### 版本 v1.3.2 更新说明 (Update Log)
 #### 1. 脊部方向自由切换 (Spine Orientation Toggle)
 *   **翻转脊部 (Flip Spine)**: 在“布局选项”中新增了 **“翻转脊部”** 勾选框。

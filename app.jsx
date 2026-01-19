@@ -429,15 +429,59 @@ const LayoutEngine = {
 
 // --- Sub Components ---
 
-const ContentFront = ({ xOffset, width, data, theme, coverImage, isLight, textColor, subTextColor, titleLayout, titleStartY, badgeY, artistY, fontConfig }) => {
+const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, frontStyle, isLight, textColor, subTextColor, titleLayout, titleStartY, badgeY, artistY, fontConfig }) => {
 
   // --- UPDATED Badge Rendering Logic ---
   const badgeText = data.coverBadge || "";
-  // Relaxed width: Use ~80% of the front panel width (780px * 0.8 = 624px)
-  // 620px / ~16px per char avg ~= 38 chars wrapping limit
   const badgeLines = TextUtils.getWrappedLines(badgeText, 38);
   const badgeLineHeight = 26;
 
+  // --- REVERSIBLE MODE LOGIC ---
+  if (frontStyle === 'REVERSIBLE') {
+    const midPoint = 1181 / 2;
+    const imgSize = 520;
+    const marginY = (midPoint - imgSize) / 2; // (590 - 520)/2 = 35
+
+    return (
+      <g transform={`translate(${xOffset}, 0)`}>
+        <rect x="0" y="0" width={width} height="1181" fill="url(#grid)" opacity="0.2" />
+
+        {/* Background Blurs (Void Fillers) */}
+        {coverImage && (
+          <image href={coverImage} x="-50%" y="-20%" width="200%" height={midPoint + 200} preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" opacity="0.4" />
+        )}
+        {coverImageB && (
+          <image href={coverImageB} x="-50%" y={midPoint - 100} width="200%" height={midPoint + 200} preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" opacity="0.4" />
+        )}
+
+        {/* Divider Line & Text */}
+        <line x1="80" y1={midPoint} x2={width - 80} y2={midPoint} stroke={textColor} strokeWidth="1" opacity="0.3" />
+        <text x={width / 2} y={midPoint - 8} textAnchor="middle" fontSize="10" fill={textColor} opacity="0.6" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE A ▲</text>
+        <text x={width / 2} y={midPoint + 16} textAnchor="middle" fontSize="10" fill={textColor} opacity="0.6" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE B ▼</text>
+
+        {/* Cover A (Top) */}
+        {coverImage ? (
+          <image href={coverImage} x={(width - imgSize) / 2} y={marginY} width={imgSize} height={imgSize} preserveAspectRatio="xMidYMid meet" />
+        ) : (
+          <path d={`M ${width / 2} ${marginY + 50} Q ${width / 2 - 100} ${marginY + imgSize / 2} ${width / 2} ${marginY + imgSize - 50}`} stroke={theme.accent} strokeWidth="2" fill="none" opacity="0.5" />
+        )}
+
+        {/* Cover B (Bottom - Rotated) */}
+        <g transform={`rotate(180, ${width / 2}, ${midPoint + marginY + imgSize / 2})`}>
+          {coverImageB ? (
+            <image href={coverImageB} x={(width - imgSize) / 2} y={midPoint + marginY} width={imgSize} height={imgSize} preserveAspectRatio="xMidYMid meet" />
+          ) : (
+            <g opacity="0.3">
+              <rect x={(width - imgSize) / 2} y={midPoint + marginY} width={imgSize} height={imgSize} fill="none" stroke={textColor} strokeWidth="2" strokeDasharray="5,5" />
+              <text x={width / 2} y={midPoint + marginY + imgSize / 2} textAnchor="middle" fill={textColor} fontSize="20" dominantBaseline="middle">UPLOAD SIDE B</text>
+            </g>
+          )}
+        </g>
+      </g>
+    );
+  }
+
+  // --- STANDARD MODE LOGIC (Original) ---
   return (
     <g transform={`translate(${xOffset}, 0)`}>
       <rect x="0" y="0" width={width} height="1181" fill="url(#grid)" opacity="0.2" />
@@ -847,7 +891,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
               <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" textAnchor="end">RELEASED</text>
               <text x="0" y="30" fontSize="24" fill={textColor} fontWeight="bold" textAnchor="end">
                 {/* Extract Year Only */}
-                {(data.releaseDate || "2024").split(/[-.]/)[0]}
+                {(data.releaseDate || "").split(/[-.]/)[0]}
               </text>
             </g>
 
@@ -1077,7 +1121,7 @@ const SpineContent = ({
   );
 };
 
-const JCardPreview = ({ data, theme, coverImage, svgRef, recordingData, jCardThemeMode, dominantColor, contrastTextType, fontConfig }) => {
+const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingData, jCardThemeMode, dominantColor, contrastTextType, fontConfig }) => {
   // Default values to handle legacy usage or initial state
   const curThemeMode = jCardThemeMode || 'dark';
   const curDominantColor = dominantColor || '#232629';
@@ -1342,7 +1386,7 @@ const JCardPreview = ({ data, theme, coverImage, svgRef, recordingData, jCardThe
 
       {/* Front Content */}
       <g clipPath="url(#panel-front)">
-        <ContentFront xOffset={xFront} width={wFront} data={data} theme={theme} coverImage={coverImage} isLight={isLight} textColor={textColor} subTextColor={subTextColor} titleLayout={titleLayout} titleStartY={titleStartY} badgeY={badgeY} artistY={artistY} fontConfig={fontConfig} />
+        <ContentFront xOffset={xFront} width={wFront} data={data} theme={theme} coverImage={coverImage} coverImageB={coverImageB} frontStyle={data.layout?.frontStyle || 'STANDARD'} isLight={isLight} textColor={textColor} subTextColor={subTextColor} titleLayout={titleLayout} titleStartY={titleStartY} badgeY={badgeY} artistY={artistY} fontConfig={fontConfig} />
       </g>
 
       {/* Back Content (Tracklist) */}
@@ -1365,8 +1409,10 @@ export default function App() {
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
+  const fileInputRefB = useRef(null); // [NEW] Ref for Cover B input
 
   const [coverImage, setCoverImage] = useState(null);
+  const [coverImageB, setCoverImageB] = useState(null); // [NEW] Side B Cover
 
   // --- Theme System ---
   // modes: 'dark' (default #232629), 'cover' (blurred image), 'color' (dominant color)
@@ -1457,6 +1503,7 @@ export default function App() {
       forceCaps: true,
       minimalSpine: false,
       mode: 'STANDARD', // 'STANDARD' | 'CLASSICAL' | 'COMPILATION'
+      frontStyle: 'STANDARD', // [NEW] 'STANDARD' | 'REVERSIBLE'
       spineInverted: true // Default to New (Top-Down)
     },
     sideA: [
@@ -1793,12 +1840,16 @@ export default function App() {
     } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoadingSlogan(false); }
   };
 
-  const handleFileUpload = (event) => {
+  const handleFileUpload = (event, target = 'A') => {
     const file = event.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setCoverImage(reader.result);
+        if (target === 'B') {
+          setCoverImageB(reader.result);
+        } else {
+          setCoverImage(reader.result);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -1896,6 +1947,7 @@ export default function App() {
           forceCaps: true,
           minimalSpine: false,
           mode: 'STANDARD',
+          frontStyle: 'STANDARD',
           spineInverted: true
         },
         sideA: [
@@ -1916,6 +1968,7 @@ export default function App() {
 
       // 2. Clear Images & Search
       setCoverImage(null);
+      setCoverImageB(null);
       setSearchResults([]);
       setImportText("");
       setImagePrompt("");
@@ -2112,6 +2165,7 @@ export default function App() {
                 data={data}
                 theme={theme}
                 coverImage={coverImage}
+                coverImageB={coverImageB} // [NEW]
                 svgRef={svgRef}
                 jCardThemeMode={jCardThemeMode}
                 dominantColor={dominantColor}
@@ -2172,6 +2226,22 @@ export default function App() {
                       {mode === 'STANDARD' ? '标准' : mode === 'CLASSICAL' ? '古典' : '合辑'}
                     </button>
                   ))}
+                </div>
+                <div className="mt-2">
+                  <label className="block text-xs text-gray-400 mb-1">封面模式 (Front Layout)</label>
+                  <div className="flex gap-2 text-xs">
+                    {['STANDARD', 'REVERSIBLE'].map(style => (
+                      <button
+                        key={style}
+                        onClick={() => setData({ ...data, layout: { ...data.layout, frontStyle: style } })}
+                        className={`flex-1 py-1 rounded border transition-colors ${data.layout.frontStyle === style
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                      >
+                        {style === 'STANDARD' ? '标准单页' : '双拼颠倒 (Reversible)'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="flex gap-4">
@@ -2260,20 +2330,46 @@ export default function App() {
               </div>
 
               {/* Image Upload/Generate */}
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">封面图片</label>
-                <div className="flex gap-2">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                  <button onClick={() => fileInputRef.current?.click()} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"><Upload size={14} /> 上传图片</button>
-                  <button onClick={handleGenerateCover} disabled={loadingImage} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700">{loadingImage ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingImage ? '生成中...' : 'AI 生成'}</button>
-                  {coverImage && (<button onClick={() => setCoverImage(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
+              {/* Image Upload/Generate */}
+              <div className="space-y-3">
+                {/* Cover A */}
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    {data.layout.frontStyle === 'REVERSIBLE' ? '封面 A (上半部 Top / 正向 Upright)' : '封面图片'}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={(e) => handleFileUpload(e, 'A')}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <button onClick={() => fileInputRef.current?.click()} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"><Upload size={14} /> 上传图片</button>
+                    <button onClick={handleGenerateCover} disabled={loadingImage} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700">{loadingImage ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingImage ? '生成中...' : 'AI 生成'}</button>
+                    {coverImage && (<button onClick={() => setCoverImage(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
+                  </div>
                 </div>
+
+                {/* Cover B (Conditional) */}
+                {data.layout.frontStyle === 'REVERSIBLE' && (
+                  <div className="pt-2 border-t border-gray-100">
+                    <label className="block text-xs text-gray-400 mb-1">封面 B (下半部 Bottom / 颠倒 Rotated 180°)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="file"
+                        ref={fileInputRefB}
+                        onChange={(e) => handleFileUpload(e, 'B')}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <button onClick={() => fileInputRefB.current?.click()} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700">
+                        <Upload size={14} /> 上传封面 B
+                      </button>
+                      {coverImageB && (<button onClick={() => setCoverImageB(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
 
