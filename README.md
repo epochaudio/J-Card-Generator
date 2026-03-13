@@ -1,6 +1,6 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
 
-> **v1.3.4 Update**: 这是一次以稳定性、可维护性和交付能力为主的版本升级。当前版本完成了预览组件与弹窗模块拆分、API Key 安全存储迁移、300ms 预览防抖、Side A / Side B 曲目增删、React Error Boundary，以及 macOS / Windows 桌面安装包产出流程整理。
+> **v1.3.5 Update**: 当前版本在 `1.3.4` 的基础上完成了后续修正与重新打包，包含 API Key 迁移逻辑清理、导出前预览同步稳定性改进，以及最新的 macOS / Windows 安装包发布。
 
 > **v1.3.3 Update**: **The Reversible Layout (双拼颠倒双封面)**! 这是一个极具工业感的复古设计方案：Front 面板精确五五分，上半部正向显示 Cover A，下半部倒置 180 度显示 Cover B，专为 "Flip-to-Play" 的实体交互体验设计。同时实现了"虚空填充"逻辑，完美解决正方形封面在长方形区域的宽高比冲突。
 
@@ -144,7 +144,7 @@ npx electron-builder --win nsis
 ```
 
 ### 构建说明
-*   当前版本号为 `1.3.4`，界面底部版本号由 `package.json` 通过 Vite 注入。
+*   当前版本号为 `1.3.5`，界面底部版本号由 `package.json` 通过 Vite 注入。
 *   在 macOS 沙箱或受限环境中，`electron-builder` 直接构建 Windows 包可能因 `wine` 权限受限失败；必要时可追加 `--config.win.signAndEditExecutable=false`。
 *   在某些 arm64 macOS 环境中，`electron-builder` 生成 `.dmg` 可能失败，此时可回退为系统 `hdiutil` 手工封装。
 
@@ -207,5 +207,4 @@ npx electron-builder --win nsis
 
 
 <img width="1965" height="1832" alt="ScreenShot_2025-12-14_203022_939" src="https://github.com/user-attachments/assets/20cb3938-2b6c-4c2b-9dfc-7545f27a3460" />
-
 
