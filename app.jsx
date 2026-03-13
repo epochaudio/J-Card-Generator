@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Settings, Image as ImageIcon, Trash2, Globe, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw, Plus } from 'lucide-react';
 
 import { JCARD_DIMENSIONS, STORAGE_KEYS } from './src/constants/app.js';
@@ -87,20 +88,21 @@ const loadStoredApiKey = async () => {
     const secureValues = await Promise.all(
       secureStorageKeys.map((key) => secureStore.getItem(key))
     );
-    const secureKey = secureValues.find(Boolean) || "";
+    const secureKeyIndex = secureValues.findIndex(Boolean);
+    const secureKey = secureKeyIndex >= 0 ? secureValues[secureKeyIndex] : "";
     const resolvedKey = secureKey || localKey;
 
     if (!secureKey && localKey) {
       await secureStore.setItem(STORAGE_KEYS.dashscopeApiKey, localKey);
     }
 
-    if (secureKey) {
+    if (secureKey && secureKeyIndex > 0) {
+      await secureStore.setItem(STORAGE_KEYS.dashscopeApiKey, secureKey);
       await Promise.all(
         secureStorageKeys
           .filter((key) => key !== STORAGE_KEYS.dashscopeApiKey)
           .map((key) => secureStore.removeItem(key))
       );
-      await secureStore.setItem(STORAGE_KEYS.dashscopeApiKey, secureKey);
     }
 
     localStorageKeys.forEach((key) => localStorage.removeItem(key));
@@ -211,13 +213,6 @@ export default function App() {
       setContrastTextType('light');
     }
   }, [coverImage]);
-
-  // Theme Toggle Handler
-  const toggleTheme = () => {
-    const modes = ['dark', 'light', 'cover', 'color'];
-    const nextIndex = (modes.indexOf(jCardThemeMode) + 1) % modes.length;
-    setJCardThemeMode(modes[nextIndex]);
-  };
 
   const [imagePrompt, setImagePrompt] = useState("");
   const [searchQuery, setSearchQuery] = useState({ album: '', artist: '' });
@@ -332,8 +327,10 @@ export default function App() {
   });
 
   const syncPreviewNow = async () => {
-    setPreviewData(data);
-    setPreviewRecordingData(recordingData);
+    flushSync(() => {
+      setPreviewData(data);
+      setPreviewRecordingData(recordingData);
+    });
     await waitForPreviewPaint();
   };
 
@@ -395,12 +392,6 @@ export default function App() {
         _workComposer: t._workComposer
       }));
 
-      // Helper to sum durations from "MM:SS" strings
-      const sumDur = (tracks) => {
-        const ms = tracks.reduce((acc, t) => acc + parseDurationToMs(t.duration), 0);
-        return MusicBrainzService.formatDuration(ms); // returns MIN:SEC
-      };
-
       // Calculate Sides with updated logic
       const half = Math.ceil(rawTracks.length / 2);
       const sideA = rawTracks.slice(0, half);
@@ -414,8 +405,8 @@ export default function App() {
         coverBadge: "",
         sideA: sideA,
         sideB: sideB,
-        sideADuration: sumDur(sideA),
-        sideBDuration: sumDur(sideB),
+        sideADuration: calculateTotalDuration(sideA),
+        sideBDuration: calculateTotalDuration(sideB),
         layout: {
           ...data.layout,
           mode: LayoutEngine.detectMode(releaseData, rawTracks),
