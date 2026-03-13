@@ -1,4 +1,6 @@
 
+import { urlToBase64 } from '../utils/imageUtils.js';
+
 // --- DashScope Service (Alibaba Cloud) ---
 
 const DashScopeService = {
@@ -114,7 +116,7 @@ const DashScopeService = {
                     const imageUrl = data.output?.results?.[0]?.url;
                     if (!imageUrl) throw new Error("Task Succeeded but no URL found");
                     // Convert to Base64 to avoid CORS/Hotlink issues in canvas
-                    return await DashScopeService.urlToBase64(imageUrl);
+                    return await urlToBase64(imageUrl);
                 } else if (status === "FAILED" || status === "CANCELED" || status === "UNKNOWN") {
                     throw new Error(`Wanx Task Failed: ${data.output?.message || status}`);
                 }
@@ -126,25 +128,6 @@ const DashScopeService = {
         }
 
         throw new Error("Wanx Timeout: Image generation took too long");
-    },
-
-    urlToBase64: async (url) => {
-        try {
-            // Use a CORS proxy if needed, but for now try direct.
-            // DashScope OSS URLs usually allow Get, but might restrict CORS?
-            // Let's try fetching.
-            const response = await fetch(url);
-            const blob = await response.blob();
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-        } catch (e) {
-            console.warn("Failed to convert DashScope URL to Base64, returning raw URL", e);
-            return url;
-        }
     },
 
     // Wrapper for App Specific Logic

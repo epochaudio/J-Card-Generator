@@ -1,1412 +1,161 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Search, X, Settings, Key, Image as ImageIcon, Trash2, Database, Globe, Loader2, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Settings, Image as ImageIcon, Trash2, Globe, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw, Plus } from 'lucide-react';
 
+import { JCARD_DIMENSIONS, STORAGE_KEYS } from './src/constants/app.js';
+import ImportModal from './src/components/ImportModal.jsx';
+import JCardPreview from './src/components/JCardPreview.jsx';
+import SearchModal from './src/components/SearchModal.jsx';
+import SettingsModal from './src/components/SettingsModal.jsx';
+import ColorExtractor from './src/services/ColorExtractor.js';
 import DashScopeService from './src/services/DashScopeService.js';
 import ExportService from './src/services/ExportService.js';
+import MusicBrainzService from './src/services/MusicBrainzService.js';
 import { getFontConfig, FONT_THEMES } from './src/config/fonts.js';
+import { parseDurationToMs } from './src/utils/formatDuration.js';
+import { urlToBase64 } from './src/utils/imageUtils.js';
+import LayoutEngine from './src/utils/LayoutEngine.js';
 
-// --- Color Extraction Service ---
-const ColorExtractor = {
-  extractColor(imageSrc) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = imageSrc;
-
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = 50;
-        canvas.height = 50;
-        ctx.drawImage(img, 0, 0, 50, 50);
-
-        try {
-          const data = ctx.getImageData(0, 0, 50, 50).data;
-          let r = 0, g = 0, b = 0, count = 0;
-          let maxSaturation = -1;
-          let bestColor = { r: 0, g: 0, b: 0 };
-
-          for (let i = 0; i < data.length; i += 16) {
-            const tr = data[i], tg = data[i + 1], tb = data[i + 2];
-            const max = Math.max(tr, tg, tb), min = Math.min(tr, tg, tb);
-            const l = (max + min) / 2 / 255;
-            const d = (max - min) / 255;
-            let s = 0;
-            if (max !== min) s = l > 0.5 ? d / (2 - 2 * l) : d / (2 * l);
-
-            if (l > 0.15 && l < 0.85 && s > 0.2) {
-              if (s > maxSaturation) {
-                maxSaturation = s;
-                bestColor = { r: tr, g: tg, b: tb };
-              }
-              r += tr; g += tg; b += tb; count++;
-            }
-          }
-
-          if (maxSaturation > 0.3) resolve(rgbToHex(bestColor.r, bestColor.g, bestColor.b));
-          else if (count > 0) resolve(rgbToHex(Math.round(r / count), Math.round(g / count), Math.round(b / count)));
-          else resolve("#cc3300");
-        } catch (e) {
-          resolve(null);
-        }
-      };
-      img.onerror = () => resolve(null);
-    });
+const createDefaultData = () => ({
+  title: "ALBUM TITLE",
+  artist: "ARTIST NAME",
+  tapeId: "",
+  tapeSubtitle: "STEREO",
+  releaseDate: "",
+  coverBadge: "",
+  sideADuration: "20:00",
+  sideBDuration: "20:00",
+  layout: {
+    noteUpper: "",
+    noteLower: "",
+    forceCaps: true,
+    minimalSpine: false,
+    mode: 'STANDARD',
+    frontStyle: 'STANDARD',
+    spineInverted: true
   },
-  getContrastYIQ(hexcolor) {
-    if (!hexcolor) return 'light';
-    hexcolor = hexcolor.replace("#", "");
-    var r = parseInt(hexcolor.substr(0, 2), 16);
-    var g = parseInt(hexcolor.substr(2, 2), 16);
-    var b = parseInt(hexcolor.substr(4, 2), 16);
-    var yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-    return (yiq >= 128) ? 'dark' : 'light';
-  }
+  sideA: [
+    { title: "Track Name 1", artist: "Artist Name", duration: "3:45", note: "" },
+    { title: "Track Name 2", artist: "Artist Name", duration: "4:20", note: "" },
+    { title: "Track Name 3", artist: "Artist Name", duration: "3:15", note: "" },
+    { title: "Track Name 4", artist: "Artist Name", duration: "5:10", note: "" },
+    { title: "Track Name 5", artist: "Artist Name", duration: "4:05", note: "" }
+  ],
+  sideB: [
+    { title: "Track Name 6", artist: "Artist Name", duration: "3:50", note: "" },
+    { title: "Track Name 7", artist: "Artist Name", duration: "4:15", note: "" },
+    { title: "Track Name 8", artist: "Artist Name", duration: "3:30", note: "" },
+    { title: "Track Name 9", artist: "Artist Name", duration: "4:45", note: "" },
+    { title: "Track Name 10", artist: "Artist Name", duration: "3:55", note: "" }
+  ]
+});
+
+const createDefaultRecordingData = () => ({
+  equipment: "",
+  mode: "AAA",
+  labelOverride: "",
+  source: "",
+  recDate: ""
+});
+
+const createEmptyTrack = (trackNumber = 1, artist = "Artist Name") => ({
+  title: `Track Name ${trackNumber}`,
+  artist,
+  duration: "0:00",
+  note: ""
+});
+
+const getElectronSecureStore = () => {
+  if (typeof window === 'undefined') return null;
+  return window.electronAPI?.secureStore || null;
 };
 
-function rgbToHex(r, g, b) {
-  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-}
+const loadStoredApiKey = async () => {
+  const secureStore = getElectronSecureStore();
+  const localStorageKeys = [
+    STORAGE_KEYS.dashscopeApiKey,
+    STORAGE_KEYS.legacyDashscopeApiKey,
+    STORAGE_KEYS.legacyGeminiApiKey
+  ];
+  const localKey = localStorageKeys.map((key) => localStorage.getItem(key)).find(Boolean) || "";
 
-// REMOVE duplicate standalone getContrastYIQ if exists
-// (It was added in previous step but we are moving it inside ColorExtractor now)
-
-// --- Text Utils (Shared) ---
-const TextUtils = {
-  getCharWeight: (char) => {
-    if (/[\u4e00-\u9fa5\u3000-\u30ff\uff00-\uff60]/.test(char)) return 1.8;
-    if (/[A-Z]/.test(char)) return 1.1;
-    return 0.7;
-  },
-  getWrappedLines: (text, maxWidthUnits) => {
-    if (!text) return [""];
-    const lines = [];
-    let currentLine = "";
-    let currentWidth = 0;
-    // Keep explicit newlines
-    const paragraphs = text.split('\n');
-
-    paragraphs.forEach(paragraph => {
-      const words = paragraph.split(' ');
-      for (let i = 0; i < words.length; i++) {
-        const word = words[i];
-        let wordWidth = 0;
-        for (const char of word) wordWidth += TextUtils.getCharWeight(char);
-
-        const spaceWidth = (currentLine.length > 0) ? 0.5 : 0;
-
-        if (currentWidth + spaceWidth + wordWidth <= maxWidthUnits) {
-          currentLine += (currentLine.length > 0 ? " " : "") + word;
-          currentWidth += spaceWidth + wordWidth;
-        } else {
-          if (wordWidth > maxWidthUnits) {
-            if (currentLine.length > 0) { lines.push(currentLine); currentLine = ""; currentWidth = 0; }
-            let remaining = word;
-            while (remaining.length > 0) {
-              let chunk = ""; let chunkWidth = 0; let k = 0;
-              for (; k < remaining.length; k++) {
-                const cw = TextUtils.getCharWeight(remaining[k]);
-                if (chunkWidth + cw > maxWidthUnits) break;
-                chunkWidth += cw; chunk += remaining[k];
-              }
-              if (chunk.length === 0 && k === 0) { chunk = remaining[0]; k = 1; }
-              lines.push(chunk); remaining = remaining.slice(k);
-            }
-          } else {
-            lines.push(currentLine); currentLine = word; currentWidth = wordWidth;
-          }
-        }
-      }
-      if (currentLine) { lines.push(currentLine); currentLine = ""; currentWidth = 0; }
-    });
-    return lines.length > 0 ? lines : [""];
-  }
-};
-
-// --- Image Utils ---
-const urlToBase64 = async (url) => {
-  if (!url) return null;
-  if (url.startsWith('data:')) return url;
-
-  try {
-    const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
-    if (!response.ok) throw new Error('Network response was not ok');
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (e) {
-    console.warn("Image to Base64 failed, using raw URL.", e);
-    return url;
-  }
-};
-
-// --- MusicBrainz Service ---
-const MusicBrainzService = {
-  userAgent: "JCardGenesis/2.0 ( contact@example.com )",
-
-  searchReleaseGroup: async (album, artist) => {
-    const cleanAlbum = album.trim();
-    const cleanArtist = artist.trim();
-
-    if (!cleanAlbum && !cleanArtist) return [];
-
-    let queryParts = ["primarytype:Album"];
-
-    if (cleanAlbum) {
-      const safeAlbum = cleanAlbum.replace(/[:"()]/g, " ");
-      queryParts.push(`release:(${safeAlbum})`);
-    }
-
-    if (cleanArtist) {
-      const safeArtist = cleanArtist.replace(/[:"()]/g, " ");
-      queryParts.push(`artist:(${safeArtist})`);
-    }
-
-    const query = queryParts.join(" AND ");
-    const url = `https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(query)}&fmt=json`;
-
-    const res = await fetch(url, { headers: { 'User-Agent': MusicBrainzService.userAgent } });
-    if (!res.ok) throw new Error("MusicBrainz Search Failed");
-    const data = await res.json();
-    return data['release-groups'] || [];
-  },
-
-  getBestReleaseId: async (rgId) => {
-    const url = `https://musicbrainz.org/ws/2/release?release-group=${rgId}&fmt=json&limit=100`;
-    const res = await fetch(url, { headers: { 'User-Agent': MusicBrainzService.userAgent } });
-    const data = await res.json();
-    const releases = data.releases || [];
-    const scored = releases.map(r => {
-      let score = 0;
-      if (r.status === 'Official') score += 10;
-      if (['JP', 'US', 'GB'].includes(r.country)) score += 5;
-      if (r.date) score += 1;
-      return { ...r, score };
-    });
-    scored.sort((a, b) => b.score - a.score);
-    return scored[0]?.id;
-  },
-
-  getReleaseDetails: async (releaseId) => {
-    // UPDATED: Added recording-level-rels, work-level-rels, artist-rels
-    const url = `https://musicbrainz.org/ws/2/release/${releaseId}?inc=recordings+artist-credits+labels+recording-level-rels+work-level-rels+artist-rels&fmt=json`;
-    const res = await fetch(url, { headers: { 'User-Agent': MusicBrainzService.userAgent } });
-    const data = await res.json();
-
-    // Parse Advanced Credits
-    data.credits = MusicBrainzService.parseCredits(data);
-    // Parse Classical Works
-    data.works = MusicBrainzService.parseWorks(data);
-
-    return data;
-  },
-
-  parseCredits: (data) => {
-    const credits = { producers: [], engineers: [], performers: [] };
-    const add = (arr, name) => { if (!arr.includes(name)) arr.push(name); };
-
-    // 1. Release Level
-    if (data.relations) {
-      data.relations.forEach(r => {
-        const name = r.artist?.name;
-        if (!name) return;
-        if (r.type === 'producer') add(credits.producers, name);
-        if (['mix', 'engineer', 'mastering'].some(k => r.type.includes(k))) add(credits.engineers, name);
-      });
-    }
-
-    // 2. Track Level (Sample all tracks for comprehensive credits)
-    if (data.media) {
-      data.media.forEach(m => {
-        m.tracks?.forEach(t => {
-          t.recording?.relations?.forEach(r => {
-            const name = r.artist?.name;
-            if (!name) return;
-            if (r.type === 'producer') add(credits.producers, name);
-            // Relaxed filter for engineering to catch more roles
-            if (['mix', 'engineer', 'recording'].some(k => r.type.includes(k))) add(credits.engineers, name);
-            // Limit performers to avoid clutter? No, let's grab them and filter in UI if needed.
-            // But 'conductor' is important for Tech Specs in Classical.
-            if (['conductor'].some(k => r.type.includes(k))) add(credits.performers, `${name} (Conductor)`);
-          });
-        });
-      });
-    }
-    // Limit arrays to top 3 to avoid overflow in UI? Let's keep data raw, limit in UI.
-    return credits;
-  },
-
-  parseWorks: (data) => {
-    // Map: WorkID -> { title, composer, tracks: [TrackID...] }
-    const workMap = {};
-    if (!data.media) return null;
-
-    data.media.forEach(m => {
-      m.tracks?.forEach(t => {
-        // Find Work Relation
-        const workRel = t.recording?.relations?.find(r => r['target-type'] === 'work');
-        if (workRel && workRel.work) {
-          const w = workRel.work;
-          if (!workMap[w.id]) {
-            const composerRel = w.relations?.find(r => r.type === 'composer');
-            workMap[w.id] = {
-              id: w.id,
-              title: w.title,
-              composer: composerRel?.artist?.name,
-              tracks: []
-            };
-          }
-          workMap[w.id].tracks.push(t.id);
-          // Store reference on track object for easy access later in LayoutEngine
-          t._workId = w.id;
-          t._workTitle = w.title;
-          t._workComposer = composerRel?.artist?.name;
-        }
-      });
-    });
-
-    // Convert map to array
-    const works = Object.values(workMap);
-    return works.length > 0 ? works : null;
-  },
-
-  getCoverArt: async (rgId) => {
-    try {
-      const url = `https://coverartarchive.org/release-group/${rgId}`;
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      const data = await res.json();
-      const front = data.images.find(img => img.front);
-      if (!front) return null;
-      return front.thumbnails['1200'] || front.image;
-    } catch (e) { return null; }
-  },
-
-  formatDuration: (ms) => {
-    if (!ms) return "0:00";
-    const minutes = Math.floor(ms / 60000);
-    const seconds = ((ms % 60000) / 1000).toFixed(0);
-    return `${minutes}:${seconds.padStart(2, '0')}`;
-  }
-};
-
-// --- Layout Engine (Hierarchy Logic) ---
-const LayoutEngine = {
-  detectMode: (releaseData, tracks) => {
-    // 1. API Derived Mode (Highest Priority)
-    if (releaseData.works && releaseData.works.length > 0) return 'CLASSICAL';
-
-    const primaryType = releaseData['release-group']?.['primary-type'];
-    const secondaryTypes = releaseData['release-group']?.['secondary-types'] || [];
-    const albumArtist = releaseData['artist-credit']?.[0]?.name;
-
-    if (albumArtist === 'Various Artists' || secondaryTypes.includes('Compilation')) {
-      return 'COMPILATION';
-    }
-
-    let classicalScore = 0;
-    const classicalKeywords = [/Op\./, /No\./, /Major/, /Minor/, /Sonata/, /Concerto/, /Symphony/, /BWV/, /HWV/, /KV/];
-    const trackTitles = tracks.map(t => t.title);
-    trackTitles.forEach(title => {
-      if (classicalKeywords.some(regex => regex.test(title))) {
-        classicalScore += 1;
-      }
-    });
-
-    let groupingCount = 0;
-    for (let i = 0; i < trackTitles.length - 1; i++) {
-      const prefix = LayoutEngine.getCommonPrefix(trackTitles[i], trackTitles[i + 1]);
-      if (prefix.length > 15) {
-        groupingCount++;
-        i++;
-      }
-    }
-
-    if ((classicalScore / tracks.length > 0.3) || groupingCount >= 2) {
-      return 'CLASSICAL';
-    }
-    return 'STANDARD';
-  },
-
-  getCommonPrefix: (s1, s2) => {
-    if (!s1 || !s2) return "";
-    let i = 0;
-    while (i < s1.length && i < s2.length && s1[i] === s2[i]) i++;
-    return s1.substring(0, i);
-  },
-
-  // 核心重构：返回嵌套结构而不是扁平结构
-  groupTracksNested: (tracks) => {
-    // Strategy A: Work ID Based Grouping (New MusicBrainz Logic)
-    const hasWorkData = tracks.some(t => t._workId);
-    if (hasWorkData) {
-      const result = [];
-      let i = 0;
-      while (i < tracks.length) {
-        const current = tracks[i];
-        if (current._workId) {
-          // Find all consecutive tracks with same workId
-          let j = i + 1;
-          while (j < tracks.length && tracks[j]._workId === current._workId) {
-            j++;
-          }
-          // Prepend Composer to Title if available for professional look
-          const groupTitle = current._workComposer
-            ? `${current._workComposer}: ${current._workTitle}`
-            : current._workTitle;
-
-          const subTracks = tracks.slice(i, j).map(t => {
-            // Clean title: remove work title prefix + separators
-            let suffix = t.title.replace(groupTitle, '').trim();
-            suffix = suffix.replace(/^[:\-,\s]+/, '').replace(/^I+\.\s+/, ''); // Remove Roman numerals too? No, keep logic simple first.
-            // Usually "IV. Presto" -> suffix "IV. Presto"
-            // MB often gives full title "Symphony 5: I. Allegro".
-            // If we remove "Symphony 5", we get ": I. Allegro" -> "I. Allegro".
-            if (!suffix) suffix = t.title;
-            return { ...t, displayTitle: suffix };
-          });
-          result.push({ type: 'group', title: groupTitle, tracks: subTracks });
-          i = j;
-        } else {
-          result.push({ type: 'track', ...current, displayTitle: current.title });
-          i++;
-        }
-      }
-      return result;
-    }
-
-    // Strategy B: Legacy Prefix Matching (Fallback)
-    const result = [];
-    let i = 0;
-    while (i < tracks.length) {
-      const current = tracks[i];
-      let j = i + 1;
-      let bestPrefix = "";
-      let matchCount = 0;
-
-      if (j < tracks.length) {
-        const prefix = LayoutEngine.getCommonPrefix(current.title, tracks[j].title);
-        const cleanPrefixMatch = prefix.match(/^(.*)[:\-]\s/);
-
-        if (prefix.length > 15 && cleanPrefixMatch) {
-          bestPrefix = cleanPrefixMatch[1];
-          matchCount = 1;
-          while (j < tracks.length) {
-            if (tracks[j].title.startsWith(bestPrefix)) {
-              matchCount++;
-              j++;
-            } else {
-              break;
-            }
-          }
-        }
-      }
-
-      if (matchCount > 0) {
-        // 创建一个分组节点
-        const groupTitle = bestPrefix.trim().replace(/[:\-]$/, '');
-        const subTracks = [];
-        for (let k = i; k < j; k++) {
-          const t = tracks[k];
-          let suffix = t.title.replace(bestPrefix, '').trim();
-          suffix = suffix.replace(/^[:\-]\s+/, '').replace(/^\.\s+/, '');
-          subTracks.push({ ...t, displayTitle: suffix });
-        }
-        result.push({ type: 'group', title: groupTitle, tracks: subTracks });
-        i = j;
-      } else {
-        result.push({ type: 'track', ...current, displayTitle: current.title });
-        i++;
-      }
-    }
-    return result;
-  }
-};
-
-// --- Sub Components ---
-
-const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, frontStyle, isLight, textColor, subTextColor, titleLayout, titleStartY, badgeY, artistY, fontConfig }) => {
-
-  // --- UPDATED Badge Rendering Logic ---
-  const badgeText = data.coverBadge || "";
-  const badgeLines = TextUtils.getWrappedLines(badgeText, 38);
-  const badgeLineHeight = 26;
-
-  // --- REVERSIBLE MODE LOGIC ---
-  if (frontStyle === 'REVERSIBLE') {
-    const midPoint = 1181 / 2;
-    const imgSize = 520;
-    const marginY = (midPoint - imgSize) / 2; // (590 - 520)/2 = 35
-
-    return (
-      <g transform={`translate(${xOffset}, 0)`}>
-        <rect x="0" y="0" width={width} height="1181" fill="url(#grid)" opacity="0.2" />
-
-        {/* Background Blurs (Void Fillers) */}
-        {coverImage && (
-          <image href={coverImage} x="-50%" y="-20%" width="200%" height={midPoint + 200} preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" opacity="0.4" />
-        )}
-        {coverImageB && (
-          <image href={coverImageB} x="-50%" y={midPoint - 100} width="200%" height={midPoint + 200} preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" opacity="0.4" />
-        )}
-
-        {/* Divider Line & Text */}
-        <line x1="80" y1={midPoint} x2={width - 80} y2={midPoint} stroke={textColor} strokeWidth="1" opacity="0.3" />
-        <text x={width / 2} y={midPoint - 8} textAnchor="middle" fontSize="10" fill={textColor} opacity="0.6" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE A ▲</text>
-        <text x={width / 2} y={midPoint + 16} textAnchor="middle" fontSize="10" fill={textColor} opacity="0.6" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE B ▼</text>
-
-        {/* Cover A (Top) */}
-        {coverImage ? (
-          <image href={coverImage} x={(width - imgSize) / 2} y={marginY} width={imgSize} height={imgSize} preserveAspectRatio="xMidYMid meet" />
-        ) : (
-          <path d={`M ${width / 2} ${marginY + 50} Q ${width / 2 - 100} ${marginY + imgSize / 2} ${width / 2} ${marginY + imgSize - 50}`} stroke={theme.accent} strokeWidth="2" fill="none" opacity="0.5" />
-        )}
-
-        {/* Cover B (Bottom - Rotated) */}
-        <g transform={`rotate(180, ${width / 2}, ${midPoint + marginY + imgSize / 2})`}>
-          {coverImageB ? (
-            <image href={coverImageB} x={(width - imgSize) / 2} y={midPoint + marginY} width={imgSize} height={imgSize} preserveAspectRatio="xMidYMid meet" />
-          ) : (
-            <g opacity="0.3">
-              <rect x={(width - imgSize) / 2} y={midPoint + marginY} width={imgSize} height={imgSize} fill="none" stroke={textColor} strokeWidth="2" strokeDasharray="5,5" />
-              <text x={width / 2} y={midPoint + marginY + imgSize / 2} textAnchor="middle" fill={textColor} fontSize="20" dominantBaseline="middle">UPLOAD SIDE B</text>
-            </g>
-          )}
-        </g>
-      </g>
+  if (secureStore) {
+    const secureStorageKeys = [
+      STORAGE_KEYS.dashscopeApiKey,
+      STORAGE_KEYS.legacyDashscopeApiKey,
+      STORAGE_KEYS.legacyGeminiApiKey
+    ];
+    const secureValues = await Promise.all(
+      secureStorageKeys.map((key) => secureStore.getItem(key))
     );
-  }
+    const secureKey = secureValues.find(Boolean) || "";
+    const resolvedKey = secureKey || localKey;
 
-  // --- STANDARD MODE LOGIC (Original) ---
-  return (
-    <g transform={`translate(${xOffset}, 0)`}>
-      <rect x="0" y="0" width={width} height="1181" fill="url(#grid)" opacity="0.2" />
-      {coverImage ? (
-        <>
-          <svg x="0" y="0" width={width} height={width} viewBox="0 0 1200 1200" preserveAspectRatio="xMidYMid slice">
-            {/* Layer 1: Blurred Background (Bleed Protection) - Fills the gaps */}
-            <image href={coverImage} width="1200" height="1200" preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" transform="scale(1.1)" transform-origin="center" />
-            {/* Layer 2: Main Image (No Crop) - Fits entirely within the box */}
-            {/* Modified: Scale set to 1 to remove artificial gaps and maximize fill (was 0.96) */}
-            <image href={coverImage} width="1200" height="1200" preserveAspectRatio="xMidYMid meet" transform="scale(1)" transform-origin="center" />
-          </svg>
-
-        </>
-      ) : (
-        <path d={`M ${width / 2 - 200} 400 Q ${width / 2} 100 ${width / 2 + 200} 400`} stroke={theme.accent} strokeWidth="4" fill="none" opacity="0.8" />
-      )}
-      <g transform={`translate(${width / 2 - 750}, 0)`}>
-        {titleLayout.lines.map((line, index) => (
-          <text key={index} x="750" y={titleStartY + (index * titleLayout.lineHeight)} fontFamily={fontConfig?.fonts?.title || "Arial Black, sans-serif"} fontSize={titleLayout.fontSize} fill={textColor} textAnchor="middle" letterSpacing="-1" style={{ textShadow: isLight ? "none" : "0 4px 12px rgba(0,0,0,0.5)" }}>
-            {line}
-          </text>
-        ))}
-
-        {/* --- New Integrated Blurb/Badge (No Box, Relaxed Width) --- */}
-        {badgeText && (
-          <g>
-            {/* Render Lines Directly without Rect Background */}
-            {badgeLines.map((line, i) => (
-              <text
-                key={i}
-                x="750"
-                y={badgeY + (i * badgeLineHeight)}
-                fontFamily={fontConfig?.fonts?.serif || "Georgia, serif"}
-                fontStyle="italic"
-                fontWeight="bold"
-                fontSize="20"
-                fill={textColor}
-                textAnchor="middle"
-                letterSpacing="0.5"
-                style={{
-                  textShadow: isLight ? "0 0 10px rgba(255,255,255,0.8)" : "0 0 10px rgba(0,0,0,0.8)",
-                  opacity: 0.9
-                }}
-              >
-                {line}
-              </text>
-            ))}
-          </g>
-        )}
-
-        <text x="750" y={artistY} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontSize="24" fill={subTextColor} textAnchor="middle" style={{ textShadow: isLight ? "none" : "0 2px 4px rgba(0,0,0,0.8)" }}>
-          {data.artist}{theme.mood_description ? ` · ${theme.mood_description}` : ""}
-        </text>
-      </g>
-    </g>
-  )
-}
-
-const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTextColor, dimTextColor, recordingData, fontConfig }) => {
-  // 动态布局引擎配置
-  const contentHeight = 1181; // Adjusted for Canon 4x6 height (100mm)
-  const marginY = isCompact ? 60 : 80;
-  const footerHeight = isCompact ? 40 : 60;
-  const headerHeight = isCompact ? 25 : 50;
-  const gapBetweenSides = isCompact ? 20 : 60;
-  const verticalPadding = isCompact ? 40 : 40;
-
-  // Early definition of critical height values to avoid TDZ
-  const staticHeight = marginY + headerHeight + gapBetweenSides + headerHeight + footerHeight;
-  const availableForTracks = contentHeight - staticHeight;
-
-  const hasNoteUpper = !!data.layout?.noteUpper;
-  const hasNoteLower = !!data.layout?.noteLower;
-
-  // 数据预处理：获取嵌套分组
-  const isClassical = data.layout.mode === 'CLASSICAL';
-
-  // 决定排版策略 (Render Strategy)
-  let renderStrategy = 'STANDARD';
-  if (isClassical) {
-    if (isCompact) {
-      renderStrategy = 'WORK_ONLY';
-    } else {
-      renderStrategy = 'INLINE_COMPACT';
+    if (!secureKey && localKey) {
+      await secureStore.setItem(STORAGE_KEYS.dashscopeApiKey, localKey);
     }
+
+    if (secureKey) {
+      await Promise.all(
+        secureStorageKeys
+          .filter((key) => key !== STORAGE_KEYS.dashscopeApiKey)
+          .map((key) => secureStore.removeItem(key))
+      );
+      await secureStore.setItem(STORAGE_KEYS.dashscopeApiKey, secureKey);
+    }
+
+    localStorageKeys.forEach((key) => localStorage.removeItem(key));
+
+    return resolvedKey;
   }
 
-  const groupsA = isClassical ? LayoutEngine.groupTracksNested(data.sideA) : data.sideA.map(t => ({ type: 'track', ...t, displayTitle: t.title }));
-  const groupsB = isClassical ? LayoutEngine.groupTracksNested(data.sideB) : data.sideB.map(t => ({ type: 'track', ...t, displayTitle: t.title }));
-
-  // --- 核心修复：预计算逻辑 (解决 ReferenceError) ---
-  // 1. 粗略估算行数，用于决定是否显示 Note
-  const countRoughLines = (groups) => groups.reduce((acc, item) => {
-    if (item.type === 'group') return acc + 1 + item.tracks.length;
-    return acc + 1;
-  }, 0);
-
-  const roughTotalLines = countRoughLines(groupsA) + countRoughLines(groupsB);
-  const roughLH = roughTotalLines > 0 ? availableForTracks / roughTotalLines : 50;
-  const showNotesGlobal = !isCompact && roughLH > 45; // 使用粗略估算来决定开关
-
-  // --- DYNAMIC FONT & WRAP CALCULATION ---
-  // Font constants moved up for early calculation
-  const fontRatio = 0.55;
-  const maxFont = isCompact ? 15 : 25;
-  const minFont = isCompact ? 8 : 12;
-
-  // Estimate final font size to determine safe wrapping width
-  let estFontSize = Math.floor(roughLH * fontRatio);
-  estFontSize = Math.min(Math.max(estFontSize, minFont), maxFont);
-
-  // Dynamic Wrap Limits:
-  // Usable width = PanelWidth - 80px (Vertical Padding 40px * 2)
-  // Text Width Constant = 0.7 (More conservative for Bold/Wide fonts)
-  const usableWidth = width - 80;
-  const safeTextWidthConst = 0.7;
-
-  // Ensure minimum wrap limit of 10 chars to prevent infinite wrapping loops on tiny allocs
-  const dynamicWrapLimit = Math.max(10, Math.floor(usableWidth / (estFontSize * safeTextWidthConst)));
-
-  // Reduce header wrap limit by 10% because headers are Bold and larger than estFontSize
-  const wrapCharsHeader = Math.floor(dynamicWrapLimit * 0.9);
-  const wrapCharsContent = Math.floor(dynamicWrapLimit * 1.5);
-
-  const calculateRealVisualLines = (groups) => {
-    return groups.reduce((acc, item) => {
-      if (item.type === 'group') {
-        const headerLinesCount = TextUtils.getWrappedLines(item.title, wrapCharsHeader).length;
-        let groupHeight = headerLinesCount * 0.9;
-
-        if (renderStrategy === 'INLINE_COMPACT') {
-          const joinedText = item.tracks.map((t, tidx) => {
-            const roman = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"][tidx] || (tidx + 1);
-            let cleanTitle = t.displayTitle.replace(/^[IVX]+\.\s*/, '');
-            return `${roman}. ${cleanTitle}`;
-          }).join(" / ");
-
-          const contentLinesCount = TextUtils.getWrappedLines(joinedText, wrapCharsContent).length;
-          groupHeight += contentLinesCount * 0.85 + 0.3;
-        } else if (renderStrategy === 'WORK_ONLY') {
-          groupHeight += 0.2;
-        } else {
-          groupHeight += item.tracks.length;
-        }
-        return acc + groupHeight;
-      } else {
-        // 普通单轨也计算换行
-        const lines = TextUtils.getWrappedLines(item.displayTitle, wrapCharsHeader).length;
-
-        // Note 也占空间 - 使用 showNotesGlobal 来判断
-        let noteHeight = 0;
-        if (showNotesGlobal && item.note) {
-          const noteLines = TextUtils.getWrappedLines(item.note, wrapCharsContent).length;
-          noteHeight = Math.min(noteLines, 2) * 0.6; // Note 较小
-        }
-
-        return acc + 1 + (lines - 1) * 0.85 + noteHeight;
-      }
-    }, 0);
-  };
-
-  const visualLinesA = calculateRealVisualLines(groupsA);
-  const visualLinesB = calculateRealVisualLines(groupsB);
-  const totalVisualItems = visualLinesA + visualLinesB;
-
-  // --- UPDATED: Significantly relaxed constraints for larger fonts ---
-  const maxLH = isCompact ? 50 : 110;
-  const minLH = isCompact ? 16 : 30;
-
-  let calculatedLH = totalVisualItems > 0 ? availableForTracks / totalVisualItems : maxLH;
-  calculatedLH = Math.min(Math.max(calculatedLH, minLH), maxLH);
-
-  // Recalculate Final Font Size based on ACTUAL wrapped lines
-  let fontSize = Math.floor(calculatedLH * fontRatio);
-  fontSize = Math.min(Math.max(fontSize, minFont), maxFont);
-
-  const trackFontSize = fontSize;
-  const groupHeaderFontSize = Math.min(trackFontSize + 2, maxFont + 2);
-  const noteFontSize = Math.max(fontSize * 0.6, 8);
-
-  const yHeaderA = marginY;
-  const yListA = yHeaderA + headerHeight;
-  // 使用精确计算后的行数来推算 B 面的起始位置
-  const heightA = visualLinesA * calculatedLH;
-  const yDivider = yListA + heightA + (gapBetweenSides / 2);
-  // 增加一点缓冲，防止 A 面末尾如果有个大的 g 字母下沉导致重叠
-  const yHeaderB = yDivider + (gapBetweenSides / 2);
-  const yListB = yHeaderB + headerHeight;
-
-  const noteLowerLen = (data.layout.noteLower || "").length;
-  const noteLowerHeight = noteLowerLen * 10 + 20;
-  const titleStartYAnchor = hasNoteLower ? (contentHeight - 100 - noteLowerHeight - 30) : (contentHeight - 120);
-  const showSideLabel = !isCompact;
-
-  const formatVerticalText = (text) => {
-    if (!text) return "";
-    return data.layout?.forceCaps ? String(text).toUpperCase() : String(text);
-  };
-
-  // 渲染列表逻辑
-  const renderGroupList = (groups, startGlobalIdx) => {
-    let yCursor = 0;
-    let localIdx = startGlobalIdx;
-
-    return groups.map((item, i) => {
-      if (item.type === 'group') {
-        const headerLines = TextUtils.getWrappedLines(item.title, wrapCharsHeader);
-
-        const headerNode = headerLines.map((line, lineIdx) => (
-          <text key={`h-${i}-${lineIdx}`} x="-5" y={yCursor + calculatedLH * 0.6 + (lineIdx * calculatedLH * 0.85)} fill={textColor} fontSize={groupHeaderFontSize} fontWeight="bold" dominantBaseline="middle" fontFamily={fontConfig?.fonts?.title || "Arial, sans-serif"}>
-            {line}
-          </text>
-        ));
-
-        yCursor += calculatedLH + (headerLines.length - 1) * calculatedLH * 0.85;
-
-        let contentNode = null;
-
-        if (renderStrategy === 'INLINE_COMPACT') {
-          // --- 方案 A: 行内紧凑模式 ---
-          const joinedText = item.tracks.map((t, tidx) => {
-            const roman = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"][tidx] || (tidx + 1);
-            let cleanTitle = t.displayTitle.replace(/^[IVX0-9]+\.\s*/, '');
-            if (isClassical) return cleanTitle;
-            return `${roman}. ${cleanTitle}`;
-          }).join(" / ");
-
-          const contentLines = TextUtils.getWrappedLines(joinedText, wrapCharsContent);
-
-          contentNode = contentLines.map((line, lIdx) => (
-            <text key={`c-${i}-${lIdx}`} x="0" y={yCursor + calculatedLH * 0.5 + (lIdx * calculatedLH * 0.85)} fill={dimTextColor} fontSize={trackFontSize - 1} dominantBaseline="middle">
-              {line}
-            </text>
-          ));
-          yCursor += contentLines.length * calculatedLH * 0.85 + calculatedLH * 0.3;
-          localIdx += item.tracks.length;
-
-        } else if (renderStrategy === 'WORK_ONLY') {
-          // --- 方案 B: 仅作品模式 ---
-          yCursor += calculatedLH * 0.2;
-          localIdx += item.tracks.length;
-
-        } else {
-          // --- 标准模式 ---
-          contentNode = item.tracks.map((t, tidx) => {
-            const thisY = yCursor;
-            yCursor += calculatedLH;
-            localIdx++;
-            return (
-              <text key={`st-${i}-${tidx}`} x="15" y={thisY + calculatedLH * 0.5} fill={subTextColor} fontSize={trackFontSize} dominantBaseline="middle">
-                <tspan fill={dimTextColor}>•</tspan> <tspan dx={5}>{t.displayTitle}</tspan>
-              </text>
-            );
-          });
-        }
-
-        return <g key={i}>{headerNode}{contentNode}</g>;
-
-      } else {
-        // 普通单轨 (Standard / Compilation 模式主要走这里)
-        const thisY = yCursor;
-        localIdx++;
-
-        // Note 显示逻辑 - 使用 showNotesGlobal
-        const noteWrapLimit = wrapCharsContent;
-        const hasNote = showNotesGlobal && item.note;
-        const noteLines = hasNote ? TextUtils.getWrappedLines(item.note, noteWrapLimit) : [];
-
-        // --- NEW: 普通轨道标题自动换行 ---
-        const titleLines = TextUtils.getWrappedLines(item.displayTitle, wrapCharsHeader);
-
-        const trackNode = titleLines.map((line, lineIdx) => {
-          const isFirstLine = lineIdx === 0;
-          return (
-            <text key={`t-${i}-${lineIdx}`} x="0" y={thisY + calculatedLH * (hasNote ? 0.35 : 0.5) + (lineIdx * calculatedLH * 0.85)} fill={subTextColor} fontSize={trackFontSize} dominantBaseline="middle">
-              {/* 序号只在第一行显示 */}
-              {isFirstLine && !isClassical && <tspan fontWeight="bold" fill={theme.accent}>{String(localIdx).padStart(2, '0')}.</tspan>}
-
-              {/* 歌名：如果有缩进(第二行)，手动加空格或dx */}
-              <tspan fontWeight="bold" dx={isFirstLine ? 5 : 28}>{line}</tspan>
-
-              {/* 艺术家/时间：只在第一行(或最后一行? 暂时第一行更整齐) 且 非Compact模式 */}
-              {isFirstLine && (data.layout?.mode === 'COMPILATION') && !isCompact && <tspan fill={dimTextColor}> - {item.artist}</tspan>}
-              {isFirstLine && !isCompact && !isClassical && <tspan fontSize={Math.max(trackFontSize - 4, 10)} fill={dimTextColor}> ({item.duration})</tspan>}
-            </text>
-          )
-        });
-
-        // 更新 yCursor: 标题占用高度 + Note 占用高度
-        yCursor += calculatedLH + (titleLines.length - 1) * calculatedLH * 0.85;
-        if (hasNote && noteLines.length > 0) {
-          yCursor += Math.min(noteLines.length, 2) * noteFontSize * 1.2;
-        }
-
-        const noteNode = hasNote && noteLines.slice(0, 2).map((line, lineIdx) => (
-          <text key={`n-${i}-${lineIdx}`} x="25" y={thisY + calculatedLH * 0.7 + (titleLines.length - 1) * calculatedLH * 0.85 + (lineIdx * noteFontSize * 1.2)} fontSize={noteFontSize} fill={dimTextColor} dominantBaseline="hanging" opacity="0.8">
-            {line}
-          </text>
-        ));
-
-        return <g key={`t-grp-${i}`}>{trackNode}{noteNode}</g>;
-      }
-    });
-  };
-
-  return (
-    <g>
-      {/* Note Upper/Lower REMOVED from Side Panels (Moved to Spine) per request */}
-
-      {/* Short Back Title REMOVED per user request */}
-
-      {/* --- Tracklist Container OR Tech Specs (Classical Swap) --- */}
-      {/* Case 1: Classical Mode + Short Back (Compact) -> TECH SPECS (Rotated) */}
-      {(isClassical && isCompact) ? (
-        <g transform={`translate(${width}, 0) rotate(90)`} fontFamily={fontConfig?.fonts?.mono || "Courier New, monospace"}>
-          {/* Tech Specs Layout (Long edge is X axis 0..1181) */}
-
-          {/* ZONE 1: Left Info (Dynamic Height) - x=50 */}
-          {(() => {
-            const labelText = (recordingData?.labelOverride || data.tapeSubtitle || "LABEL INFO").toUpperCase();
-            // Wrap Label text (approx 280px width / 14px per char ~ 20 chars)
-            const labelLines = TextUtils.getWrappedLines(labelText, 20);
-            const labelY = 40;
-            const lineHeight = 28;
-
-            // Dynamic Source Y Position
-            const sourceY = labelY + (labelLines.length * lineHeight) + 20;
-
-            return (
-              <g>
-                {/* Label */}
-                {labelLines.map((line, i) => (
-                  <text key={`l-${i}`} x="50" y={labelY + (i * lineHeight)} fontSize="24" fontWeight="bold" fill={textColor} letterSpacing="2" dominantBaseline="hanging">
-                    {line}
-                  </text>
-                ))}
-
-                {/* Source */}
-                <g transform={`translate(50, ${sourceY})`}>
-                  <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" uppercase="true">SOURCE</text>
-                  <text x="0" y="25" fontSize="18" fill={subTextColor} fontWeight="bold" textAnchor="start">{recordingData?.source || "N/A"}</text>
-                </g>
-              </g>
-            )
-          })()}
-
-          {/* ZONE 2: Credits (Middle Left) - x=380 */}
-          {/* Dedicated column for Credits only. Width approx 350px. */}
-          <g transform={`translate(380, 40)`}>
-            {(() => {
-              const lines = [];
-              const credits = recordingData?.credits;
-
-              if (credits) {
-                if (credits.producers?.length) {
-                  lines.push({ type: 'header', text: 'PRODUCED BY' });
-                  lines.push({ type: 'body', text: credits.producers.slice(0, 2).join(', ').toUpperCase() });
-                }
-                if (credits.engineers?.length) {
-                  lines.push({ type: 'header', text: 'ENGINEERED BY' });
-                  lines.push({ type: 'body', text: credits.engineers.slice(0, 2).join(', ').toUpperCase() });
-                }
-              }
-
-              let cursorY = 0;
-              return lines.map((item, idx) => {
-                if (item.type === 'header') {
-                  const node = <text key={idx} x="0" y={cursorY} fontSize="14" fill={dimTextColor} letterSpacing="3">{item.text}</text>;
-                  cursorY += 24;
-                  return node;
-                } else {
-                  // Wrap to fit Col 2 (approx 350px width -> 30 chars)
-                  const wrapped = TextUtils.getWrappedLines(item.text, 30);
-                  const nodes = wrapped.map((w, wIdx) => (
-                    <text key={`${idx}-${wIdx}`} x="0" y={cursorY + (wIdx * 20)} fontSize="18" fill={subTextColor} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontWeight="bold">
-                      {w}
-                    </text>
-                  ));
-                  cursorY += wrapped.length * 20 + 25;
-                  return nodes;
-                }
-              });
-            })()}
-          </g>
-
-          {/* ZONE 3: Equipment (Middle Right) - x=750 */}
-          {/* New Dedicated Column for Equipment. Width approx 350px. */}
-          <g transform={`translate(750, 40)`}>
-            <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" uppercase="true">EQUIPMENT</text>
-            {(() => {
-              const eqText = recordingData?.equipment || "N/A";
-              // Wrap to fit Col 3 (approx 350px width -> 30 chars)
-              const eqLines = TextUtils.getWrappedLines(eqText.toUpperCase(), 30);
-              return eqLines.map((line, i) => (
-                <text key={i} x="0" y={30 + (i * 20)} fontSize="18" fill={subTextColor} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontWeight="bold">
-                  {line}
-                </text>
-              ));
-            })()}
-          </g>
-
-          {/* ZONE 4: Right Dates (Vertical Stack) - x=End */}
-          <g transform={`translate(${contentHeight - 50}, 40)`}>
-            {/* RELEASED (Top) */}
-            <g>
-              <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" textAnchor="end">RELEASED</text>
-              <text x="0" y="30" fontSize="24" fill={textColor} fontWeight="bold" textAnchor="end">
-                {/* Extract Year Only */}
-                {(data.releaseDate || "").split(/[-.]/)[0]}
-              </text>
-            </g>
-
-            {/* RECORDED (Bottom - Stacked) */}
-            <g transform={`translate(0, 80)`}>
-              <text x="0" y="0" fontSize="14" fill={dimTextColor} letterSpacing="3" textAnchor="end">RECORDED</text>
-              <text x="0" y="30" fontSize="24" fill={theme.accent} fontWeight="bold" textAnchor="end">
-                {recordingData?.recDate || "2025.01.01"}
-              </text>
-            </g>
-          </g>
-        </g>
-      ) : (
-        // Case 2: Everything else (Standard Modes OR Classical Main Panel) -> TRACKLIST
-        <g transform={`translate(0, 0)`}>
-          {/* Side A Header */}
-          <g transform={`translate(${verticalPadding}, ${yHeaderA})`}>
-            <rect x="0" y="-15" width="40" height="20" fill={textColor} rx="4" />
-            <text x="20" y="0" fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontWeight="bold" fontSize="14" fill={isLight ? "#fff" : "#121212"} textAnchor="middle" dominantBaseline="middle">A</text>
-            {showSideLabel && <text x="50" y="0" fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontWeight="bold" fontSize="14" fill={theme.accent} letterSpacing="1" dominantBaseline="middle">SIDE A</text>}
-            <text x={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0) - (isCompact ? 0 : 20)} y="0" fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontSize={12} fill={dimTextColor} textAnchor="end" dominantBaseline="middle">{data.sideADuration}</text>
-          </g>
-
-          {/* Side A List */}
-          <g transform={`translate(${verticalPadding}, ${yListA})`} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}>
-            {renderGroupList(groupsA, 0)}
-          </g>
-
-          {/* Divider */}
-          <line x1={verticalPadding} y1={yDivider} x2={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0)} y2={yDivider} stroke={dimTextColor} strokeWidth="1" opacity="0.5" />
-
-          {/* Side B Header */}
-          <g transform={`translate(${verticalPadding}, ${yHeaderB})`}>
-            <rect x="0" y="-15" width="40" height="20" fill={textColor} rx="4" />
-            <text x="20" y="0" fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontWeight="bold" fontSize="14" fill={isLight ? "#fff" : "#121212"} textAnchor="middle" dominantBaseline="middle">B</text>
-            {showSideLabel && <text x="50" y="0" fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontWeight="bold" fontSize="14" fill={theme.accent} letterSpacing="1" dominantBaseline="middle">SIDE B</text>}
-            <text x={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0) - (isCompact ? 0 : 20)} y="0" fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontSize={12} fill={dimTextColor} textAnchor="end" dominantBaseline="middle">{data.sideBDuration}</text>
-          </g>
-
-          {/* Side B List */}
-          <g transform={`translate(${verticalPadding}, ${yListB})`} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}>
-            {renderGroupList(groupsB, data.sideA.length)}
-          </g>
-        </g>
-      )}
-    </g>
-  )
-}
-
-// --- Spine Component (Extracted) ---
-const SpineContent = ({
-  data,
-  theme,
-  height,
-  width, // unused but for standardization
-  fontConfig,
-  themeColors, // { fill, titleColor, idColor }
-  inverted // [NEW] Added prop
-}) => {
-  const { title, artist, tapeId, layout } = data;
-  const { titleColor, idColor } = themeColors;
-
-  // --- ORIENTATION CONFIG ---
-  // Defaulting to "inverted" (Top-Down) per user request "turn 180 degrees" from standard.
-  // We use the passed prop if available, otherwise default to true (inverted/top-down).
-  const isInverted = (inverted !== undefined) ? inverted : true;
-
-  const rotation = isInverted ? 90 : -90;
-
-  // Coordinate Abstraction
-  // When rotated 90 (X=Down), Top is Negative X.
-  // When rotated -90 (X=Up), Top is Positive X.
-
-  // Helper to map "Physical Position" to "Local Coordinate X"
-  // "pos" from center: + is down (physical), - is top (physical)
-  const getX = (physicalOffsetFromCenter) => {
-    return isInverted ? physicalOffsetFromCenter : -physicalOffsetFromCenter;
-  };
-
-  const getAnchor = (type) => { // type: 'start' | 'end' (visual flow)
-    if (isInverted) return type; // 90: start=top, end=bottom
-    return type === 'start' ? 'end' : 'start'; // -90: start=bottom, end=top
-  };
-
-  const formatText = (text) => layout?.forceCaps ? String(text).toUpperCase() : String(text);
-
-  const getSpineTitleSize = (text) => {
-    const len = text ? text.length : 0;
-    if (len > 30) return 32;
-    if (len > 20) return 36;
-    return 42;
-  };
-
-  // --- Layout Zones ---
-  // Physical coordinates relative to CENTER (0,0)
-  // Top Edge: -height/2 + margin
-  // Bottom Edge: height/2 - margin
-
-  const topMargin = 40;
-  const bottomMargin = 40;
-  const safeGap = 80;
-
-  const halfH = height / 2;
-  const topEdgePos = -halfH + topMargin;
-  const bottomEdgePos = halfH - bottomMargin;
-
-  // Render Logic
-  return (
-    <g>
-      {/* Center: Title (Middle Anchor) - Always Centered */}
-      <text
-        x="0"
-        y="0"
-        fontFamily={fontConfig?.fonts?.title || "Arial, sans-serif"}
-        fontWeight="bold"
-        fontSize={getSpineTitleSize(title)}
-        fill={titleColor}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        transform={`rotate(${rotation})`}
-      >
-        {formatText(title)}
-      </text>
-
-      {/* TOP ZONE (Tape ID / Note Upper) */}
-      {(() => {
-        const hasNote = !!layout?.noteUpper;
-        const hasId = !!tapeId;
-        // Visual "Top" needs to anchor to the Top Edge
-        const anchor = getAnchor('start');
-        const xPos = getX(topEdgePos);
-
-        const noteUpperNode = hasNote ? (
-          <text
-            key="sp-note-up"
-            x={xPos}
-            y={hasId ? -12 : 0}
-            fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}
-            fontSize="14"
-            fill={idColor}
-            textAnchor={anchor}
-            dominantBaseline="middle"
-            transform={`rotate(${rotation})`}
-            letterSpacing="1"
-            opacity="0.8"
-          >
-            {formatText(layout.noteUpper)}
-          </text>
-        ) : null;
-
-        const idNode = hasId ? (
-          <text
-            key="sp-id"
-            x={xPos}
-            y={hasNote ? 12 : 0}
-            fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}
-            fontWeight="bold"
-            fontSize="18"
-            fill={idColor}
-            textAnchor={anchor}
-            dominantBaseline="middle"
-            transform={`rotate(${rotation})`}
-          >
-            {tapeId}
-          </text>
-        ) : null;
-
-        return <>{noteUpperNode}{idNode}</>;
-      })()}
-
-      {/* BOTTOM ZONE (Artist / Note Lower) */}
-      {(() => {
-        // Visual "Bottom" needs to anchor to Bottom Edge and grow UPWARDS (Inwards)
-        const anchor = getAnchor('end');
-        const xPos = getX(bottomEdgePos);
-
-        // Stacking Logic: We strictly Stack INWARDS.
-        // Inverted (Down): Inwards is Negative X.
-        // Standard (Up): Inwards is Positive X.
-        const inwardDir = isInverted ? -1 : 1;
-
-        let currentX = xPos;
-        const nodes = [];
-
-        // Note Lower is the bottom-most item if present (closest to edge)
-        if (layout?.noteLower) {
-          nodes.push(
-            <text
-              key="sp-note-low"
-              x={currentX}
-              y="0"
-              fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}
-              fontSize="14"
-              fill={titleColor}
-              textAnchor={anchor}
-              dominantBaseline="middle"
-              transform={`rotate(${rotation})`}
-              letterSpacing="1"
-              opacity="0.8"
-            >
-              {formatText(layout.noteLower)}
-            </text>
-          );
-          // Move Inward for Artist (away from edge)
-          currentX += (safeGap * inwardDir);
-        }
-
-        nodes.push(
-          <text
-            key="sp-artist"
-            x={currentX}
-            y="0"
-            fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}
-            fontSize="24"
-            fill={titleColor}
-            textAnchor={anchor}
-            dominantBaseline="middle"
-            transform={`rotate(${rotation})`}
-          >
-            {formatText(artist)}
-          </text>
-        );
-
-        return nodes;
-      })()}
-    </g>
-  );
+  if (localKey) {
+    localStorage.setItem(STORAGE_KEYS.dashscopeApiKey, localKey);
+  }
+  localStorage.removeItem(STORAGE_KEYS.legacyDashscopeApiKey);
+  localStorage.removeItem(STORAGE_KEYS.legacyGeminiApiKey);
+
+  return localKey;
 };
 
-const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingData, jCardThemeMode, dominantColor, contrastTextType, fontConfig }) => {
-  // Default values to handle legacy usage or initial state
-  const curThemeMode = jCardThemeMode || 'dark';
-  const curDominantColor = dominantColor || '#232629';
-  const curContrastType = contrastTextType || 'light';
+const persistApiKey = async (key) => {
+  const secureStore = getElectronSecureStore();
+  const removableKeys = [
+    STORAGE_KEYS.dashscopeApiKey,
+    STORAGE_KEYS.legacyDashscopeApiKey,
+    STORAGE_KEYS.legacyGeminiApiKey
+  ];
 
-  const { title, artist, tapeId, layout } = data;
-  const width = 1748;
-  const height = 1181;
-
-  // --- THEME LOGIC START ---
-  let bgFill = "#232629";
-  // Text Colors
-  let textColor = "#eff0f1";
-  let subTextColor = "#b0b3b8";
-  let dimTextColor = "#7d8187";
-  let spineFill = theme.accent; // default
-  let spineTitleColor = "#ffffff";
-  let spineIdColor = "rgba(255,255,255,0.9)";
-
-  // Cover Mode Masks (Dynamic)
-  let coverMaskColor = "#000000";
-  let coverMaskOpacity = 0.4;
-
-  // Specific Mode Overrides
-  const isMinimalSpine = !!data.layout?.minimalSpine;
-  const isLightModeLogic = (curThemeMode === 'light') ||
-    (curThemeMode === 'color' && curContrastType === 'dark') ||
-    (curThemeMode === 'cover' && curContrastType === 'dark');
-
-  if (curThemeMode === 'cover') {
-    if (curContrastType === 'dark') {
-      // Light Image -> White Mask + Dark Text (Smart Adaptation)
-      textColor = "#1a1a1a";
-      subTextColor = "#4a4a4a";
-      dimTextColor = "#666666";
-      coverMaskColor = "#ffffff";
-      coverMaskOpacity = 0.6; // Whiter mask for better contrast
+  if (secureStore) {
+    if (key) {
+      await secureStore.setItem(STORAGE_KEYS.dashscopeApiKey, key);
     } else {
-      // Dark Image -> Black Mask + White Text (Default)
-      textColor = "#ffffff";
-      subTextColor = "rgba(255,255,255,0.9)";
-      dimTextColor = "rgba(255,255,255,0.7)";
-      coverMaskColor = "#000000";
-      coverMaskOpacity = 0.4;
+      await secureStore.removeItem(STORAGE_KEYS.dashscopeApiKey);
     }
-  } else if (curThemeMode === 'light') {
-    // Light Mode (Pure White)
-    bgFill = "#ffffff";
-    textColor = "#1a1a1a";
-    subTextColor = "#4a4a4a";
-    dimTextColor = "#666666";
-    spineTitleColor = "#1a1a1a";
-    spineIdColor = theme.accent;
-  } else if (curThemeMode === 'color') {
-    bgFill = curDominantColor;
-    if (curContrastType === 'dark') {
-      // Light background -> Dark text
-      textColor = "#1a1a1a";
-      subTextColor = "#4a4a4a";
-      dimTextColor = "#666666";
-      spineTitleColor = "#1a1a1a";
-      spineIdColor = theme.accent;
-    } else {
-      // Dark background -> Light text
-      textColor = "#ffffff";
-      subTextColor = "#e0e0e0";
-      dimTextColor = "#888888";
-    }
+    removableKeys.forEach((storageKey) => localStorage.removeItem(storageKey));
+    return;
+  }
+
+  if (key) {
+    localStorage.setItem(STORAGE_KEYS.dashscopeApiKey, key);
   } else {
-    // Dark Mode (Default)
-    bgFill = "#232629";
-    textColor = "#eff0f1";
-    subTextColor = "#b0b3b8";
-    dimTextColor = "#7d8187";
+    localStorage.removeItem(STORAGE_KEYS.dashscopeApiKey);
   }
-
-  // Legacy isLight flag for some internal logic reuse if needed
-  const isLight = isLightModeLogic;
-
-  // Spine Logic Refined
-  if (isMinimalSpine) {
-    spineFill = isLight ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)";
-    spineTitleColor = textColor;
-    spineIdColor = theme.accent;
-  }
-
-  const maskOpacity = isLight ? 0.3 : 0.75; // Used for noise layer
-  const maskColor = isLight ? "#ffffff" : "#050505"; // Used for noise layer overlay
-  // --- THEME LOGIC END ---
-
-  const getTitleLayout = (text) => {
-    if (!text) return { lines: [], fontSize: 64, lineHeight: 72, totalHeight: 0 };
-    const words = text.split(/\s+/);
-    const charCount = text.length;
-    let fontSize = 72;
-    let lineHeight = 80;
-    let maxCharsPerLine = 12;
-    if (charCount > 40) { fontSize = 42; lineHeight = 48; maxCharsPerLine = 24; }
-    else if (charCount > 20) { fontSize = 56; lineHeight = 64; maxCharsPerLine = 16; }
-    let lines = [], currentLine = [], currentLineLength = 0;
-    words.forEach(word => {
-      if (currentLineLength + word.length + (currentLine.length > 0 ? 1 : 0) > maxCharsPerLine) {
-        if (currentLine.length > 0) { lines.push(currentLine.join(" ")); currentLine = []; currentLineLength = 0; }
-      }
-      currentLine.push(word); currentLineLength += word.length + 1;
-    });
-    if (currentLine.length > 0) lines.push(currentLine.join(" "));
-    return { lines: lines.slice(0, 4), fontSize, lineHeight, totalHeight: lines.length * lineHeight };
-  };
-
-  const titleLayout = getTitleLayout(title);
-
-  // --- Dynamic Layout Calculation (Optimized for Harmony) ---
-  const imgBottom = 780; // Cover ends at y=780
-
-  // 1. Fixed Anchors
-  // Using a solid bottom anchor for the Artist to ensure a consistent specific visual frame.
-  // 1125 gives ~55px margin from bottom edge (1181), balancing the header top/bottom.
-  const fixedArtistY = 1125;
-
-  // 2. Measure Content Blocks
-  const titleLineH = titleLayout.lineHeight;
-  const titleTotalH = titleLayout.lines.length * titleLineH;
-
-  const badgeTextStr = data.coverBadge || "";
-  // Slightly relaxed wrap limit for better aesthetic
-  const badgeLines = TextUtils.getWrappedLines(badgeTextStr, 42);
-  const badgeLineH = 26;
-  const badgeTotalH = badgeLines.length > 0 ? (badgeLines.length * badgeLineH) : 0;
-
-  // 3. Define Spacing (The Harmony Factors)
-  // Tight gap to visually group Slogan with Title
-  const gapTitleToSlogan = 32;
-
-  // 4. Calculate Total Text Block Height
-  let totalContentBlockH = titleTotalH;
-  if (badgeTotalH > 0) {
-    totalContentBlockH += gapTitleToSlogan + badgeTotalH;
-  }
-
-  // 5. Vertical Centering Logic
-  // We want to center the [Title + Slogan] block within the available whitespace 
-  // between [Cover Bottom] and [Artist Line].
-  // Available Zone: from 780 to 1125 (Height = 345px)
-  const availableZoneCenterY = imgBottom + (fixedArtistY - imgBottom) / 2;
-
-  // The Top Y of our text block
-  const blockTopY = availableZoneCenterY - (totalContentBlockH / 2);
-
-  // 6. Final Coordinates (Baselines)
-  // Title Baseline: Top + ~0.8 * LineHeight (Visual correction for Cap Height/Ascender)
-  const titleStartY = blockTopY + (titleLineH * 0.8);
-
-  // Badge coordinates
-  const badgeBlockTopY = blockTopY + titleTotalH + gapTitleToSlogan;
-  // Badge Baseline: Top + ~0.8 * LineHeight
-  const badgeY = badgeBlockTopY + (badgeLineH * 0.8);
-
-  // Artist Position
-  // We stick to the fixed anchor for cleanliness, unless content is absurdly huge (overflow protection)
-  let artistY = fixedArtistY;
-
-  // Overflow protection (e.g. 4-line title + long slogan)
-  // If badge extends below artist area, push artist down.
-  const contentBottomY = badgeBlockTopY + badgeTotalH;
-  if (contentBottomY > artistY - 20) {
-    artistY = contentBottomY + 30;
-  }
-
-  const formatText = (text) => data.layout?.forceCaps ? String(text).toUpperCase() : String(text);
-
-  const getSpineTitleSize = (text) => {
-    const len = text ? text.length : 0;
-    if (len > 30) return 32;
-    if (len > 20) return 36;
-    return 42;
-  }
-
-  // Panel Dimensions for 1748px Width (148mm)
-  const wShort = 200; // ~17mm
-  const wSpine = 150; // ~12.7mm
-  const wFront = 780; // ~66mm
-  const wBack = 618;  // ~52.3mm (Remaining)
-
-  const xShort = 0;
-  const xSpine = 200;
-  const xFront = 350;
-  const xBack = 1130;
-
-  return (
-    <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" viewBox={`0 0 ${width} ${height}`} className="w-full h-auto shadow-2xl rounded-sm transition-all duration-500" style={{ aspectRatio: `${width}/${height}` }}>
-      <defs>
-        <filter id="noise">
-          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" />
-          <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.15 0" />
-        </filter>
-        <filter id="bg-blur">
-          <feGaussianBlur in="SourceGraphic" stdDeviation={30} />
-          <feColorMatrix type="saturate" values={isLight ? "1.5" : "1.2"} />
-          {isLight && <feComponentTransfer>
-            <feFuncR type="linear" slope="1.2" intercept="0.1" />
-            <feFuncG type="linear" slope="1.2" intercept="0.1" />
-            <feFuncB type="linear" slope="1.2" intercept="0.1" />
-          </feComponentTransfer>}
-        </filter>
-        {/* Corrected ClipPaths for 4-panel Full Bleed Layout */}
-        <clipPath id="panel-short-back"><rect x="0" y="0" width={wShort} height={height} /></clipPath>
-        <clipPath id="panel-spine"><rect x={xSpine} y="0" width={wSpine} height={height} /></clipPath>
-        <clipPath id="panel-front"><rect x={xFront} y="0" width={wFront} height={height} /></clipPath>
-        {/* Fix: Coordinate system for translated group needs to start at 0 */}
-        <clipPath id="panel-flap"><rect x="0" y="0" width={wBack} height={height} /></clipPath>
-        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-          <path d="M 40 0 L 0 0 0 40" fill="none" stroke={isLight ? "#000" : "#333"} strokeWidth="1" opacity="0.1" />
-        </pattern>
-      </defs>
-
-      {/* Background Layer */}
-      {curThemeMode === 'cover' && coverImage ? (
-        <>
-          <image href={coverImage} x="-10%" y="-10%" width="120%" height="120%" preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" />
-          {/* Cover Mode Overlay for readability */}
-          <rect x="0" y="0" width={width} height={height} fill={coverMaskColor} opacity={coverMaskOpacity} />
-        </>
-      ) : (
-        <rect x="0" y="0" width={width} height={height} fill={bgFill} />
-      )}
-      <rect x="0" y="0" width={width} height={height} fill="transparent" filter="url(#noise)" opacity={isLight ? 0.2 : 0.4} />
-
-      {/* Unified Full Bleed Layout */}
-      {/* Short Back - multiply mode for better darkening */}
-      <rect x={xShort} y="0" width={wShort} height={height} fill="#000000" opacity="0.2" style={{ mixBlendMode: 'multiply' }} />
-      {/* Spine - slightly darker */}
-      <rect x={xSpine} y="0" width={wSpine} height={height} fill="#000000" opacity="0.3" style={{ mixBlendMode: 'multiply' }} />
-      <rect x={xSpine} y="0" width={wSpine} height={height} fill={spineFill} opacity={coverImage && !isMinimalSpine ? 0.8 : 1} style={{ mixBlendMode: isMinimalSpine ? 'normal' : 'multiply' }} />
-      {/* Front - clear or slight tint */}
-      {/* Back - slightly darker */}
-      <rect x={xBack} y="0" width={wBack} height={height} fill="#000000" opacity="0.2" style={{ mixBlendMode: 'multiply' }} />
-
-      {/* Fold Lines */}
-      <line x1={xSpine} y1="0" x2={xSpine} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.2" />
-      <line x1={xFront} y1="0" x2={xFront} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.2" />
-      <line x1={xBack} y1="0" x2={xBack} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.3" />
-
-      {/* Short Back Content (Flap/Inner) */}
-      <g clipPath="url(#panel-short-back)">
-        <ContentBack width={wShort} data={data} theme={theme} isCompact={true} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} />
-      </g>
-
-      {/* Spine Content */}
-      {/* Spine Content - Dynamic Stacking to Prevent Overlap */}
-      <g transform={`translate(${xSpine + wSpine / 2}, ${height / 2})`}>
-        <SpineContent
-          data={data}
-          theme={theme}
-          height={height}
-          width={wSpine}
-          fontConfig={fontConfig}
-          themeColors={{ titleColor: spineTitleColor, idColor: spineIdColor }}
-          inverted={!!data.layout?.spineInverted} // Pass through from layout state
-        />
-      </g>
-
-      {/* Front Content */}
-      <g clipPath="url(#panel-front)">
-        <ContentFront xOffset={xFront} width={wFront} data={data} theme={theme} coverImage={coverImage} coverImageB={coverImageB} frontStyle={data.layout?.frontStyle || 'STANDARD'} isLight={isLight} textColor={textColor} subTextColor={subTextColor} titleLayout={titleLayout} titleStartY={titleStartY} badgeY={badgeY} artistY={artistY} fontConfig={fontConfig} />
-      </g>
-
-      {/* Back Content (Tracklist) */}
-      <g clipPath="url(#panel-flap)" transform={`translate(${xBack}, 0)`}>
-        <ContentBack width={wBack} data={data} theme={theme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} fontConfig={fontConfig} />
-      </g>
-    </svg>
-  );
+  localStorage.removeItem(STORAGE_KEYS.legacyDashscopeApiKey);
+  localStorage.removeItem(STORAGE_KEYS.legacyGeminiApiKey);
 };
 
 export default function App() {
   const [apiKey, setApiKey] = useState("");
   const svgRef = useRef(null);
-  const [loading, setLoading] = useState(false);
-  const [loadingTitle, setLoadingTitle] = useState(false);
-  const [loadingSearch, setLoadingSearch] = useState(false);
-  const [loadingImport, setLoadingImport] = useState(false);
-  const [loadingImage, setLoadingImage] = useState(false);
-  const [loadingSlogan, setLoadingSlogan] = useState(false);
-  const [loadingPrompt, setLoadingPrompt] = useState(false);
+  const [loadingStates, setLoadingStates] = useState({
+    enhance: false,
+    title: false,
+    search: false,
+    import: false,
+    image: false,
+    slogan: false,
+    prompt: false
+  });
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
   const fileInputRefB = useRef(null); // [NEW] Ref for Cover B input
@@ -1422,27 +171,27 @@ export default function App() {
 
   // Load theme from local storage
   useEffect(() => {
-    const savedTheme = localStorage.getItem('jcard_theme_mode');
+    const savedTheme = localStorage.getItem(STORAGE_KEYS.themeMode);
     if (savedTheme) setJCardThemeMode(savedTheme);
   }, []);
 
   // Save theme to local storage
   useEffect(() => {
-    localStorage.setItem('jcard_theme_mode', jCardThemeMode);
+    localStorage.setItem(STORAGE_KEYS.themeMode, jCardThemeMode);
   }, [jCardThemeMode]);
 
   // --- Font Theme State ---
   const [fontTheme, setFontTheme] = useState('modern');
 
   useEffect(() => {
-    const savedFontTheme = localStorage.getItem('jcard_font_theme');
+    const savedFontTheme = localStorage.getItem(STORAGE_KEYS.fontTheme);
     if (savedFontTheme && FONT_THEMES[savedFontTheme]) {
       setFontTheme(savedFontTheme);
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('jcard_font_theme', fontTheme);
+    localStorage.setItem(STORAGE_KEYS.fontTheme, fontTheme);
   }, [fontTheme]);
 
   const currentFontConfig = getFontConfig(fontTheme);
@@ -1478,62 +227,48 @@ export default function App() {
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
 
+  const setLoadingState = (key, value) => {
+    setLoadingStates(prev => ({ ...prev, [key]: value }));
+  };
+
   useEffect(() => {
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if (savedKey) setApiKey(savedKey);
+    let cancelled = false;
+
+    const loadApiKey = async () => {
+      try {
+        const savedKey = await loadStoredApiKey();
+        if (!cancelled && savedKey) {
+          setApiKey(savedKey);
+        }
+      } catch (e) {
+        console.error("Failed to load stored DashScope API key", e);
+      }
+    };
+
+    void loadApiKey();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const saveApiKey = (key) => {
     setApiKey(key);
-    localStorage.setItem('gemini_api_key', key);
+    void persistApiKey(key).catch((error) => {
+      console.error("Failed to persist DashScope API key", error);
+    });
   };
 
-  const [data, setData] = useState({
-    title: "ALBUM TITLE",
-    artist: "ARTIST NAME",
-    tapeId: "",
-    tapeSubtitle: "STEREO",
-    releaseDate: "",
-    coverBadge: "",
-    sideADuration: "20:00",
-    sideBDuration: "20:00",
-    layout: {
-      noteUpper: "",  // Cleared defaults
-      noteLower: "",  // Cleared defaults
-      forceCaps: true,
-      minimalSpine: false,
-      mode: 'STANDARD', // 'STANDARD' | 'CLASSICAL' | 'COMPILATION'
-      frontStyle: 'STANDARD', // [NEW] 'STANDARD' | 'REVERSIBLE'
-      spineInverted: true // Default to New (Top-Down)
-    },
-    sideA: [
-      { title: "Track Name 1", artist: "Artist Name", duration: "3:45", note: "" },
-      { title: "Track Name 2", artist: "Artist Name", duration: "4:20", note: "" },
-      { title: "Track Name 3", artist: "Artist Name", duration: "3:15", note: "" },
-      { title: "Track Name 4", artist: "Artist Name", duration: "5:10", note: "" },
-      { title: "Track Name 5", artist: "Artist Name", duration: "4:05", note: "" }
-    ],
-    sideB: [
-      { title: "Track Name 6", artist: "Artist Name", duration: "3:50", note: "" },
-      { title: "Track Name 7", artist: "Artist Name", duration: "4:15", note: "" },
-      { title: "Track Name 8", artist: "Artist Name", duration: "3:30", note: "" },
-      { title: "Track Name 9", artist: "Artist Name", duration: "4:45", note: "" },
-      { title: "Track Name 10", artist: "Artist Name", duration: "3:55", note: "" }
-    ]
-  });
+  const [data, setData] = useState(() => createDefaultData());
+  const [previewData, setPreviewData] = useState(() => createDefaultData());
 
   // --- NEW: Custom Recording Metadata State with Persistence ---
-  const [recordingData, setRecordingData] = useState({
-    equipment: "",
-    mode: "AAA",
-    labelOverride: "",
-    source: "",
-    recDate: ""
-  });
+  const [recordingData, setRecordingData] = useState(() => createDefaultRecordingData());
+  const [previewRecordingData, setPreviewRecordingData] = useState(() => createDefaultRecordingData());
 
   // Load recording data from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('jcard_recording_data');
+    const saved = localStorage.getItem(STORAGE_KEYS.recordingData);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -1557,7 +292,7 @@ export default function App() {
 
   // Save recording data to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('jcard_recording_data', JSON.stringify(recordingData));
+    localStorage.setItem(STORAGE_KEYS.recordingData, JSON.stringify(recordingData));
   }, [recordingData]);
 
   const updateRecordingData = (field, value) => {
@@ -1570,6 +305,44 @@ export default function App() {
     mood_description: ""
   });
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPreviewData(data);
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [data]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPreviewRecordingData(recordingData);
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [recordingData]);
+
+  const waitForPreviewPaint = () => new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve);
+    });
+  });
+
+  const syncPreviewNow = async () => {
+    setPreviewData(data);
+    setPreviewRecordingData(recordingData);
+    await waitForPreviewPaint();
+  };
+
+  const calculateTotalDuration = (tracks) => (
+    MusicBrainzService.formatDuration(
+      tracks.reduce((acc, track) => acc + parseDurationToMs(track.duration), 0)
+    )
+  );
+
   // Set default prompt when data changes
   // Removed automatic prompt generation useEffect per user request
 
@@ -1580,17 +353,17 @@ export default function App() {
   const handleSearch = async () => {
     if (!searchQuery.album.trim() && !searchQuery.artist.trim()) return;
 
-    setLoadingSearch(true);
+    setLoadingState('search', true);
     setSearchResults([]);
     setError('');
     try {
       const results = await MusicBrainzService.searchReleaseGroup(searchQuery.album, searchQuery.artist);
       setSearchResults(results);
-    } catch (e) { setError(e.message || "Search failed"); } finally { setLoadingSearch(false); }
+    } catch (e) { setError(e.message || "Search failed"); } finally { setLoadingState('search', false); }
   };
 
   const handleSelectReleaseGroup = async (rg) => {
-    setLoadingSearch(true);
+    setLoadingState('search', true);
     setError('');
     try {
       const bestReleaseId = await MusicBrainzService.getBestReleaseId(rg.id);
@@ -1624,14 +397,6 @@ export default function App() {
 
       // Helper to sum durations from "MM:SS" strings
       const sumDur = (tracks) => {
-        const parseDurationToMs = (durationStr) => {
-          if (!durationStr || !durationStr.includes(':')) return 0;
-          const parts = durationStr.split(':').map(Number);
-          if (parts.length === 2) {
-            return (parts[0] * 60 + parts[1]) * 1000;
-          }
-          return 0;
-        };
         const ms = tracks.reduce((acc, t) => acc + parseDurationToMs(t.duration), 0);
         return MusicBrainzService.formatDuration(ms); // returns MIN:SEC
       };
@@ -1662,27 +427,17 @@ export default function App() {
       });
       if (coverUrl) setCoverImage(coverUrl);
       setShowSearch(false);
-    } catch (e) { setError("Import failed: " + e.message); } finally { setLoadingSearch(false); }
+    } catch (e) { setError("Import failed: " + e.message); } finally { setLoadingState('search', false); }
   };
 
   const handleSmartImport = async () => {
     if (!importText.trim()) return;
     const key = getApiKeyOrWarn();
-    setLoadingImport(true);
+    setLoadingState('import', true);
     setError('');
     try {
       const parsed = await DashScopeService.parseImportData(importText, key);
       const updates = {};
-
-      // Helper: Parse "MM:SS" string to milliseconds for calculation
-      const parseDurationToMs = (durationStr) => {
-        if (!durationStr || !durationStr.includes(':')) return 0;
-        const parts = durationStr.split(':').map(Number);
-        if (parts.length === 2) {
-          return (parts[0] * 60 + parts[1]) * 1000;
-        }
-        return 0;
-      };
 
       if (parsed.sideA || parsed.sideB) {
         // Map AI keys to Internal Keys for LayoutEngine
@@ -1753,13 +508,13 @@ export default function App() {
         setShowSettings(true);
       }
     } finally {
-      setLoadingImport(false);
+      setLoadingState('import', false);
     }
   };
 
   const handleAIEnhance = async () => {
     const key = getApiKeyOrWarn();
-    setLoading(true); setError('');
+    setLoadingState('enhance', true); setError('');
     try {
       const parsed = await DashScopeService.enhanceContent(data, key);
 
@@ -1775,17 +530,17 @@ export default function App() {
         setImagePrompt(parsed.cover_prompt + (parsed.negative_prompt ? `\n\nNegative: ${parsed.negative_prompt}` : ""));
       }
 
-    } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoading(false); }
+    } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoadingState('enhance', false); }
   };
 
   const handleTitleMagic = async () => {
     const key = getApiKeyOrWarn();
-    setLoadingTitle(true);
+    setLoadingState('title', true);
     try {
       const allTracks = [...data.sideA, ...data.sideB];
       const result = await DashScopeService.suggestTitle(allTracks, key);
       if (result.suggested_title) setData(prev => ({ ...prev, title: result.suggested_title.toUpperCase() }));
-    } catch (err) { setError(err.message); } finally { setLoadingTitle(false); }
+    } catch (err) { setError(err.message); } finally { setLoadingState('title', false); }
   };
 
   const handleGenerateCover = async () => {
@@ -1796,17 +551,17 @@ export default function App() {
     }
 
     const key = getApiKeyOrWarn();
-    setLoadingImage(true); setError('');
+    setLoadingState('image', true); setError('');
     try {
       const finalPrompt = imagePrompt.trim();
       const imgDataUrl = await DashScopeService.generateImage(finalPrompt, key);
       setCoverImage(imgDataUrl);
-    } catch (err) { setError(err.message); } finally { setLoadingImage(false); }
+    } catch (err) { setError(err.message); } finally { setLoadingState('image', false); }
   };
 
   const handleGenerateCoverPrompt = async () => {
     const key = getApiKeyOrWarn();
-    setLoadingPrompt(true); setError('');
+    setLoadingState('prompt', true); setError('');
     try {
       const allTracks = [...data.sideA, ...data.sideB];
       // Check if dark mode is active for theme context
@@ -1823,12 +578,12 @@ export default function App() {
         }
         setImagePrompt(fullPrompt);
       }
-    } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoadingPrompt(false); }
+    } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoadingState('prompt', false); }
   };
 
   const handleGenerateSlogan = async () => {
     const key = getApiKeyOrWarn();
-    setLoadingSlogan(true); setError('');
+    setLoadingState('slogan', true); setError('');
     try {
       const allTracks = [...data.sideA, ...data.sideB];
       const result = await DashScopeService.generateSlogan(allTracks, key);
@@ -1837,7 +592,7 @@ export default function App() {
         const formattedSlogan = Array.isArray(result.slogan) ? result.slogan.join('\n') : result.slogan;
         setData(prev => ({ ...prev, coverBadge: formattedSlogan }));
       }
-    } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoadingSlogan(false); }
+    } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoadingState('slogan', false); }
   };
 
   const handleFileUpload = (event, target = 'A') => {
@@ -1855,8 +610,9 @@ export default function App() {
     }
   };
 
-  const downloadSVG = () => {
+  const downloadSVG = async () => {
     if (!svgRef.current) return;
+    await syncPreviewNow();
     const svgData = new XMLSerializer().serializeToString(svgRef.current);
     const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -1870,6 +626,7 @@ export default function App() {
 
   const downloadPNG = async () => {
     if (!svgRef.current) return;
+    await syncPreviewNow();
 
     // Serialize current SVG
     let svgData = new XMLSerializer().serializeToString(svgRef.current);
@@ -1889,9 +646,13 @@ export default function App() {
     }
 
     const canvas = document.createElement("canvas");
-    canvas.width = 1748;
-    canvas.height = 1181;
+    canvas.width = JCARD_DIMENSIONS.width;
+    canvas.height = JCARD_DIMENSIONS.height;
     const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      setError("PNG 导出失败：无法创建画布上下文。");
+      return;
+    }
 
     const img = new Image();
     const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
@@ -1912,13 +673,54 @@ export default function App() {
         document.body.removeChild(link);
       }, 100);
     };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      setError("PNG 导出失败，请重试。");
+    };
     img.src = url;
   };
 
   const updateTrack = (side, index, field, value) => {
-    const newData = { ...data };
-    newData[side][index][field] = value;
-    setData(newData);
+    setData(prev => ({
+      ...prev,
+      [side]: prev[side].map((track, trackIndex) =>
+        trackIndex === index ? { ...track, [field]: value } : track
+      ),
+      ...(field === 'duration' ? {
+        [side === 'sideA' ? 'sideADuration' : 'sideBDuration']: calculateTotalDuration(
+          prev[side].map((track, trackIndex) =>
+            trackIndex === index ? { ...track, [field]: value } : track
+          )
+        )
+      } : {})
+    }));
+  };
+
+  const addTrack = (side) => {
+    setData(prev => {
+      const nextTrackNumber = prev.sideA.length + prev.sideB.length + 1;
+      const nextTracks = [
+        ...prev[side],
+        createEmptyTrack(nextTrackNumber, prev.artist || "Artist Name")
+      ];
+
+      return {
+        ...prev,
+        [side]: nextTracks,
+        [side === 'sideA' ? 'sideADuration' : 'sideBDuration']: calculateTotalDuration(nextTracks)
+      };
+    });
+  };
+
+  const removeTrack = (side, index) => {
+    setData(prev => {
+      const nextTracks = prev[side].filter((_, trackIndex) => trackIndex !== index);
+      return {
+        ...prev,
+        [side]: nextTracks,
+        [side === 'sideA' ? 'sideADuration' : 'sideBDuration']: calculateTotalDuration(nextTracks)
+      };
+    });
   };
 
   const handleAutoColor = async () => {
@@ -1932,39 +734,7 @@ export default function App() {
   const handleReset = () => {
     if (window.confirm("确定要清空当前所有内容并开始新项目吗？\n（将保留API Key、录音设备和媒体来源设置）")) {
       // 1. Reset Data to Defaults
-      setData({
-        title: "ALBUM TITLE",
-        artist: "ARTIST NAME",
-        tapeId: "",
-        tapeSubtitle: "STEREO",
-        releaseDate: "",
-        coverBadge: "",
-        sideADuration: "20:00",
-        sideBDuration: "20:00",
-        layout: {
-          noteUpper: "",
-          noteLower: "",
-          forceCaps: true,
-          minimalSpine: false,
-          mode: 'STANDARD',
-          frontStyle: 'STANDARD',
-          spineInverted: true
-        },
-        sideA: [
-          { title: "Track Name 1", artist: "Artist Name", duration: "3:45", note: "" },
-          { title: "Track Name 2", artist: "Artist Name", duration: "4:20", note: "" },
-          { title: "Track Name 3", artist: "Artist Name", duration: "3:15", note: "" },
-          { title: "Track Name 4", artist: "Artist Name", duration: "5:10", note: "" },
-          { title: "Track Name 5", artist: "Artist Name", duration: "4:05", note: "" }
-        ],
-        sideB: [
-          { title: "Track Name 6", artist: "Artist Name", duration: "3:50", note: "" },
-          { title: "Track Name 7", artist: "Artist Name", duration: "4:15", note: "" },
-          { title: "Track Name 8", artist: "Artist Name", duration: "3:30", note: "" },
-          { title: "Track Name 9", artist: "Artist Name", duration: "4:45", note: "" },
-          { title: "Track Name 10", artist: "Artist Name", duration: "3:55", note: "" }
-        ]
-      });
+      setData(createDefaultData());
 
       // 2. Clear Images & Search
       setCoverImage(null);
@@ -1988,114 +758,33 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden font-sans relative bg-gray-50 text-gray-900">
+      <SettingsModal
+        isOpen={showSettings}
+        apiKey={apiKey}
+        onClose={() => setShowSettings(false)}
+        onApiKeyChange={saveApiKey}
+      />
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="absolute inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-md border border-gray-700 text-white">
-            <div className="flex justify-between items-center p-4 border-b border-gray-700">
-              <h3 className="text-lg font-bold flex items-center gap-2"><Settings size={20} className="text-gray-400" /> 设置</h3>
-              <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                  <Key size={16} className="text-orange-500" />
-                  DashScope API Key (阿里云)
-                </label>
-                <input type="password" value={apiKey || ''} onChange={(e) => saveApiKey(e.target.value)} className="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white focus:ring-2 focus:ring-orange-500 outline-none font-mono text-sm" placeholder="sk-..." />
-                <p className="mt-2 text-xs text-gray-400">
-                  <a href="https://help.aliyun.com/zh/model-studio/get-started-with-models/" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline flex items-center gap-1">
-                    如何获取 API Key? <Globe size={10} />
-                  </a>
-                </p>
-              </div>
+      <ImportModal
+        isOpen={showImport}
+        importText={importText}
+        isLoading={loadingStates.import}
+        onClose={() => setShowImport(false)}
+        onImportTextChange={setImportText}
+        onSubmit={handleSmartImport}
+      />
 
-              {/* About & Copyright Section */}
-              <div className="pt-4 border-t border-gray-700">
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">关于 (About)</h4>
-                <div className="text-[10px] text-gray-400 leading-relaxed space-y-2">
-                  <p>
-                    <span className="text-gray-300 font-bold">© 2025 门耳朵 (Epoch Audio). 保留所有权利。</span>
-                  </p>
-                  <p>
-                    本软件为开源软件，仅供个人<span className="text-gray-300">非商业目的</span>免费使用、学习与研究。
-                  </p>
-                  <p className="text-red-400/80">
-                    🚫 禁止商业化用途：禁止售卖、会员付费下载或提供有偿代制作服务。
-                  </p>
-                  <p>
-                    允许非商业转载，但必须完整保留本声明且不得收费。
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 border-t border-gray-700 flex justify-end">
-              <button onClick={() => setShowSettings(false)} className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium">完成</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Import Modal */}
-      {showImport && (
-        <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-lg border border-gray-700 flex flex-col max-h-[90vh] text-white">
-            <div className="flex justify-between items-center p-4 border-b border-gray-700">
-              <h3 className="text-lg font-bold flex items-center gap-2"><FileText size={20} className="text-orange-500" /> 粘贴曲目列表</h3>
-              <button onClick={() => setShowImport(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
-            </div>
-            <div className="p-4 flex-1 overflow-hidden flex flex-col">
-              <p className="text-sm text-gray-400 mb-2">在下方粘贴原始文本、HTML 或 JSON。AI 将自动提取信息。</p>
-              <textarea
-                className="w-full flex-1 bg-gray-900 p-4 rounded text-sm font-mono border border-gray-700 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none resize-none"
-                placeholder={`1. Song A - Artist (3:20)\n2. Song B - Artist\n...`}
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-              />
-            </div>
-            <div className="p-4 border-t border-gray-700 flex justify-end gap-3">
-              <button onClick={() => setShowImport(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-white">取消</button>
-              <button
-                onClick={handleSmartImport}
-                disabled={loadingImport || !importText}
-                className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loadingImport ? <span className="animate-spin">⏳</span> : <Sparkles size={16} />}
-                {loadingImport ? '分析中...' : '解析并导入'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Search Modal */}
-      {showSearch && (
-        <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-2xl border border-gray-700 flex flex-col max-h-[85vh] text-white">
-            <div className="flex justify-between items-center p-4 border-b border-gray-700">
-              <h3 className="text-lg font-bold flex items-center gap-2"><Database size={20} className="text-orange-500" /> MusicBrainz 搜索</h3>
-              <button onClick={() => setShowSearch(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
-            </div>
-            <div className="p-4 bg-gray-900/50 space-y-3 border-b border-gray-700">
-              <div className="flex gap-3">
-                <input className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:border-orange-500 outline-none" placeholder="专辑标题 (例如：Abbey Road)" value={searchQuery.album} onChange={(e) => setSearchQuery({ ...searchQuery, album: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
-                <input className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:border-orange-500 outline-none" placeholder="艺术家 (例如：The Beatles)" value={searchQuery.artist} onChange={(e) => setSearchQuery({ ...searchQuery, artist: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
-                <button onClick={handleSearch} disabled={loadingSearch} className="px-4 bg-orange-600 hover:bg-orange-500 text-white rounded font-bold text-sm flex items-center gap-2">{loadingSearch ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />} 搜索</button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-              {error && <div className="p-4 text-red-400 bg-red-900/20 text-center rounded">{error}</div>}
-              {searchResults.map((rg) => (
-                <div key={rg.id} className="bg-gray-700/50 hover:bg-gray-700 p-3 rounded flex justify-between items-center cursor-pointer transition-colors border border-transparent hover:border-orange-500/50" onClick={() => handleSelectReleaseGroup(rg)}>
-                  <div><h4 className="font-bold text-white">{rg.title}</h4><p className="text-sm text-gray-400">{rg['artist-credit']?.[0]?.name} · {rg['first-release-date']?.slice(0, 4)} · {rg['primary-type']}</p></div>
-                  <button className="px-3 py-1 bg-gray-600 hover:bg-orange-600 text-xs rounded text-white transition-colors">选择</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <SearchModal
+        isOpen={showSearch}
+        error={error}
+        isLoading={loadingStates.search}
+        searchQuery={searchQuery}
+        searchResults={searchResults}
+        onClose={() => setShowSearch(false)}
+        onSearch={handleSearch}
+        onSearchQueryChange={setSearchQuery}
+        onSelectResult={handleSelectReleaseGroup}
+      />
 
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b shrink-0 bg-white border-gray-200 shadow-sm relative z-10">
@@ -2148,7 +837,7 @@ export default function App() {
           <div className="h-6 w-px bg-gray-300 mx-1"></div>
           <button onClick={handleReset} className="p-2 rounded-full transition-colors text-gray-400 hover:bg-gray-100 hover:text-red-500" title="新建/重置项目"><RotateCcw size={20} /></button>
           <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
-          <button onClick={handleAIEnhance} disabled={loading} className={`flex items-center gap-2 px-4 py-2 rounded-md font-semibold transition-all ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg hover:shadow-indigo-500/20'}`}>{loading ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}{loading ? 'AI 策划中...' : 'AI 创意总监'}</button>
+          <button onClick={handleAIEnhance} disabled={loadingStates.enhance} className={`flex items-center gap-2 px-4 py-2 rounded-md font-semibold transition-all ${loadingStates.enhance ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg hover:shadow-indigo-500/20'}`}>{loadingStates.enhance ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}{loadingStates.enhance ? 'AI 策划中...' : 'AI 创意总监'}</button>
 
           {/* Export Buttons */}
           <button onClick={downloadSVG} className="flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 shadow-sm"><Download size={18} />导出 SVG</button>
@@ -2162,7 +851,7 @@ export default function App() {
           <div className="w-full lg:w-2/3 flex flex-col items-center justify-center relative p-8">
             <div className={`w-full transition-all duration-500 max-w-5xl`}>
               <JCardPreview
-                data={data}
+                data={previewData}
                 theme={theme}
                 coverImage={coverImage}
                 coverImageB={coverImageB} // [NEW]
@@ -2170,7 +859,7 @@ export default function App() {
                 jCardThemeMode={jCardThemeMode}
                 dominantColor={dominantColor}
                 contrastTextType={contrastTextType}
-                recordingData={recordingData}
+                recordingData={previewRecordingData}
                 fontConfig={currentFontConfig}
               />
             </div>
@@ -2195,13 +884,13 @@ export default function App() {
             <section className="space-y-4">
               <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Type size={14} /> 专辑信息</h2>
               <div className="space-y-3">
-                <div><label className="block text-xs text-gray-400 mb-1">专辑标题</label><div className="flex gap-2"><input type="text" value={data.title || ''} onChange={(e) => setData({ ...data, title: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /><button onClick={handleTitleMagic} disabled={loadingTitle} className="px-3 border border-gray-300 rounded transition-colors bg-white text-orange-600 hover:bg-gray-50">{loadingTitle ? <span className="animate-spin text-xs">⏳</span> : <Wand2 size={16} />}</button></div></div>
+                <div><label className="block text-xs text-gray-400 mb-1">专辑标题</label><div className="flex gap-2"><input type="text" value={data.title || ''} onChange={(e) => setData({ ...data, title: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /><button onClick={handleTitleMagic} disabled={loadingStates.title} className="px-3 border border-gray-300 rounded transition-colors bg-white text-orange-600 hover:bg-gray-50">{loadingStates.title ? <span className="animate-spin text-xs">⏳</span> : <Wand2 size={16} />}</button></div></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="block text-xs text-gray-400 mb-1">艺术家</label><input type="text" value={data.artist || ''} onChange={(e) => setData({ ...data, artist: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /></div>
                   <div><label className="block text-xs text-gray-400 mb-1">发行日期</label><input type="text" value={data.releaseDate || ''} onChange={(e) => setData({ ...data, releaseDate: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="YYYY" /></div>
                   <div><label className="block text-xs text-gray-400 mb-1">目录编号</label><input type="text" value={data.tapeId || ''} onChange={(e) => setData({ ...data, tapeId: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /></div>
                 </div>
-                <div><label className="block text-xs text-gray-400 mb-1">封面标语</label><div className="flex gap-2"><textarea rows={3} maxLength={200} value={data.coverBadge || ''} onChange={(e) => setData({ ...data, coverBadge: e.target.value })} className="flex-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none placeholder-gray-500 resize-none bg-white text-gray-900" placeholder="例如：永恒的经典..." /><button onClick={handleGenerateSlogan} disabled={loadingSlogan} className="px-2 border border-gray-300 rounded self-start transition-colors h-20 flex items-center justify-center bg-white text-purple-600 hover:bg-purple-50">{loadingSlogan ? <span className="animate-spin text-xs">⏳</span> : <Sparkles size={16} />}</button></div></div>
+                <div><label className="block text-xs text-gray-400 mb-1">封面标语</label><div className="flex gap-2"><textarea rows={3} maxLength={200} value={data.coverBadge || ''} onChange={(e) => setData({ ...data, coverBadge: e.target.value })} className="flex-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none placeholder-gray-500 resize-none bg-white text-gray-900" placeholder="例如：永恒的经典..." /><button onClick={handleGenerateSlogan} disabled={loadingStates.slogan} className="px-2 border border-gray-300 rounded self-start transition-colors h-20 flex items-center justify-center bg-white text-purple-600 hover:bg-purple-50">{loadingStates.slogan ? <span className="animate-spin text-xs">⏳</span> : <Sparkles size={16} />}</button></div></div>
               </div>
             </section>
 
@@ -2316,9 +1005,9 @@ export default function App() {
               <div>
                 <label className="block text-xs text-gray-400 mb-1 flex justify-between items-center">
                   AI 图片提示词
-                  <button onClick={handleGenerateCoverPrompt} disabled={loadingPrompt} className="text-[10px] bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded flex items-center gap-1">
-                    {loadingPrompt ? <span className="animate-spin">⏳</span> : <Wand2 size={10} />}
-                    {loadingPrompt ? '生成中...' : '生成提示词'}
+                  <button onClick={handleGenerateCoverPrompt} disabled={loadingStates.prompt} className="text-[10px] bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded flex items-center gap-1">
+                    {loadingStates.prompt ? <span className="animate-spin">⏳</span> : <Wand2 size={10} />}
+                    {loadingStates.prompt ? '生成中...' : '生成提示词'}
                   </button>
                 </label>
                 <textarea
@@ -2346,7 +1035,7 @@ export default function App() {
                       className="hidden"
                     />
                     <button onClick={() => fileInputRef.current?.click()} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"><Upload size={14} /> 上传图片</button>
-                    <button onClick={handleGenerateCover} disabled={loadingImage} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700">{loadingImage ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingImage ? '生成中...' : 'AI 生成'}</button>
+                    <button onClick={handleGenerateCover} disabled={loadingStates.image} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700">{loadingStates.image ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingStates.image ? '生成中...' : 'AI 生成'}</button>
                     {coverImage && (<button onClick={() => setCoverImage(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
                   </div>
                 </div>
@@ -2382,20 +1071,30 @@ export default function App() {
               </div>
             </div>
             <section className="space-y-4">
-              <h3 className="text-xs font-bold text-gray-500 pl-1">A 面 (SIDE A)</h3>
+              <div className="flex items-center justify-between pl-1">
+                <h3 className="text-xs font-bold text-gray-500">A 面 (SIDE A)</h3>
+                <button onClick={() => addTrack('sideA')} className="text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-orange-600">
+                  <Plus size={12} /> 添加曲目
+                </button>
+              </div>
               {data.sideA.map((track, i) => (
                 <div key={i} className="p-3 rounded border space-y-2 group bg-white border-gray-200">
-                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className="flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-900 placeholder-gray-400" placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideA', i, 'title', e.target.value)} /><input className="w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600" placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideA', i, 'duration', e.target.value)} /></div>
+                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className="flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-900 placeholder-gray-400" placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideA', i, 'title', e.target.value)} /><input className="w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600" placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideA', i, 'duration', e.target.value)} /><button onClick={() => removeTrack('sideA', i)} className="w-8 rounded flex items-center justify-center transition-colors bg-red-50 text-red-500 hover:bg-red-100" title="删除曲目"><Trash2 size={14} /></button></div>
                   <div className="flex gap-2 pl-8"><input className="flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600 placeholder-gray-400" placeholder="艺术家" value={track.artist || ''} onChange={(e) => updateTrack('sideA', i, 'artist', e.target.value)} /></div>
                   <input className="w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-500 placeholder-gray-400" placeholder="备注/心情..." value={track.note || ''} onChange={(e) => updateTrack('sideA', i, 'note', e.target.value)} />
                 </div>
               ))}
             </section>
             <section className="space-y-4">
-              <h3 className="text-xs font-bold text-gray-500 pl-1">B 面 (SIDE B)</h3>
+              <div className="flex items-center justify-between pl-1">
+                <h3 className="text-xs font-bold text-gray-500">B 面 (SIDE B)</h3>
+                <button onClick={() => addTrack('sideB')} className="text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-orange-600">
+                  <Plus size={12} /> 添加曲目
+                </button>
+              </div>
               {data.sideB.map((track, i) => (
                 <div key={i} className="p-3 rounded border space-y-2 group bg-white border-gray-200">
-                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className="flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-900 placeholder-gray-400" placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideB', i, 'title', e.target.value)} /><input className="w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600" placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideB', i, 'duration', e.target.value)} /></div>
+                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className="flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-900 placeholder-gray-400" placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideB', i, 'title', e.target.value)} /><input className="w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600" placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideB', i, 'duration', e.target.value)} /><button onClick={() => removeTrack('sideB', i)} className="w-8 rounded flex items-center justify-center transition-colors bg-red-50 text-red-500 hover:bg-red-100" title="删除曲目"><Trash2 size={14} /></button></div>
                   <div className="flex gap-2 pl-8"><input className="flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600 placeholder-gray-400" placeholder="艺术家" value={track.artist || ''} onChange={(e) => updateTrack('sideB', i, 'artist', e.target.value)} /></div>
                   <input className="w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-500 placeholder-gray-400" placeholder="备注/心情..." value={track.note || ''} onChange={(e) => updateTrack('sideB', i, 'note', e.target.value)} />
                 </div>
