@@ -70,6 +70,38 @@ function buildFontShorthand(fontFamily, fontSize, options = {}) {
   return parts.join(' ');
 }
 
+function buildCanvasFont(fontFamily, fontSize, options = {}) {
+  const parts = [];
+
+  if (options.fontStyle) parts.push(options.fontStyle);
+  if (options.fontWeight) parts.push(options.fontWeight);
+  parts.push(`${fontSize}px`);
+  parts.push(fontFamily || 'Arial, sans-serif');
+
+  return parts.join(' ');
+}
+
+function normalizeLetterSpacing(letterSpacing) {
+  if (letterSpacing === undefined || letterSpacing === null || letterSpacing === '') return 0;
+  if (typeof letterSpacing === 'number') return letterSpacing;
+  if (typeof letterSpacing === 'string') {
+    const parsed = Number.parseFloat(letterSpacing.replace('px', ''));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+let measurementContext = null;
+
+function getMeasurementContext() {
+  if (measurementContext) return measurementContext;
+  if (typeof document === 'undefined') return null;
+
+  const canvas = document.createElement('canvas');
+  measurementContext = canvas.getContext('2d');
+  return measurementContext;
+}
+
 /* ──────────────────────────────────────────────
  * 公开 API
  * ────────────────────────────────────────────── */
@@ -90,6 +122,15 @@ const TypographyService = {
   measureWidth(text, fontFamily, fontSize, fontOptions = {}) {
     if (!text) return 0;
 
+    const canvasCtx = getMeasurementContext();
+    if (canvasCtx) {
+      canvasCtx.font = buildCanvasFont(fontFamily, fontSize, fontOptions);
+      const width = canvasCtx.measureText(text).width;
+      const letterSpacing = normalizeLetterSpacing(fontOptions.letterSpacing);
+      const graphemeCount = Array.from(text).length;
+      return width + Math.max(0, graphemeCount - 1) * letterSpacing;
+    }
+
     const font = buildFontShorthand(fontFamily, fontSize, fontOptions);
     const prepared = prepareWithSegments(text, font);
 
@@ -99,7 +140,8 @@ const TypographyService = {
       width = line.width;
     });
 
-    return width;
+    const letterSpacing = normalizeLetterSpacing(fontOptions.letterSpacing);
+    return width + Math.max(0, Array.from(text).length - 1) * letterSpacing;
   },
 
   /**
@@ -189,6 +231,26 @@ const TypographyService = {
     return low;
   },
 
+  fitFontSizeSingleLine(text, fontFamily, maxWidthPx, minFontSize, maxFontSize, fontOptions = {}) {
+    if (!text) return maxFontSize;
+
+    let low = minFontSize;
+    let high = maxFontSize;
+
+    while (low < high) {
+      const mid = Math.ceil((low + high) / 2);
+      const width = TypographyService.measureWidth(text, fontFamily, mid, fontOptions);
+
+      if (width <= maxWidthPx) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    return low;
+  },
+
   /**
    * 二分搜索：找到能让文本在允许多行的情况下填满容器的最大字号
    *
@@ -264,6 +326,8 @@ const TypographyService = {
   // 暴露内部工具，供调试和测试使用
   _extractPrimaryFont: extractPrimaryFont,
   _buildFontShorthand: buildFontShorthand,
+  _buildCanvasFont: buildCanvasFont,
+  _normalizeLetterSpacing: normalizeLetterSpacing,
 };
 
 export default TypographyService;

@@ -1,11 +1,10 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
 
-> **v1.5.0 Update**: **The Typography & Geometry Overhaul!** 
-> 1. ⚛️ **物理级文本引擎**: 深度集成 `@chenglou/pretext` 引擎，消除全线 Magic Numbers（硬编码系数），彻底解决跨字体溢出边界与错位问题。
-> 2. 🏛️ **多重防重叠建筑学**: 重写了封面 (Front)、侧脊 (Spine) 和背部内页 (Back) 的碰撞测算机制。不论混排了多长的古典音乐乐章标题与大段标语文案，它都能严格坚守 1181x1748 分辨率安全区，智能等比缩放、严丝合缝绝不碾压。
-> 3. 🇨🇭 **极简工业美学**: 重构了曲目表与制作名单的视觉层级，引入微型眉批距，抹除多余括号，并启用“主题色动态真圆形 (Accent Circle)” A/B 侧边栏徽章，其随字号同步等比膨胀。
-> 4. 🪶 **手工排版与硬换行**: 底层排版支持绝对的“段落隔离隔离检测”。在 Slogan、Equipment 等框内敲击回车，即可在防撞引擎的保驾护航下，执行原生级的**绝对硬换行 (Hard Break)**。
-> 5. 🇨🇳 **国产双黑体独立架构**: 彻底本地化脱网运行。深度植入 17MB 的 **思源黑体 (Noto Sans SC)** 与 8.5MB 的 **阿里普惠体 3.0**，达成极简双无衬线架构；顶部导航栏全面改写为极具设计质感的 **「纯中文情绪化主理名」** (`现代`、`胶片`、`手记`、`骇客`、`素体`、`重工`)，秒时零延迟切换。
+> **v1.5.1 Update**: **The Spine Fail-Safe Release!**
+> 1. 🧭 **脊部独立排版引擎**: `Spine` 不再只靠单行缩字号硬塞，而是会在 `完整标题单行 -> 完整标题双行 -> 脊部短标题 -> 自动短标题 -> 截短兜底` 之间自动切换，极端长标题也不会再压住上下信息。
+> 2. ✂️ **硬裁切 + 真实字体测量**: 脊部区域现在有独立 `clipPath`，并改为基于浏览器真实字体栈测量，`fallback font`、`letter-spacing` 与中英混排的误差显著降低。
+> 3. 🏷️ **新增脊部短标题**: 右侧面板新增可选的“脊部短标题”字段，并实时显示当前脊部策略，便于手动控制磁带 spine 的最终文案。
+> 4. 📦 **发布链路补全**: 项目版本升级到 `1.5.1`，补齐了 macOS arm64 `.dmg` 与 Windows x86 NSIS `exe` 的构建与发布流程。
 > **v1.3.3 Update**: **The Reversible Layout (双拼颠倒双封面)**! 这是一个极具工业感的复古设计方案：Front 面板精确五五分，上半部正向显示 Cover A，下半部倒置 180 度显示 Cover B，专为 "Flip-to-Play" 的实体交互体验设计。同时实现了"虚空填充"逻辑，完美解决正方形封面在长方形区域的宽高比冲突。
 
 > **v1.3.2 Update**: **Spine Optimization (脊部终极优化)**! 应广大收藏家需求，新增 **"翻转脊部"** 切换开关。您可以自由决定侧脊文字是从上往下读 (Top-Down, 默认) 还是从下往上读 (Bottom-Up)。同时重构了脊部渲染引擎，让 ID 与艺术家的位置布局稳如泰山。
@@ -99,7 +98,7 @@
 *   **Spine Layout**:
     *   **Note Upper**: 脊部顶部备注（常填年份）。
     *   **Note Lower**: 脊部底部备注（常填格式/版权）。
-    *   支持“极简脊部”与“强制大写”选项。
+    *   支持“极简脊部”、“强制大写”与可选的**脊部短标题**兜底策略。
 *   **Data Persistence**: 录音设备 (Equipment) 和 音源 (Media Source) 会自动保存，方便制作系列磁带。
 
 ## ❓ 常见问题 (FAQ)
@@ -142,15 +141,15 @@ npm run build
 # 构建 Electron 安装包
 npm run electron:build
 
-# 单独构建 macOS 包
-npx electron-builder --mac dmg zip
+# 单独构建 macOS arm64 DMG
+npm run electron:build:mac-arm64:dmg
 
-# 单独构建 Windows 安装包
-npx electron-builder --win nsis
+# 单独构建 Windows x86 安装包
+./node_modules/.bin/electron-builder --win nsis --ia32 --config.win.signAndEditExecutable=false -c.directories.output=dist_electron_win_x86
 ```
 
 ### 构建说明
-*   当前版本号为 `1.5.0`，界面底部版本号由 `package.json` 通过 Vite 注入。
+*   当前版本号为 `1.5.1`，界面底部版本号由 `package.json` 通过 Vite 注入。
 *   在 macOS 沙箱或受限环境中，`electron-builder` 直接构建 Windows 包可能因 `wine` 权限受限失败；必要时可追加 `--config.win.signAndEditExecutable=false`。
 *   在某些 arm64 macOS 环境中，`electron-builder` 生成 `.dmg` 可能失败，此时可回退为系统 `hdiutil` 手工封装。
 
@@ -213,4 +212,3 @@ npx electron-builder --win nsis
 
 
 <img width="1965" height="1832" alt="ScreenShot_2025-12-14_203022_939" src="https://github.com/user-attachments/assets/20cb3938-2b6c-4c2b-9dfc-7545f27a3460" />
-

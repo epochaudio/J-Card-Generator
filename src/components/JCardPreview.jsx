@@ -231,14 +231,17 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
         <ContentBack width={wShort} data={data} theme={theme} isCompact={true} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} />
       </g>
 
-      <g transform={`translate(${xSpine + wSpine / 2}, ${height / 2})`}>
-        <SpineContent
-          data={data}
-          height={height}
-          fontConfig={fontConfig}
-          themeColors={{ titleColor: spineTitleColor, idColor: spineIdColor }}
-          inverted={!!data.layout?.spineInverted}
-        />
+      <g clipPath="url(#panel-spine)">
+        <g transform={`translate(${xSpine + wSpine / 2}, ${height / 2})`}>
+          <SpineContent
+            data={data}
+            height={height}
+            panelWidth={wSpine}
+            fontConfig={fontConfig}
+            themeColors={{ titleColor: spineTitleColor, idColor: spineIdColor }}
+            inverted={!!data.layout?.spineInverted}
+          />
+        </g>
       </g>
 
       <g clipPath="url(#panel-front)">

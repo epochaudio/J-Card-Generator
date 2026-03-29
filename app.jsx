@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Settings, Image as ImageIcon, Trash2, Globe, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw, Plus } from 'lucide-react';
 
@@ -15,9 +15,11 @@ import { getFontConfig, FONT_THEMES } from './src/config/fonts.js';
 import { parseDurationToMs } from './src/utils/formatDuration.js';
 import { urlToBase64 } from './src/utils/imageUtils.js';
 import LayoutEngine from './src/utils/LayoutEngine.js';
+import SpineLayoutEngine from './src/utils/SpineLayoutEngine.js';
 
 const createDefaultData = () => ({
   title: "ALBUM TITLE",
+  spineTitle: "",
   artist: "ARTIST NAME",
   tapeId: "",
   tapeSubtitle: "STEREO",
@@ -197,6 +199,20 @@ export default function App() {
   }, [fontTheme]);
 
   const currentFontConfig = getFontConfig(fontTheme);
+  const [fontMetricsVersion, setFontMetricsVersion] = useState(0);
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || !document.fonts?.ready) return undefined;
+
+    let active = true;
+    document.fonts.ready.then(() => {
+      if (active) setFontMetricsVersion(prev => prev + 1);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [fontTheme]);
 
   // Extract color when cover image changes
   useEffect(() => {
@@ -300,6 +316,16 @@ export default function App() {
     mood_description: ""
   });
 
+  const spineLayoutStatus = useMemo(
+    () => SpineLayoutEngine.compute({
+      data,
+      height: JCARD_DIMENSIONS.height,
+      panelWidth: JCARD_DIMENSIONS.panels.spine,
+      fontConfig: currentFontConfig,
+    }).status,
+    [data, currentFontConfig, fontMetricsVersion]
+  );
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setPreviewData(data);
@@ -399,6 +425,7 @@ export default function App() {
 
       setData({
         title: rg.title,
+        spineTitle: "",
         artist: rg['artist-credit']?.[0]?.name,
         releaseDate: date || "", // Set decoupled Release Date
         tapeSubtitle: (labelName && catalogNumber) ? `${labelName} ${catalogNumber}` : (labelName || catalogNumber || ""),
@@ -461,7 +488,10 @@ export default function App() {
         }
       }
 
-      if (parsed.album_title) updates.title = parsed.album_title.toUpperCase();
+      if (parsed.album_title) {
+        updates.title = parsed.album_title.toUpperCase();
+        updates.spineTitle = "";
+      }
       if (parsed.album_artist) updates.artist = parsed.album_artist.toUpperCase();
       if (parsed.cover_url) {
         const base64Cover = await urlToBase64(parsed.cover_url);
@@ -510,7 +540,10 @@ export default function App() {
       const parsed = await DashScopeService.enhanceContent(data, key);
 
       const updates = {};
-      if (parsed.album_title) updates.title = parsed.album_title.toUpperCase();
+      if (parsed.album_title) {
+        updates.title = parsed.album_title.toUpperCase();
+        updates.spineTitle = "";
+      }
       if (parsed.album_copy) updates.coverBadge = parsed.album_copy;
 
       // Update data state
@@ -530,7 +563,9 @@ export default function App() {
     try {
       const allTracks = [...data.sideA, ...data.sideB];
       const result = await DashScopeService.suggestTitle(allTracks, key);
-      if (result.suggested_title) setData(prev => ({ ...prev, title: result.suggested_title.toUpperCase() }));
+      if (result.suggested_title) {
+        setData(prev => ({ ...prev, title: result.suggested_title.toUpperCase(), spineTitle: "" }));
+      }
     } catch (err) { setError(err.message); } finally { setLoadingState('title', false); }
   };
 
@@ -876,6 +911,17 @@ export default function App() {
               <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Type size={14} /> 专辑信息</h2>
               <div className="space-y-3">
                 <div><label className="block text-xs text-gray-400 mb-1">专辑标题</label><div className="flex gap-2"><input type="text" value={data.title || ''} onChange={(e) => setData({ ...data, title: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /><button onClick={handleTitleMagic} disabled={loadingStates.title} className="px-3 border border-gray-300 rounded transition-colors bg-white text-orange-600 hover:bg-gray-50">{loadingStates.title ? <span className="animate-spin text-xs">⏳</span> : <Wand2 size={16} />}</button></div></div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">脊部短标题</label>
+                  <input
+                    type="text"
+                    value={data.spineTitle || ''}
+                    onChange={(e) => setData({ ...data, spineTitle: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900"
+                    placeholder="可选。仅在完整标题过长时启用；留空则自动生成短标题"
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500">当前脊部策略：{spineLayoutStatus.summary}</p>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="block text-xs text-gray-400 mb-1">艺术家</label><input type="text" value={data.artist || ''} onChange={(e) => setData({ ...data, artist: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /></div>
                   <div><label className="block text-xs text-gray-400 mb-1">发行日期</label><input type="text" value={data.releaseDate || ''} onChange={(e) => setData({ ...data, releaseDate: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="YYYY" /></div>
