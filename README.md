@@ -16,7 +16,9 @@
 
 > **v1.2.8 Update**: **MusicBrainz 深度集成!** 彻底重构了古典音乐解析逻辑，支持识别 Work 实体并自动归类乐章；同时引入专业演职员表（Producer/Engineer），自动填充 Tech Specs 区域。
 
-<img width="1400" height="900" alt="image" src="https://github.com/user-attachments/assets/24c966b2-d6dc-4ae6-ac17-30d6252503e9" />
+<img width="2258" height="1166" alt="8b254f0c713bc65243d0e84f8937a37e" src="https://github.com/user-attachments/assets/a61e2600-2d13-46dd-9f25-226ebb68a8e5" />
+<img width="2258" height="1166" alt="03c733c8c5115a3679067701c5fe142f" src="https://github.com/user-attachments/assets/9cf188a3-e14b-4475-a7bb-00499785d2bf" />
+
 
 **J-Card Genesis** 是一款专为磁带收藏家和 DIY 爱好者设计的桌面应用程序。它结合了现代 AI 技术，帮助你轻松制作出专业、美观的实体磁带封面（J-Card / U-Card），并支持从搜索、导入、排版到导出的完整桌面工作流。
 
