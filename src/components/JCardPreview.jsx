@@ -4,7 +4,7 @@ import ContentBack from './ContentBack.jsx';
 import ContentFront from './ContentFront.jsx';
 import SpineContent from './SpineContent.jsx';
 import { JCARD_DIMENSIONS } from '../constants/app.js';
-import TextUtils from '../utils/TextUtils.js';
+import TypographyService from '../services/TypographyService.js';
 
 const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingData, jCardThemeMode, dominantColor, contrastTextType, fontConfig }) => {
   const curThemeMode = jCardThemeMode || 'dark';
@@ -74,64 +74,91 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
     spineIdColor = theme.accent;
   }
 
+  const badgeLayout = useMemo(() => {
+    const badgeTextStr = data.coverBadge || "";
+    const BADGE_FONT_SIZE = 20;
+    const badgeFont = fontConfig?.fonts?.serif || "Georgia, serif";
+    const badgeMaxWidth = JCARD_DIMENSIONS.panels.front - 160;
+    
+    const badgeLines = badgeTextStr
+      ? TypographyService.wrapText(badgeTextStr, badgeFont, BADGE_FONT_SIZE, badgeMaxWidth, { fontStyle: 'italic', fontWeight: 'bold' })
+      : [''];
+    const badgeLineH = 26;
+    const badgeTotalH = (badgeLines.length > 0 && badgeTextStr) ? badgeLines.length * badgeLineH : 0;
+    
+    return {
+      text: badgeTextStr,
+      lines: badgeLines,
+      totalHeight: badgeTotalH,
+      lineHeight: badgeLineH,
+      gapToTitle: 32 // 标语和标题之间的固定间距
+    };
+  }, [data.coverBadge, fontConfig]);
+
   const titleLayout = useMemo(() => {
     if (!title) return { lines: [], fontSize: 64, lineHeight: 72, totalHeight: 0 };
-    const words = title.split(/\s+/);
-    const charCount = title.length;
-    let fontSize = 72;
-    let lineHeight = 80;
-    let maxCharsPerLine = 12;
 
-    if (charCount > 40) {
-      fontSize = 42;
-      lineHeight = 48;
-      maxCharsPerLine = 24;
-    } else if (charCount > 20) {
-      fontSize = 56;
-      lineHeight = 64;
-      maxCharsPerLine = 16;
-    }
+    const titleFont = fontConfig?.fonts?.title || "Arial Black, sans-serif";
+    const panelWidth = JCARD_DIMENSIONS.panels.front;
+    const TITLE_HORIZONTAL_PADDING = 80;
+    const maxWidth = panelWidth - TITLE_HORIZONTAL_PADDING * 2;
 
-    const lines = [];
-    let currentLine = [];
-    let currentLineLength = 0;
-    words.forEach(word => {
-      if (currentLineLength + word.length + (currentLine.length > 0 ? 1 : 0) > maxCharsPerLine) {
-        if (currentLine.length > 0) {
-          lines.push(currentLine.join(" "));
-          currentLine = [];
-          currentLineLength = 0;
-        }
-      }
-      currentLine.push(word);
-      currentLineLength += word.length + 1;
-    });
-    if (currentLine.length > 0) lines.push(currentLine.join(" "));
+    // 字号边界：最小 48px 保证可读性，最大 144px 彻底释放画布张力
+    const MIN_TITLE_FONT = 48;
+    const MAX_TITLE_FONT = 144;
 
-    return { lines: lines.slice(0, 4), fontSize, lineHeight, totalHeight: lines.length * lineHeight };
-  }, [title]);
+    // 计算绝对安全的画布高度
+    // 图片底部固定为 780，歌手名基线为 1125，字体大小 32。预留缓冲带后安全空隙总高约 280px。
+    const MAX_SAFE_ZONE_HEIGHT = 280; 
+    
+    // 如果存在辅助标语，那就必须要从这 280px 额度里把它和缝隙的空间先扣除
+    const spaceEatenByBadge = badgeLayout.totalHeight > 0 ? (badgeLayout.gapToTitle + badgeLayout.totalHeight) : 0;
+    const safeMaxTitleHeight = Math.max(80, MAX_SAFE_ZONE_HEIGHT - spaceEatenByBadge); // 保底给标题留 80px 高度
+
+    const fontSize = TypographyService.fitFontSizeMultiline(
+      title, titleFont, maxWidth, safeMaxTitleHeight,
+      MIN_TITLE_FONT, MAX_TITLE_FONT,
+      { fontWeight: 'bold' }
+    );
+
+    // 取得精确折行
+    const lines = TypographyService.wrapText(
+      title, titleFont, fontSize, maxWidth,
+      { fontWeight: 'bold' }
+    );
+
+    // 行高为字号的 1.12 倍
+    const LINE_HEIGHT_RATIO = 1.12;
+    const lineHeight = Math.round(fontSize * LINE_HEIGHT_RATIO);
+
+    // 最多显示 4 行，防止极端情况
+    const MAX_TITLE_LINES = 4;
+    const clampedLines = lines.slice(0, MAX_TITLE_LINES);
+
+    return {
+      lines: clampedLines,
+      fontSize,
+      lineHeight,
+      totalHeight: clampedLines.length * lineHeight
+    };
+  }, [title, fontConfig, badgeLayout]);
 
   const previewLayout = useMemo(() => {
     const imgBottom = JCARD_DIMENSIONS.front.previewImageBottom;
     const fixedArtistY = JCARD_DIMENSIONS.front.artistBaseline;
-    const titleLineH = titleLayout.lineHeight;
-    const titleTotalH = titleLayout.lines.length * titleLineH;
-    const badgeTextStr = data.coverBadge || "";
-    const badgeLines = TextUtils.getWrappedLines(badgeTextStr, 42);
-    const badgeLineH = 26;
-    const badgeTotalH = badgeLines.length > 0 ? badgeLines.length * badgeLineH : 0;
-    const gapTitleToSlogan = 32;
-
+    const titleTotalH = titleLayout.totalHeight;
+    const badgeTotalH = badgeLayout.totalHeight;
+    
     let totalContentBlockH = titleTotalH;
     if (badgeTotalH > 0) {
-      totalContentBlockH += gapTitleToSlogan + badgeTotalH;
+      totalContentBlockH += badgeLayout.gapToTitle + badgeTotalH;
     }
 
     const availableZoneCenterY = imgBottom + (fixedArtistY - imgBottom) / 2;
     const blockTopY = availableZoneCenterY - (totalContentBlockH / 2);
-    const titleStartY = blockTopY + (titleLineH * 0.8);
-    const badgeBlockTopY = blockTopY + titleTotalH + gapTitleToSlogan;
-    const badgeY = badgeBlockTopY + (badgeLineH * 0.8);
+    const titleStartY = blockTopY + (titleLayout.lineHeight * 0.8);
+    const badgeBlockTopY = blockTopY + titleTotalH + badgeLayout.gapToTitle;
+    const badgeY = badgeBlockTopY + (badgeLayout.lineHeight * 0.8);
     let artistY = fixedArtistY;
     const contentBottomY = badgeBlockTopY + badgeTotalH;
     if (contentBottomY > artistY - 20) {
@@ -143,7 +170,7 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
       badgeY,
       artistY
     };
-  }, [data.coverBadge, titleLayout]);
+  }, [data.coverBadge, titleLayout, fontConfig]);
 
   const { titleStartY, badgeY, artistY } = previewLayout;
 

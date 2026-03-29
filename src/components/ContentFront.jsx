@@ -1,11 +1,17 @@
 import React from 'react';
 
 import { JCARD_DIMENSIONS } from '../constants/app.js';
-import TextUtils from '../utils/TextUtils.js';
+import TypographyService from '../services/TypographyService.js';
 
 const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, frontStyle, isLight, textColor, subTextColor, titleLayout, titleStartY, badgeY, artistY, fontConfig }) => {
   const badgeText = data.coverBadge || "";
-  const badgeLines = TextUtils.getWrappedLines(badgeText, 38);
+  // 标语折行参数需与 JCardPreview.jsx 中的 previewLayout 一致
+  const BADGE_FONT_SIZE = 20;
+  const badgeFont = fontConfig?.fonts?.serif || "Georgia, serif";
+  const badgeMaxWidth = width - 160; // 左右各 80px
+  const badgeLines = badgeText
+    ? TypographyService.wrapText(badgeText, badgeFont, BADGE_FONT_SIZE, badgeMaxWidth, { fontStyle: 'italic', fontWeight: 'bold' })
+    : [''];
   const badgeLineHeight = 26;
   const panelHeight = JCARD_DIMENSIONS.height;
 
@@ -94,7 +100,7 @@ const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, fr
           </g>
         )}
 
-        <text x="750" y={artistY} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontSize="24" fill={subTextColor} textAnchor="middle" style={{ textShadow: isLight ? "none" : "0 2px 4px rgba(0,0,0,0.8)" }}>
+        <text x="750" y={artistY} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontSize="32" fontWeight="bold" fill={subTextColor} textAnchor="middle" letterSpacing="6" style={{ textShadow: isLight ? "none" : "0 2px 4px rgba(0,0,0,0.8)" }}>
           {data.artist}{theme.mood_description ? ` · ${theme.mood_description}` : ""}
         </text>
       </g>

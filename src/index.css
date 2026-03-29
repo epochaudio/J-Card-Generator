@@ -64,3 +64,17 @@
   font-weight: normal;
   font-style: normal;
 }
+
+@font-face {
+  font-family: 'Noto Sans SC';
+  src: url('./assets/fonts/NotoSansSC-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Alibaba PuHuiTi';
+  src: url('./assets/fonts/AlibabaPuHuiTi-3-55-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
