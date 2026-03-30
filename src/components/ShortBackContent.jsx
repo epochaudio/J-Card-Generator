@@ -1,11 +1,10 @@
 import React, { useMemo } from 'react';
 
-import { JCARD_DIMENSIONS } from '../constants/app.js';
 import TypographyService from '../services/TypographyService.js';
+import { resolveShortBackArchiveLayout } from '../utils/ShortBackArchiveLayout.js';
 import { resolveShortBackMode } from '../utils/ShortBackModeResolver.js';
 
 const SHORT_BACK_PADDING_X = 24;
-const PANEL_HEIGHT = JCARD_DIMENSIONS.height;
 
 const fitSingleLine = (text, fontFamily, fontSize, maxWidth, fontOptions = {}) => {
   const normalized = String(text || '').trim();
@@ -25,10 +24,6 @@ const fitSingleLine = (text, fontFamily, fontSize, maxWidth, fontOptions = {}) =
 
   return suffix;
 };
-
-const getReleaseYear = (releaseDate = '') => (
-  String(releaseDate || '').split(/[-.]/)[0] || ''
-);
 
 const formatTrackCountLabel = (count) => `${count} ${count === 1 ? 'TRACK' : 'TRACKS'}`;
 
@@ -52,6 +47,15 @@ const ShortBackContent = ({
     [data.layout?.mode, data.layout?.shortBackMode]
   );
 
+  const archiveLayout = useMemo(() => {
+    if (resolvedMode !== 'META_ARCHIVE') return null;
+    return resolveShortBackArchiveLayout({
+      data,
+      recordingData,
+      fontConfig
+    });
+  }, [resolvedMode, data, recordingData, fontConfig]);
+
   const sideSummaryData = useMemo(() => ([
     {
       key: 'A',
@@ -70,98 +74,113 @@ const ShortBackContent = ({
   ]), [data.sideA, data.sideADuration, data.sideB, data.sideBDuration]);
 
   const renderArchiveMode = () => {
-    const labelText = (recordingData?.labelOverride || data.tapeSubtitle || '').toUpperCase();
-    const labelMaxWidth = 300;
-    const labelFontSize = 32;
-    const labelLines = TypographyService.wrapText(labelText, monoFont, labelFontSize, labelMaxWidth, { fontWeight: 'bold' });
-    const labelY = 40;
-    const lineHeight = 38;
-    const sourceY = labelY + (labelLines.length * lineHeight) + 24;
+    if (!archiveLayout) return null;
 
-    const creditsLines = [];
-    const credits = recordingData?.credits;
-
-    if (credits) {
-      if (credits.producers?.length) {
-        creditsLines.push({ type: 'header', text: 'PRODUCED BY' });
-        creditsLines.push({ type: 'body', text: credits.producers.slice(0, 2).join(', ').toUpperCase() });
-      }
-      if (credits.engineers?.length) {
-        creditsLines.push({ type: 'header', text: 'ENGINEERED BY' });
-        creditsLines.push({ type: 'body', text: credits.engineers.slice(0, 2).join(', ').toUpperCase() });
-      }
-    }
-
-    const releaseYear = getReleaseYear(data.releaseDate);
-    const dateWidth = TypographyService.measureWidth(releaseYear, titleFont, 32, { fontWeight: 'bold' });
-    const releasedBoxWidth = Math.max(dateWidth, 75);
-    const totalLimit = PANEL_HEIGHT - 50;
-    const absoluteRightLimit = totalLimit - releasedBoxWidth - 30;
-    const equipmentMaxWidth = Math.max(120, absoluteRightLimit - 750);
-    const equipmentLines = TypographyService.wrapText(
-      recordingData?.equipment || '',
-      bodyFont,
-      16,
-      equipmentMaxWidth
-    );
+    const { label, credits, equipment, meta } = archiveLayout.columns;
 
     return (
       <g transform={`translate(${width}, 0) rotate(90)`} fontFamily={monoFont}>
-        <g>
-          {labelLines.map((line, index) => (
-            <text key={`label-${index}`} x="50" y={labelY + (index * lineHeight)} fontSize="32" fontWeight="bold" fill={textColor} letterSpacing="2" dominantBaseline="hanging">
+        <g transform={`translate(${label.x}, ${label.topY})`}>
+          {label.label.lines.map((line, index) => (
+            <text
+              key={`label-${index}`}
+              x="0"
+              y={index * label.label.lineHeight}
+              fontSize={label.label.fontSize}
+              fontWeight="bold"
+              fill={textColor}
+              letterSpacing="2"
+              dominantBaseline="hanging"
+            >
               {line}
             </text>
           ))}
-          <g transform={`translate(50, ${sourceY})`}>
-            <text x="0" y="0" fontSize="12" fill={dimTextColor} letterSpacing="4">SOURCE</text>
-            <text x="0" y="22" fontSize="16" fill={subTextColor} fontWeight="bold" textAnchor="start">{recordingData?.source || ''}</text>
-          </g>
-        </g>
 
-        <g transform="translate(380, 40)">
-          {(() => {
-            let cursorY = 0;
-            return creditsLines.map((item, index) => {
-              if (item.type === 'header') {
-                const node = <text key={`credit-header-${index}`} x="0" y={cursorY} fontSize="12" fill={dimTextColor} letterSpacing="4">{item.text}</text>;
-                cursorY += 22;
-                return node;
-              }
-
-              const wrapped = TypographyService.wrapText(item.text, bodyFont, 16, 350);
-              const nodes = wrapped.map((line, wrappedIndex) => (
-                <text key={`credit-body-${index}-${wrappedIndex}`} x="0" y={cursorY + (wrappedIndex * 20)} fontSize="16" fill={subTextColor} fontFamily={bodyFont}>
+          {label.source && label.source.body && (
+            <g transform={`translate(0, ${label.source.groupY})`}>
+              <text x="0" y="0" fontSize={label.source.headerFontSize} fill={dimTextColor} letterSpacing="4" dominantBaseline="hanging">
+                {label.source.header}
+              </text>
+              {label.source.body.lines.map((line, index) => (
+                <text
+                  key={`source-${index}`}
+                  x="0"
+                  y={label.source.bodyY + (index * label.source.body.lineHeight)}
+                  fontSize={label.source.body.fontSize}
+                  fill={subTextColor}
+                  fontFamily={bodyFont}
+                  fontWeight="bold"
+                  dominantBaseline="hanging"
+                >
                   {line}
                 </text>
-              ));
-              cursorY += wrapped.length * 20 + 28;
-              return nodes;
-            });
-          })()}
+              ))}
+            </g>
+          )}
         </g>
 
-        <g transform="translate(750, 40)">
-          <text x="0" y="0" fontSize="12" fill={dimTextColor} letterSpacing="4">EQUIPMENT</text>
-          {equipmentLines.map((line, index) => (
-            <text key={`equipment-${index}`} x="0" y={22 + (index * 20)} fontSize="16" fill={subTextColor} fontFamily={bodyFont}>
-              {line}
+        {credits && (
+          <g transform={`translate(${credits.x}, ${credits.topY})`}>
+            {credits.sections.map((section, sectionIndex) => (
+              <g key={`credit-section-${sectionIndex}`} transform={`translate(0, ${section.groupY})`}>
+                <text x="0" y="0" fontSize={section.headerFontSize} fill={dimTextColor} letterSpacing="4" dominantBaseline="hanging">
+                  {section.header}
+                </text>
+                {section.body?.lines.map((line, lineIndex) => (
+                  <text
+                    key={`credit-line-${sectionIndex}-${lineIndex}`}
+                    x="0"
+                    y={section.bodyY + (lineIndex * section.body.lineHeight)}
+                    fontSize={section.body.fontSize}
+                    fill={subTextColor}
+                    fontFamily={bodyFont}
+                    dominantBaseline="hanging"
+                  >
+                    {line}
+                  </text>
+                ))}
+              </g>
+            ))}
+          </g>
+        )}
+
+        {equipment && equipment.body && (
+          <g transform={`translate(${equipment.x}, ${equipment.topY})`}>
+            <text x="0" y="0" fontSize={equipment.headerFontSize} fill={dimTextColor} letterSpacing="4" dominantBaseline="hanging">
+              {equipment.header}
             </text>
-          ))}
-        </g>
+            {equipment.body.lines.map((line, index) => (
+              <text
+                key={`equipment-${index}`}
+                x="0"
+                y={equipment.bodyY + (index * equipment.body.lineHeight)}
+                fontSize={equipment.body.fontSize}
+                fill={subTextColor}
+                fontFamily={bodyFont}
+                dominantBaseline="hanging"
+              >
+                {line}
+              </text>
+            ))}
+          </g>
+        )}
 
-        <g transform={`translate(${PANEL_HEIGHT - 50}, 40)`}>
+        <g transform={`translate(${meta.x}, ${meta.topY})`}>
           <g>
-            <text x="0" y="0" fontSize="12" fill={dimTextColor} letterSpacing="4" textAnchor="end">RELEASED</text>
-            <text x="0" y="32" fontSize="32" fill={textColor} fontWeight="bold" letterSpacing="1" textAnchor="end">
-              {releaseYear}
+            <text x="0" y={meta.release.labelY} fontSize={meta.release.labelFontSize} fill={dimTextColor} letterSpacing="4" textAnchor="end" dominantBaseline="hanging">
+              {meta.release.label}
+            </text>
+            <text x="0" y={meta.release.valueY} fontSize={meta.release.valueFontSize} fill={textColor} fontWeight="bold" letterSpacing="1" textAnchor="end" dominantBaseline="hanging">
+              {meta.release.value}
             </text>
           </g>
 
-          <g transform="translate(0, 96)">
-            <text x="0" y="0" fontSize="12" fill={dimTextColor} letterSpacing="4" textAnchor="end">RECORDED</text>
-            <text x="0" y="32" fontSize="32" fill={theme.accent} fontWeight="bold" letterSpacing="1" textAnchor="end">
-              {recordingData?.recDate || ''}
+          <g transform={`translate(0, ${meta.recorded.groupY})`}>
+            <text x="0" y={meta.recorded.labelY} fontSize={meta.recorded.labelFontSize} fill={dimTextColor} letterSpacing="4" textAnchor="end" dominantBaseline="hanging">
+              {meta.recorded.label}
+            </text>
+            <text x="0" y={meta.recorded.valueY} fontSize={meta.recorded.valueFontSize} fill={theme.accent} fontWeight="bold" letterSpacing="1" textAnchor="end" dominantBaseline="hanging">
+              {meta.recorded.value}
             </text>
           </g>
         </g>

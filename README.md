@@ -1,5 +1,10 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
 
+> **v1.5.3 Update**:
+> 1. 🧱 **古典 Short Back 布局引擎重构**: 古典 `Short Back (Fold-in)` 的档案模式不再直接依赖固定坐标硬排，而是改为先测量再渲染的独立布局计算流程。
+> 2. 📉 **四级自动降级防溢出**: 当 `label / source / credits / equipment` 过长时，系统会在 `FULL -> TRIM_CREDITS -> COMPACT_META -> META_ONLY` 之间自动降级，优先保证不冲出、不裁切。
+> 3. ✂️ **档案字段限行与截断**: `source / credits / equipment` 现在支持限行、折行和省略号收束，极端长文本下的贴边与越界风险明显降低。
+>
 > **v1.5.2 Update**:
 > 1. 🧠 **背面过载保护系统**: `Back` 面板新增真实测量驱动的密度判断，不再只靠缩字号硬撑。系统会根据版面承载力自动选择更合适的信息层级。
 > 2. 🎼 **古典模式自动折叠**: 面对《Carnaval》这类多乐章/多分段作品时，背面会在 `完整分曲 -> 节选分曲 -> 作品摘要 -> 仅作品名` 之间逐级降级，避免曲目页视觉溢出。
@@ -181,7 +186,7 @@ npm run electron:build:mac-arm64:dmg
 ```
 
 ### 构建说明
-*   当前版本号为 `1.5.2`，界面底部版本号由 `package.json` 通过 Vite 注入。
+*   当前版本号为 `1.5.3`，界面底部版本号由 `package.json` 通过 Vite 注入。
 *   在 macOS 沙箱或受限环境中，`electron-builder` 直接构建 Windows 包可能因 `wine` 权限受限失败；必要时可追加 `--config.win.signAndEditExecutable=false`。
 *   在某些 arm64 macOS 环境中，`electron-builder` 生成 `.dmg` 可能失败，此时可回退为系统 `hdiutil` 手工封装。
 
