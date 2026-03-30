@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Settings, Image as ImageIcon, Trash2, Globe, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw, Plus } from 'lucide-react';
+import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Settings, Image as ImageIcon, Trash2, Globe, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw, Plus, GripVertical } from 'lucide-react';
 
 import { JCARD_DIMENSIONS, STORAGE_KEYS } from './src/constants/app.js';
 import ImportModal from './src/components/ImportModal.jsx';
@@ -15,7 +15,88 @@ import { getFontConfig, FONT_THEMES } from './src/config/fonts.js';
 import { parseDurationToMs } from './src/utils/formatDuration.js';
 import { urlToBase64 } from './src/utils/imageUtils.js';
 import LayoutEngine from './src/utils/LayoutEngine.js';
+import { SHORT_BACK_MODE_VALUES } from './src/utils/ShortBackModeResolver.js';
 import SpineLayoutEngine from './src/utils/SpineLayoutEngine.js';
+
+let trackIdCounter = 0;
+
+const createTrackId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  trackIdCounter += 1;
+  return `track-${Date.now()}-${trackIdCounter}`;
+};
+
+const formatTrackDurationTotal = (tracks) => (
+  MusicBrainzService.formatDuration(
+    tracks.reduce((acc, track) => acc + parseDurationToMs(track.duration), 0)
+  )
+);
+
+const createTrack = ({
+  id,
+  title = '',
+  artist = 'Artist Name',
+  duration = '0:00',
+  note = '',
+  ...rest
+} = {}) => ({
+  id: id || createTrackId(),
+  title,
+  artist,
+  duration,
+  note,
+  ...rest
+});
+
+const normalizeTrack = (track = {}, fallbackArtist = 'Artist Name') => ({
+  ...track,
+  id: track.id || createTrackId(),
+  artist: track.artist || fallbackArtist,
+  note: track.note || ''
+});
+
+const normalizeTrackList = (tracks = [], fallbackArtist = 'Artist Name') => (
+  tracks.map(track => normalizeTrack(track, fallbackArtist))
+);
+
+const normalizeLayoutSettings = (layout = {}) => ({
+  noteUpper: "",
+  noteLower: "",
+  forceCaps: true,
+  minimalSpine: false,
+  mode: 'STANDARD',
+  frontStyle: 'STANDARD',
+  spineInverted: true,
+  ...layout,
+  shortBackMode: SHORT_BACK_MODE_VALUES.includes(layout?.shortBackMode) ? layout.shortBackMode : 'AUTO'
+});
+
+const normalizeProjectData = (projectData) => {
+  const fallbackArtist = projectData?.artist || 'Artist Name';
+  const sideA = normalizeTrackList(projectData?.sideA || [], fallbackArtist);
+  const sideB = normalizeTrackList(projectData?.sideB || [], fallbackArtist);
+
+  return {
+    ...projectData,
+    layout: normalizeLayoutSettings(projectData?.layout),
+    sideA,
+    sideB,
+    sideADuration: formatTrackDurationTotal(sideA),
+    sideBDuration: formatTrackDurationTotal(sideB)
+  };
+};
+
+const arrayMove = (items, fromIndex, toIndex) => {
+  if (fromIndex === toIndex) return items;
+
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(fromIndex, 1);
+  nextItems.splice(toIndex, 0, movedItem);
+  return nextItems;
+};
 
 const createDefaultData = () => ({
   title: "ALBUM TITLE",
@@ -27,28 +108,20 @@ const createDefaultData = () => ({
   coverBadge: "",
   sideADuration: "20:00",
   sideBDuration: "20:00",
-  layout: {
-    noteUpper: "",
-    noteLower: "",
-    forceCaps: true,
-    minimalSpine: false,
-    mode: 'STANDARD',
-    frontStyle: 'STANDARD',
-    spineInverted: true
-  },
+  layout: normalizeLayoutSettings(),
   sideA: [
-    { title: "Track Name 1", artist: "Artist Name", duration: "3:45", note: "" },
-    { title: "Track Name 2", artist: "Artist Name", duration: "4:20", note: "" },
-    { title: "Track Name 3", artist: "Artist Name", duration: "3:15", note: "" },
-    { title: "Track Name 4", artist: "Artist Name", duration: "5:10", note: "" },
-    { title: "Track Name 5", artist: "Artist Name", duration: "4:05", note: "" }
+    createTrack({ title: "Track Name 1", artist: "Artist Name", duration: "3:45", note: "" }),
+    createTrack({ title: "Track Name 2", artist: "Artist Name", duration: "4:20", note: "" }),
+    createTrack({ title: "Track Name 3", artist: "Artist Name", duration: "3:15", note: "" }),
+    createTrack({ title: "Track Name 4", artist: "Artist Name", duration: "5:10", note: "" }),
+    createTrack({ title: "Track Name 5", artist: "Artist Name", duration: "4:05", note: "" })
   ],
   sideB: [
-    { title: "Track Name 6", artist: "Artist Name", duration: "3:50", note: "" },
-    { title: "Track Name 7", artist: "Artist Name", duration: "4:15", note: "" },
-    { title: "Track Name 8", artist: "Artist Name", duration: "3:30", note: "" },
-    { title: "Track Name 9", artist: "Artist Name", duration: "4:45", note: "" },
-    { title: "Track Name 10", artist: "Artist Name", duration: "3:55", note: "" }
+    createTrack({ title: "Track Name 6", artist: "Artist Name", duration: "3:50", note: "" }),
+    createTrack({ title: "Track Name 7", artist: "Artist Name", duration: "4:15", note: "" }),
+    createTrack({ title: "Track Name 8", artist: "Artist Name", duration: "3:30", note: "" }),
+    createTrack({ title: "Track Name 9", artist: "Artist Name", duration: "4:45", note: "" }),
+    createTrack({ title: "Track Name 10", artist: "Artist Name", duration: "3:55", note: "" })
   ]
 });
 
@@ -61,11 +134,19 @@ const createDefaultRecordingData = () => ({
 });
 
 const createEmptyTrack = (trackNumber = 1, artist = "Artist Name") => ({
-  title: `Track Name ${trackNumber}`,
-  artist,
-  duration: "0:00",
-  note: ""
+  ...createTrack({
+    title: `Track Name ${trackNumber}`,
+    artist,
+    duration: "0:00",
+    note: ""
+  })
 });
+
+const SHORT_BACK_MODE_OPTIONS = [
+  { value: 'AUTO', label: '自动' },
+  { value: 'META_ARCHIVE', label: '档案信息' },
+  { value: 'TRACKS_COMPACT', label: '紧凑曲目' }
+];
 
 const getElectronSecureStore = () => {
   if (typeof window === 'undefined') return null;
@@ -272,6 +353,7 @@ export default function App() {
 
   const [data, setData] = useState(() => createDefaultData());
   const [previewData, setPreviewData] = useState(() => createDefaultData());
+  const [dragState, setDragState] = useState(null);
 
   // --- NEW: Custom Recording Metadata State with Persistence ---
   const [recordingData, setRecordingData] = useState(() => createDefaultRecordingData());
@@ -346,6 +428,11 @@ export default function App() {
     };
   }, [recordingData]);
 
+  useEffect(() => {
+    setData(prev => normalizeProjectData(prev));
+    setPreviewData(prev => normalizeProjectData(prev));
+  }, []);
+
   const waitForPreviewPaint = () => new Promise((resolve) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(resolve);
@@ -360,11 +447,7 @@ export default function App() {
     await waitForPreviewPaint();
   };
 
-  const calculateTotalDuration = (tracks) => (
-    MusicBrainzService.formatDuration(
-      tracks.reduce((acc, track) => acc + parseDurationToMs(track.duration), 0)
-    )
-  );
+  const calculateTotalDuration = (tracks) => formatTrackDurationTotal(tracks);
 
   // Set default prompt when data changes
   // Removed automatic prompt generation useEffect per user request
@@ -408,7 +491,7 @@ export default function App() {
         }));
       }
 
-      const rawTracks = (releaseData.media || []).flatMap(m => m.tracks || []).map(t => ({
+      const rawTracks = (releaseData.media || []).flatMap(m => m.tracks || []).map(t => createTrack({
         title: t.title,
         artist: t['artist-credit']?.[0]?.name || rg['artist-credit']?.[0]?.name || "Unknown",
         duration: MusicBrainzService.formatDuration(t.length),
@@ -423,7 +506,7 @@ export default function App() {
       const sideA = rawTracks.slice(0, half);
       const sideB = rawTracks.slice(half);
 
-      setData({
+      setData(normalizeProjectData({
         title: rg.title,
         spineTitle: "",
         artist: rg['artist-credit']?.[0]?.name,
@@ -442,7 +525,7 @@ export default function App() {
           forceCaps: false,
           worksData: releaseData.works // Store Works hierarchy
         }
-      });
+      }));
       if (coverUrl) setCoverImage(coverUrl);
       setShowSearch(false);
     } catch (e) { setError("Import failed: " + e.message); } finally { setLoadingState('search', false); }
@@ -461,15 +544,15 @@ export default function App() {
         // Map AI keys to Internal Keys for LayoutEngine
         const mapWorkFields = (tracks) => tracks.map(t => {
           if (t.work_title) {
-            return {
+            return createTrack({
               ...t,
               _workTitle: t.work_title,
               _workComposer: t.work_composer,
               // Use title as ID for grouping logic
               _workId: t.work_title
-            };
+            });
           }
-          return t;
+          return createTrack(t);
         });
 
         updates.sideA = parsed.sideA ? mapWorkFields(parsed.sideA) : [];
@@ -517,10 +600,10 @@ export default function App() {
       };
 
       // Ensure notes field exists
-      if (updates.sideA) updates.sideA = updates.sideA.map(t => ({ ...t, note: t.note || '' }));
-      if (updates.sideB) updates.sideB = updates.sideB.map(t => ({ ...t, note: t.note || '' }));
+      if (updates.sideA) updates.sideA = normalizeTrackList(updates.sideA, updates.artist || data.artist);
+      if (updates.sideB) updates.sideB = normalizeTrackList(updates.sideB, updates.artist || data.artist);
 
-      setData(prev => ({ ...prev, ...updates }));
+      setData(prev => normalizeProjectData({ ...prev, ...updates }));
       setShowImport(false);
       setImportText('');
     } catch (err) {
@@ -738,6 +821,54 @@ export default function App() {
     });
   };
 
+  const reorderTracks = (side, fromIndex, toIndex) => {
+    setData(prev => {
+      const currentTracks = prev[side];
+      if (
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= currentTracks.length ||
+        toIndex >= currentTracks.length ||
+        fromIndex === toIndex
+      ) {
+        return prev;
+      }
+
+      const nextTracks = arrayMove(currentTracks, fromIndex, toIndex);
+      return {
+        ...prev,
+        [side]: nextTracks,
+        [side === 'sideA' ? 'sideADuration' : 'sideBDuration']: calculateTotalDuration(nextTracks)
+      };
+    });
+  };
+
+  const moveTrack = (fromSide, toSide, fromIndex, toIndex) => {
+    setData(prev => {
+      const fromTracks = [...prev[fromSide]];
+      const toTracks = fromSide === toSide ? fromTracks : [...prev[toSide]];
+      if (fromIndex < 0 || fromIndex >= fromTracks.length) return prev;
+
+      const [movedTrack] = fromTracks.splice(fromIndex, 1);
+      if (!movedTrack) return prev;
+
+      const safeInsertIndex = Math.max(0, Math.min(toIndex, toTracks.length));
+      toTracks.splice(safeInsertIndex, 0, movedTrack);
+
+      if (fromSide === toSide) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [fromSide]: fromTracks,
+        [toSide]: toTracks,
+        [fromSide === 'sideA' ? 'sideADuration' : 'sideBDuration']: calculateTotalDuration(fromTracks),
+        [toSide === 'sideA' ? 'sideADuration' : 'sideBDuration']: calculateTotalDuration(toTracks)
+      };
+    });
+  };
+
   const removeTrack = (side, index) => {
     setData(prev => {
       const nextTracks = prev[side].filter((_, trackIndex) => trackIndex !== index);
@@ -747,6 +878,100 @@ export default function App() {
         [side === 'sideA' ? 'sideADuration' : 'sideBDuration']: calculateTotalDuration(nextTracks)
       };
     });
+  };
+
+  const isTrackDragEnabled = data.layout.mode !== 'CLASSICAL';
+
+  const handleTrackDragStart = (event, side, index, trackId) => {
+    if (!isTrackDragEnabled) return;
+
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', trackId);
+    setDragState({ fromSide: side, fromIndex: index, trackId });
+  };
+
+  const handleTrackDragOver = (event) => {
+    if (!isTrackDragEnabled) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  };
+
+  const resetDragState = () => {
+    setDragState(null);
+  };
+
+  const handleTrackDrop = (event, targetSide, targetIndex) => {
+    if (!dragState || !isTrackDragEnabled) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const { fromSide, fromIndex } = dragState;
+
+    if (fromSide === targetSide) {
+      const insertionIndex = fromIndex < targetIndex ? targetIndex - 1 : targetIndex;
+      if (insertionIndex !== fromIndex) {
+        reorderTracks(targetSide, fromIndex, insertionIndex);
+      }
+    } else {
+      moveTrack(fromSide, targetSide, fromIndex, targetIndex);
+    }
+
+    resetDragState();
+  };
+
+  const renderTrackCard = (side, track, index) => (
+    <div
+      key={track.id}
+      onDragOver={isTrackDragEnabled ? handleTrackDragOver : undefined}
+      onDrop={isTrackDragEnabled ? (event) => handleTrackDrop(event, side, index) : undefined}
+      className={`p-3 rounded border space-y-2 group transition-all ${
+        dragState?.trackId === track.id
+          ? 'bg-orange-50 border-orange-300 opacity-60'
+          : 'bg-white border-gray-200'
+      }`}
+    >
+      <div className="flex gap-2 items-start">
+        {isTrackDragEnabled ? (
+          <button
+            type="button"
+            draggable
+            onDragStart={(event) => handleTrackDragStart(event, side, index, track.id)}
+            onDragEnd={resetDragState}
+            className="w-6 h-8 rounded flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-grab active:cursor-grabbing shrink-0"
+            title="拖拽排序"
+          >
+            <GripVertical size={14} />
+          </button>
+        ) : (
+          <div className="w-6 h-8 shrink-0" />
+        )}
+        <div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center h-8 shrink-0">{index + 1}</div>
+        <input className="flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-900 placeholder-gray-400" placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack(side, index, 'title', e.target.value)} />
+        <input className="w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600" placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack(side, index, 'duration', e.target.value)} />
+        <button onClick={() => removeTrack(side, index)} className="w-8 h-8 rounded flex items-center justify-center transition-colors bg-red-50 text-red-500 hover:bg-red-100 shrink-0" title="删除曲目"><Trash2 size={14} /></button>
+      </div>
+      <div className="flex gap-2 pl-14">
+        <input className="flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600 placeholder-gray-400" placeholder="艺术家" value={track.artist || ''} onChange={(e) => updateTrack(side, index, 'artist', e.target.value)} />
+      </div>
+      <input className="w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-500 placeholder-gray-400" placeholder="备注/心情..." value={track.note || ''} onChange={(e) => updateTrack(side, index, 'note', e.target.value)} />
+    </div>
+  );
+
+  const renderDropZone = (side) => {
+    if (!isTrackDragEnabled) return null;
+
+    return (
+      <div
+        onDragOver={handleTrackDragOver}
+        onDrop={(event) => handleTrackDrop(event, side, data[side].length)}
+        className={`rounded border border-dashed px-3 py-3 text-xs text-center transition-colors ${
+          dragState ? 'border-orange-300 bg-orange-50 text-orange-600' : 'border-gray-200 text-gray-400'
+        }`}
+      >
+        {data[side].length === 0 ? '拖到这里添加到这一面' : '拖到这里放到末尾'}
+      </div>
+    );
   };
 
   const handleAutoColor = async () => {
@@ -953,6 +1178,23 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+                <div className="mt-3">
+                  <label className="block text-xs text-gray-400 mb-1">Short Back 模式</label>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    {SHORT_BACK_MODE_OPTIONS.map(option => (
+                      <button
+                        key={option.value}
+                        onClick={() => setData({ ...data, layout: { ...data.layout, shortBackMode: option.value } })}
+                        className={`py-1.5 rounded border transition-colors ${data.layout.shortBackMode === option.value
+                          ? 'bg-teal-600 text-white border-teal-600'
+                          : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[11px] text-gray-400">控制最左侧折页的显示内容，不影响主封底曲目顺序。</p>
+                </div>
                 <div className="mt-2">
                   <label className="block text-xs text-gray-400 mb-1">封面模式 (Front Layout)</label>
                   <div className="flex gap-2 text-xs">
@@ -1114,13 +1356,11 @@ export default function App() {
                   <Plus size={12} /> 添加曲目
                 </button>
               </div>
-              {data.sideA.map((track, i) => (
-                <div key={i} className="p-3 rounded border space-y-2 group bg-white border-gray-200">
-                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className="flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-900 placeholder-gray-400" placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideA', i, 'title', e.target.value)} /><input className="w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600" placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideA', i, 'duration', e.target.value)} /><button onClick={() => removeTrack('sideA', i)} className="w-8 rounded flex items-center justify-center transition-colors bg-red-50 text-red-500 hover:bg-red-100" title="删除曲目"><Trash2 size={14} /></button></div>
-                  <div className="flex gap-2 pl-8"><input className="flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600 placeholder-gray-400" placeholder="艺术家" value={track.artist || ''} onChange={(e) => updateTrack('sideA', i, 'artist', e.target.value)} /></div>
-                  <input className="w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-500 placeholder-gray-400" placeholder="备注/心情..." value={track.note || ''} onChange={(e) => updateTrack('sideA', i, 'note', e.target.value)} />
-                </div>
-              ))}
+              {!isTrackDragEnabled && data.layout.mode === 'CLASSICAL' && (
+                <p className="text-xs text-gray-400 pl-1">古典模式暂不支持拖拽排序。</p>
+              )}
+              {data.sideA.map((track, i) => renderTrackCard('sideA', track, i))}
+              {renderDropZone('sideA')}
             </section>
             <section className="space-y-4">
               <div className="flex items-center justify-between pl-1">
@@ -1129,13 +1369,8 @@ export default function App() {
                   <Plus size={12} /> 添加曲目
                 </button>
               </div>
-              {data.sideB.map((track, i) => (
-                <div key={i} className="p-3 rounded border space-y-2 group bg-white border-gray-200">
-                  <div className="flex gap-2"><div className="w-6 text-gray-500 text-sm font-mono flex items-center justify-center">{i + 1}</div><input className="flex-1 border-none rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-900 placeholder-gray-400" placeholder="标题" value={track.title || ''} onChange={(e) => updateTrack('sideB', i, 'title', e.target.value)} /><input className="w-16 border-none rounded px-2 py-1 text-sm text-center focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600" placeholder="0:00" value={track.duration || ''} onChange={(e) => updateTrack('sideB', i, 'duration', e.target.value)} /><button onClick={() => removeTrack('sideB', i)} className="w-8 rounded flex items-center justify-center transition-colors bg-red-50 text-red-500 hover:bg-red-100" title="删除曲目"><Trash2 size={14} /></button></div>
-                  <div className="flex gap-2 pl-8"><input className="flex-1 border-none rounded px-2 py-1 text-xs focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-600 placeholder-gray-400" placeholder="艺术家" value={track.artist || ''} onChange={(e) => updateTrack('sideB', i, 'artist', e.target.value)} /></div>
-                  <input className="w-full border-none rounded px-2 py-1 text-xs italic focus:ring-1 focus:ring-orange-500 bg-gray-50 text-gray-500 placeholder-gray-400" placeholder="备注/心情..." value={track.note || ''} onChange={(e) => updateTrack('sideB', i, 'note', e.target.value)} />
-                </div>
-              ))}
+              {data.sideB.map((track, i) => renderTrackCard('sideB', track, i))}
+              {renderDropZone('sideB')}
             </section>
 
           </div>

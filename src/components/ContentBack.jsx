@@ -1,8 +1,214 @@
 import React, { useMemo } from 'react';
 
 import { JCARD_DIMENSIONS } from '../constants/app.js';
+import { formatDurationMs, parseDurationToMs } from '../utils/formatDuration.js';
 import LayoutEngine from '../utils/LayoutEngine.js';
 import TypographyService from '../services/TypographyService.js';
+
+const CLASSICAL_LAYOUT_STEPS = [
+  {
+    id: 'INLINE_FULL',
+    groupContent: 'inline',
+    inlineLimit: null,
+    maxHeaderLines: 3,
+    maxContentLines: null,
+    maxTrackLines: 3
+  },
+  {
+    id: 'INLINE_TRIM_6',
+    groupContent: 'inline',
+    inlineLimit: 6,
+    maxHeaderLines: 2,
+    maxContentLines: 3,
+    maxTrackLines: 2
+  },
+  {
+    id: 'INLINE_TRIM_4',
+    groupContent: 'inline',
+    inlineLimit: 4,
+    maxHeaderLines: 2,
+    maxContentLines: 2,
+    maxTrackLines: 2
+  },
+  {
+    id: 'WORK_SUMMARY',
+    groupContent: 'summary',
+    inlineLimit: 0,
+    maxHeaderLines: 2,
+    maxContentLines: 1,
+    maxTrackLines: 2
+  },
+  {
+    id: 'WORK_ONLY',
+    groupContent: 'title',
+    inlineLimit: 0,
+    maxHeaderLines: 1,
+    maxContentLines: 0,
+    maxTrackLines: 1
+  }
+];
+
+const NON_CLASSICAL_LAYOUT_STEPS = [
+  {
+    id: 'LEVEL_0_FULL',
+    groupContent: 'tracks',
+    maxTrackLines: 3,
+    noteMaxLines: 2,
+    showArtist: 'compilation',
+    showDuration: true,
+    noteStrategy: 'all'
+  },
+  {
+    id: 'LEVEL_1_NOTE_FIRST',
+    groupContent: 'tracks',
+    maxTrackLines: 2,
+    noteMaxLines: 1,
+    showArtist: 'compilation',
+    showDuration: true,
+    noteStrategy: 'all'
+  },
+  {
+    id: 'LEVEL_2_META_REDUCED',
+    groupContent: 'tracks',
+    maxTrackLines: 2,
+    noteMaxLines: 1,
+    showArtist: false,
+    showDuration: false,
+    noteStrategy: 'all'
+  },
+  {
+    id: 'LEVEL_3_NOTE_SELECTIVE',
+    groupContent: 'tracks',
+    maxTrackLines: 1,
+    noteMaxLines: 1,
+    showArtist: false,
+    showDuration: false,
+    noteStrategy: 'selective',
+    maxNotesPerSide: 3
+  },
+  {
+    id: 'LEVEL_4_TITLES_ONLY',
+    groupContent: 'tracks',
+    maxTrackLines: 1,
+    noteMaxLines: 0,
+    showArtist: false,
+    showDuration: false,
+    noteStrategy: 'none',
+    maxNotesPerSide: 0
+  }
+];
+
+const trimLineToWidth = (line, suffix, maxWidth, fontFamily, fontSize, fontOptions = {}) => {
+  const normalizedLine = (line || '').trimEnd();
+  const fullCandidate = `${normalizedLine}${suffix}`;
+  if (TypographyService.measureWidth(fullCandidate, fontFamily, fontSize, fontOptions) <= maxWidth) {
+    return fullCandidate;
+  }
+
+  for (let i = normalizedLine.length - 1; i >= 0; i -= 1) {
+    const candidate = `${normalizedLine.slice(0, i).trimEnd()}${suffix}`;
+    if (TypographyService.measureWidth(candidate, fontFamily, fontSize, fontOptions) <= maxWidth) {
+      return candidate;
+    }
+  }
+
+  return suffix.trim();
+};
+
+const clampWrappedLines = (lines, maxLines, maxWidth, fontFamily, fontSize, fontOptions = {}) => {
+  if (!maxLines || lines.length <= maxLines) return lines;
+
+  const clamped = lines.slice(0, maxLines);
+  clamped[maxLines - 1] = trimLineToWidth(clamped[maxLines - 1], '...', maxWidth, fontFamily, fontSize, fontOptions);
+  return clamped;
+};
+
+const cleanMovementTitle = (title = '') => title.replace(/^[IVX0-9]+\.\s*/, '').trim();
+
+const buildInlineGroupText = (tracks, inlineLimit) => {
+  const visibleTracks = typeof inlineLimit === 'number' && inlineLimit > 0
+    ? tracks.slice(0, inlineLimit)
+    : tracks;
+  const parts = visibleTracks
+    .map(track => cleanMovementTitle(track.displayTitle || track.title || ''))
+    .filter(Boolean);
+  const hiddenCount = Math.max(0, tracks.length - visibleTracks.length);
+
+  if (hiddenCount === 0) return parts.join(' / ');
+
+  const suffix = `... (+${hiddenCount})`;
+  return parts.length > 0 ? `${parts.join(' / ')} / ${suffix}` : suffix;
+};
+
+const buildGroupSummaryText = (tracks) => {
+  const trackCount = tracks.length;
+  const totalMs = tracks.reduce((sum, track) => sum + parseDurationToMs(track.duration), 0);
+  const duration = totalMs > 0 ? formatDurationMs(totalMs) : '';
+  const unit = trackCount === 1 ? 'part' : 'parts';
+  return duration ? `${trackCount} ${unit} / ${duration}` : `${trackCount} ${unit}`;
+};
+
+const shouldShowArtist = (strategy, isCompilation) => {
+  if (!strategy) return false;
+  if (strategy.showArtist === 'compilation') return isCompilation;
+  return Boolean(strategy.showArtist);
+};
+
+const buildDisplayTracks = (tracks, strategy, isCompilation) => {
+  const noteCandidates = tracks
+    .map((track, index) => ({ index, hasNote: Boolean(track.note && track.note.trim()) }))
+    .filter(item => item.hasNote)
+    .map(item => item.index);
+
+  const visibleNoteSet = (() => {
+    if (!strategy || strategy.noteStrategy === 'none' || !strategy.noteMaxLines) {
+      return new Set();
+    }
+
+    if (strategy.noteStrategy === 'selective') {
+      return new Set(noteCandidates.slice(0, strategy.maxNotesPerSide || 0));
+    }
+
+    return new Set(noteCandidates);
+  })();
+
+  return tracks.map((track, index) => ({
+    ...track,
+    showArtist: shouldShowArtist(strategy, isCompilation),
+    showDuration: Boolean(strategy?.showDuration),
+    showNote: visibleNoteSet.has(index)
+  }));
+};
+
+const buildDisplayGroups = (groups, strategy, isClassical) => {
+  if (!isClassical) return groups;
+
+  return groups.map((item) => {
+    if (item.type !== 'group') return item;
+
+    if (strategy.groupContent === 'inline') {
+      return {
+        ...item,
+        displayMode: 'inline',
+        contentText: buildInlineGroupText(item.tracks, strategy.inlineLimit)
+      };
+    }
+
+    if (strategy.groupContent === 'summary') {
+      return {
+        ...item,
+        displayMode: 'summary',
+        contentText: buildGroupSummaryText(item.tracks)
+      };
+    }
+
+    return {
+      ...item,
+      displayMode: 'title',
+      contentText: ''
+    };
+  });
+};
 
 
 const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTextColor, dimTextColor, recordingData, fontConfig }) => {
@@ -28,10 +234,34 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   const bodyFont = fontConfig?.fonts?.body || "Arial, sans-serif";
   const titleFont = fontConfig?.fonts?.title || "Arial, sans-serif";
   const monoFont = fontConfig?.fonts?.mono || "Courier New, monospace";
+  const isCompilation = data.layout?.mode === 'COMPILATION';
 
   const renderStrategy = useMemo(() => {
-    if (!isClassical) return 'STANDARD';
-    return isCompact ? 'WORK_ONLY' : 'INLINE_COMPACT';
+    if (!isClassical) {
+      return {
+        id: 'STANDARD',
+        groupContent: 'tracks',
+        maxHeaderLines: null,
+        maxContentLines: null,
+        maxTrackLines: null,
+        isAutoFolded: false,
+        overflowDetected: false
+      };
+    }
+
+    if (isCompact) {
+      return {
+        id: 'WORK_ONLY',
+        groupContent: 'title',
+        maxHeaderLines: 2,
+        maxContentLines: 0,
+        maxTrackLines: 1,
+        isAutoFolded: true,
+        overflowDetected: false
+      };
+    }
+
+    return null;
   }, [isClassical, isCompact]);
 
   const groupsA = useMemo(() => (
@@ -61,8 +291,8 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
     }, 0);
     const roughTotalLines = countRoughLines(groupsA) + countRoughLines(groupsB);
     const roughLH = roughTotalLines > 0 ? availableForTracks / roughTotalLines : 50;
-    // 只有行高足够宽裕时才显示备注，避免拥挤
-    const showNotesGlobal = !isCompact && roughLH > 45;
+    // 古典模式仍沿用较保守的备注显示逻辑；非古典交给策略层决策。
+    const showNotesGlobal = isClassical ? (!isCompact && roughLH > 45) : true;
 
     // 第一轮估算字号（供 Pretext 测量用）
     const LINE_HEIGHT_TO_FONT_RATIO = 0.55;
@@ -74,7 +304,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
      * 修复史诗级隐藏 Bug：原本 renderer 会在文本前后强行追加 "01. " 和 " (4:20)"。
      * 这导致原本文本完美排满 usableWidth 时，追加部分会直接冲出右边界被裁切。
      */
-    const getTrackTitleAvailableWidth = (item, estFontSize, currentIdx) => {
+    const getTrackTitleAvailableWidth = (item, estFontSize, currentIdx, strategyConfig) => {
       let prefixW = 32; // 第二行默认悬挂缩进的宽度
       let suffixW = 0;
       if (!isClassical) {
@@ -84,10 +314,10 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         prefixW = TypographyService.measureWidth(numStr, monoFont, numSize, { fontWeight: 'normal' }) + 12; // 12px 为与标题间的空白缓冲
         
         let suffixStr = "";
-        if (data.layout?.mode === 'COMPILATION' && !isCompact && item.artist) {
+        if (item.showArtist && !isCompact && item.artist) {
           suffixStr += ` - ${item.artist} `;
         }
-        if (!isCompact && item.duration) {
+        if (item.showDuration && !isCompact && item.duration) {
           suffixStr += `  ${item.duration}`; // 取消括号，仅用空格分隔时间码
         }
         if (suffixStr) {
@@ -104,29 +334,49 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
      * - 旧：用字符数 × 魔法系数(0.7/1.1/1.8) 估算宽度
      * - 新：用 Pretext 的物理像素测量，结果与实际字体精确关联
      */
-    const calculateRealVisualLines = (groups, fontSize, startGlobalIdx = 0) => {
+    const wrapAndClamp = (text, fontFamily, fontSize, maxWidth, fontOptions = {}, maxLines = null) => {
+      const wrapped = TypographyService.wrapText(text, fontFamily, fontSize, maxWidth, fontOptions);
+      return clampWrappedLines(wrapped, maxLines, maxWidth, fontFamily, fontSize, fontOptions);
+    };
+
+    const calculateRealVisualLines = (groups, fontSize, startGlobalIdx = 0, strategyConfig = renderStrategy) => {
       let currentIdx = startGlobalIdx;
       return groups.reduce((acc, item) => {
         if (item.type === 'group') {
           const groupHeaderFontSize = Math.min(fontSize + 2, maxFont + 2);
-          const headerLines = TypographyService.wrapText(
-            item.title, titleFont, groupHeaderFontSize, usableWidth, { fontWeight: 'bold' }
+          const headerLines = wrapAndClamp(
+            item.title,
+            titleFont,
+            groupHeaderFontSize,
+            usableWidth,
+            { fontWeight: 'bold' },
+            strategyConfig.maxHeaderLines
           );
           let groupHeight = headerLines.length * 0.9;
 
-          if (renderStrategy === 'INLINE_COMPACT') {
-            const joinedText = item.tracks.map((t, tidx) => {
-              const roman = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"][tidx] || (tidx + 1);
-              const cleanTitle = t.displayTitle.replace(/^[IVX]+\.\s*/, '');
-              return `${roman}. ${cleanTitle}`;
-            }).join(" / ");
-
-            const contentLines = TypographyService.wrapText(
-              joinedText, bodyFont, fontSize - 1, usableWidth
+          if (strategyConfig.groupContent === 'inline' && item.contentText) {
+            const contentLines = wrapAndClamp(
+              item.contentText,
+              bodyFont,
+              Math.max(fontSize - 1, minFont),
+              usableWidth,
+              {},
+              strategyConfig.maxContentLines
             );
             groupHeight += contentLines.length * 0.85 + 0.3;
             currentIdx += item.tracks.length;
-          } else if (renderStrategy === 'WORK_ONLY') {
+          } else if (strategyConfig.groupContent === 'summary' && item.contentText) {
+            const contentLines = wrapAndClamp(
+              item.contentText,
+              monoFont,
+              Math.max(fontSize - 2, minFont),
+              usableWidth,
+              {},
+              strategyConfig.maxContentLines
+            );
+            groupHeight += contentLines.length * 0.8 + 0.2;
+            currentIdx += item.tracks.length;
+          } else if (strategyConfig.groupContent === 'title') {
             groupHeight += 0.2;
             currentIdx += item.tracks.length;
           } else {
@@ -137,68 +387,123 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         }
 
         // 普通曲目 (精确核减前后缀引发的排版溢出空间)
-        const safeAvailableW = getTrackTitleAvailableWidth(item, fontSize, currentIdx);
-        const titleLines = TypographyService.wrapText(
-          item.displayTitle, bodyFont, fontSize, safeAvailableW, { fontWeight: 'bold' }
+        const safeAvailableW = getTrackTitleAvailableWidth(item, fontSize, currentIdx, strategyConfig);
+        const titleLines = wrapAndClamp(
+          item.displayTitle,
+          bodyFont,
+          fontSize,
+          safeAvailableW,
+          { fontWeight: 'bold' },
+          strategyConfig.maxTrackLines
         );
         let noteHeight = 0;
-        if (showNotesGlobal && item.note) {
+        const noteLineLimit = strategyConfig.noteMaxLines ?? 2;
+        if (showNotesGlobal && item.showNote !== false && item.note && noteLineLimit > 0) {
           const noteFontSize = Math.max(fontSize * 0.6, 8);
           // 减去 25px 给 note 留出悬挂缩进
-          const noteLines = TypographyService.wrapText(
-            item.note, bodyFont, noteFontSize, usableWidth - 25
+          const noteLines = wrapAndClamp(
+            item.note,
+            bodyFont,
+            noteFontSize,
+            usableWidth - 25,
+            {},
+            noteLineLimit
           );
-          noteHeight = Math.min(noteLines.length, 2) * 0.6;
+          noteHeight = Math.min(noteLines.length, noteLineLimit) * 0.6;
         }
         currentIdx++;
         return acc + 1 + (titleLines.length - 1) * 0.85 + noteHeight;
       }, 0);
     };
 
-    const visualLinesA = calculateRealVisualLines(groupsA, estFontSize, 0);
-    const visualLinesB = calculateRealVisualLines(groupsB, estFontSize, data.sideA.length);
-    const totalVisualItems = visualLinesA + visualLinesB;
-
     // 行高边界
     const maxLH = isCompact ? 50 : 110;
     const minLHValue = isCompact ? 16 : 30;
-    let calculatedLH = totalVisualItems > 0 ? availableForTracks / totalVisualItems : maxLH;
-    calculatedLH = Math.min(Math.max(calculatedLH, minLHValue), maxLH);
+
+    const evaluateStrategy = (strategyConfig, fontSize) => {
+      const displayGroupsA = isClassical
+        ? buildDisplayGroups(groupsA, strategyConfig, true)
+        : buildDisplayTracks(groupsA, strategyConfig, isCompilation);
+      const displayGroupsB = isClassical
+        ? buildDisplayGroups(groupsB, strategyConfig, true)
+        : buildDisplayTracks(groupsB, strategyConfig, isCompilation);
+      const visualLinesA = calculateRealVisualLines(displayGroupsA, fontSize, 0, strategyConfig);
+      const visualLinesB = calculateRealVisualLines(displayGroupsB, fontSize, data.sideA.length, strategyConfig);
+      const totalVisualItems = visualLinesA + visualLinesB;
+      const naturalLH = totalVisualItems > 0 ? availableForTracks / totalVisualItems : maxLH;
+
+      return {
+        strategy: strategyConfig,
+        displayGroupsA,
+        displayGroupsB,
+        visualLinesA,
+        visualLinesB,
+        totalVisualItems,
+        naturalLH
+      };
+    };
+
+    const candidateStrategies = isClassical
+      ? (isCompact ? [renderStrategy] : CLASSICAL_LAYOUT_STEPS)
+      : NON_CLASSICAL_LAYOUT_STEPS;
+    const firstPassEvaluations = candidateStrategies.map(strategyConfig => evaluateStrategy(strategyConfig, estFontSize));
+    let selectedEvaluation = firstPassEvaluations.find(result => result.naturalLH >= minLHValue) || firstPassEvaluations[firstPassEvaluations.length - 1];
+
+    let calculatedLH = Math.min(Math.max(selectedEvaluation.naturalLH, minLHValue), maxLH);
 
     // 最终字号基于精确的行高计算
     let fontSize = Math.floor(calculatedLH * LINE_HEIGHT_TO_FONT_RATIO);
     fontSize = Math.min(Math.max(fontSize, minFont), maxFont);
 
+    selectedEvaluation = evaluateStrategy(selectedEvaluation.strategy, fontSize);
+    calculatedLH = Math.min(Math.max(selectedEvaluation.naturalLH, minLHValue), maxLH);
+    fontSize = Math.floor(calculatedLH * LINE_HEIGHT_TO_FONT_RATIO);
+    fontSize = Math.min(Math.max(fontSize, minFont), maxFont);
+    selectedEvaluation = evaluateStrategy(selectedEvaluation.strategy, fontSize);
+    calculatedLH = Math.min(Math.max(selectedEvaluation.naturalLH, minLHValue), maxLH);
+
     // Y 坐标计算
     const yHeaderA = marginY;
     const yListA = yHeaderA + headerHeight;
-    const heightA = visualLinesA * calculatedLH;
+    const heightA = selectedEvaluation.visualLinesA * calculatedLH;
     const yDivider = yListA + heightA + (gapBetweenSides / 2);
     const yHeaderB = yDivider + (gapBetweenSides / 2);
     const yListB = yHeaderB + headerHeight;
 
     return {
+      displayGroupsA: selectedEvaluation.displayGroupsA,
+      displayGroupsB: selectedEvaluation.displayGroupsB,
       showNotesGlobal,
       usableWidth,
       trackFontSize: fontSize,
       groupHeaderFontSize: Math.min(fontSize + 2, maxFont + 2),
       noteFontSize: Math.max(fontSize * 0.6, 8),
       calculatedLH,
+      selectedStrategy: {
+        ...selectedEvaluation.strategy,
+        overflowDetected: selectedEvaluation.naturalLH < minLHValue,
+        isAutoFolded: isClassical
+          ? selectedEvaluation.strategy.id !== 'INLINE_FULL'
+          : selectedEvaluation.strategy.id !== 'LEVEL_0_FULL'
+      },
       yHeaderA,
       yListA,
       yDivider,
       yHeaderB,
       yListB
     };
-  }, [availableForTracks, gapBetweenSides, groupsA, groupsB, headerHeight, isCompact, marginY, maxFont, minFont, renderStrategy, width, fontConfig]);
+  }, [availableForTracks, bodyFont, data.sideA.length, gapBetweenSides, groupsA, groupsB, headerHeight, isClassical, isCompact, isCompilation, marginY, maxFont, minFont, monoFont, renderStrategy, titleFont, width]);
 
   const {
+    displayGroupsA,
+    displayGroupsB,
     showNotesGlobal,
     usableWidth,
     trackFontSize,
     groupHeaderFontSize,
     noteFontSize,
     calculatedLH,
+    selectedStrategy,
     yHeaderA,
     yListA,
     yDivider,
@@ -216,10 +521,21 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   const renderGroupList = (groups, startGlobalIdx) => {
     let yCursor = 0;
     let localIdx = startGlobalIdx;
+    const wrapAndClamp = (text, fontFamily, fontSize, maxWidth, fontOptions = {}, maxLines = null) => {
+      const wrapped = TypographyService.wrapText(text, fontFamily, fontSize, maxWidth, fontOptions);
+      return clampWrappedLines(wrapped, maxLines, maxWidth, fontFamily, fontSize, fontOptions);
+    };
 
     return groups.map((item, i) => {
       if (item.type === 'group') {
-        const headerLines = TypographyService.wrapText(item.title, titleFont, groupHeaderFontSize, usableWidth, { fontWeight: 'bold' });
+        const headerLines = wrapAndClamp(
+          item.title,
+          titleFont,
+          groupHeaderFontSize,
+          usableWidth,
+          { fontWeight: 'bold' },
+          selectedStrategy.maxHeaderLines
+        );
 
         const headerNode = headerLines.map((line, lineIdx) => (
           <text key={`h-${i}-${lineIdx}`} x="-5" y={yCursor + calculatedLH * 0.6 + (lineIdx * calculatedLH * 0.85)} fill={textColor} fontSize={groupHeaderFontSize} fontWeight="bold" dominantBaseline="middle" fontFamily={fontConfig?.fonts?.title || "Arial, sans-serif"}>
@@ -231,15 +547,15 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
 
         let contentNode = null;
 
-        if (renderStrategy === 'INLINE_COMPACT') {
-          const joinedText = item.tracks.map((t, tidx) => {
-            const roman = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"][tidx] || (tidx + 1);
-            let cleanTitle = t.displayTitle.replace(/^[IVX0-9]+\.\s*/, '');
-            if (isClassical) return cleanTitle;
-            return `${roman}. ${cleanTitle}`;
-          }).join(" / ");
-
-          const contentLines = TypographyService.wrapText(joinedText, bodyFont, trackFontSize - 1, usableWidth);
+        if (selectedStrategy.groupContent === 'inline' && item.contentText) {
+          const contentLines = wrapAndClamp(
+            item.contentText,
+            bodyFont,
+            Math.max(trackFontSize - 1, minFont),
+            usableWidth,
+            {},
+            selectedStrategy.maxContentLines
+          );
           contentNode = contentLines.map((line, lIdx) => (
             <text key={`c-${i}-${lIdx}`} x="0" y={yCursor + calculatedLH * 0.5 + (lIdx * calculatedLH * 0.85)} fill={dimTextColor} fontSize={trackFontSize - 1} dominantBaseline="middle">
               {line}
@@ -247,7 +563,24 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
           ));
           yCursor += contentLines.length * calculatedLH * 0.85 + calculatedLH * 0.3;
           localIdx += item.tracks.length;
-        } else if (renderStrategy === 'WORK_ONLY') {
+        } else if (selectedStrategy.groupContent === 'summary' && item.contentText) {
+          const summaryFontSize = Math.max(trackFontSize - 2, minFont);
+          const contentLines = wrapAndClamp(
+            item.contentText,
+            monoFont,
+            summaryFontSize,
+            usableWidth,
+            {},
+            selectedStrategy.maxContentLines
+          );
+          contentNode = contentLines.map((line, lIdx) => (
+            <text key={`s-${i}-${lIdx}`} x="0" y={yCursor + calculatedLH * 0.48 + (lIdx * calculatedLH * 0.8)} fill={dimTextColor} fontSize={summaryFontSize} fontFamily={monoFont} letterSpacing="0.5" dominantBaseline="middle">
+              {line}
+            </text>
+          ));
+          yCursor += contentLines.length * calculatedLH * 0.8 + calculatedLH * 0.2;
+          localIdx += item.tracks.length;
+        } else if (selectedStrategy.groupContent === 'title') {
           yCursor += calculatedLH * 0.2;
           localIdx += item.tracks.length;
         } else {
@@ -269,8 +602,11 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       const thisY = yCursor;
       localIdx++;
 
-      const hasNote = showNotesGlobal && item.note;
-      const noteLines = hasNote ? TypographyService.wrapText(item.note, bodyFont, noteFontSize, usableWidth - 25) : [];
+      const noteLineLimit = selectedStrategy.noteMaxLines ?? 2;
+      const hasNote = showNotesGlobal && item.showNote !== false && item.note && noteLineLimit > 0;
+      const noteLines = hasNote
+        ? wrapAndClamp(item.note, bodyFont, noteFontSize, usableWidth - 25, {}, noteLineLimit)
+        : [];
       
       // 复用安全测量逻辑，在渲染阶段实行严酷的带边框安全折行
       let prefixW = 32;
@@ -280,13 +616,20 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         const numSize = Math.max(trackFontSize - 2, 10);
         prefixW = TypographyService.measureWidth(numStr, monoFont, numSize, { fontWeight: 'normal' }) + 12;
         let suffixStr = "";
-        if (data.layout?.mode === 'COMPILATION' && !isCompact && item.artist) suffixStr += ` - ${item.artist} `;
-        if (!isCompact && item.duration) suffixStr += `  ${item.duration}`;
+        if (item.showArtist && !isCompact && item.artist) suffixStr += ` - ${item.artist} `;
+        if (item.showDuration && !isCompact && item.duration) suffixStr += `  ${item.duration}`;
         if (suffixStr) suffixW = TypographyService.measureWidth(suffixStr, bodyFont, Math.max(trackFontSize - 4, 10));
       }
       const safeAvailableW = usableWidth - prefixW - suffixW;
       
-      const titleLines = TypographyService.wrapText(item.displayTitle, bodyFont, trackFontSize, safeAvailableW, { fontWeight: 'bold' });
+      const titleLines = wrapAndClamp(
+        item.displayTitle,
+        bodyFont,
+        trackFontSize,
+        safeAvailableW,
+        { fontWeight: 'bold' },
+        selectedStrategy.maxTrackLines
+      );
 
       const trackNode = titleLines.map((line, lineIdx) => {
         const isFirstLine = lineIdx === 0;
@@ -295,15 +638,15 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
           <text key={`t-${i}-${lineIdx}`} x="0" y={thisY + calculatedLH * (hasNote ? 0.35 : 0.5) + (lineIdx * calculatedLH * 0.85)} fill={subTextColor} fontSize={trackFontSize} dominantBaseline="middle">
             {isFirstLine && !isClassical && <tspan fontWeight="normal" fontFamily={monoFont} fontSize={numSize} fill={dimTextColor}>{String(localIdx).padStart(2, '0')}</tspan>}
             <tspan fontWeight="bold" dx={isFirstLine ? 12 : 32}>{line}</tspan>
-            {isFirstLine && (data.layout?.mode === 'COMPILATION') && !isCompact && <tspan fill={dimTextColor}> - {item.artist}</tspan>}
-            {isFirstLine && !isCompact && !isClassical && <tspan fontSize={Math.max(trackFontSize - 4, 10)} fontFamily={monoFont} fill={dimTextColor}>  {item.duration}</tspan>}
+            {isFirstLine && item.showArtist && !isCompact && <tspan fill={dimTextColor}> - {item.artist}</tspan>}
+            {isFirstLine && item.showDuration && !isCompact && !isClassical && <tspan fontSize={Math.max(trackFontSize - 4, 10)} fontFamily={monoFont} fill={dimTextColor}>  {item.duration}</tspan>}
           </text>
         );
       });
 
       yCursor += calculatedLH + (titleLines.length - 1) * calculatedLH * 0.85;
       if (hasNote && noteLines.length > 0) {
-        yCursor += Math.min(noteLines.length, 2) * noteFontSize * 1.2;
+        yCursor += Math.min(noteLines.length, noteLineLimit) * noteFontSize * 1.2;
       }
 
       const noteNode = hasNote && noteLines.slice(0, 2).map((line, lineIdx) => (
@@ -321,7 +664,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       {(isClassical && isCompact) ? (
         <g transform={`translate(${width}, 0) rotate(90)`} fontFamily={fontConfig?.fonts?.mono || "Courier New, monospace"}>
           {(() => {
-            const labelText = (recordingData?.labelOverride || data.tapeSubtitle || "LABEL INFO").toUpperCase();
+            const labelText = (recordingData?.labelOverride || data.tapeSubtitle || "").toUpperCase();
             // compact 古典模式旋转 90° 后，“宽”其实是原来的高度方向，标签区域约 300px
             const LABEL_MAX_WIDTH = 300;
             const LABEL_FONT_SIZE = 32;
@@ -339,7 +682,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
                 ))}
                 <g transform={`translate(50, ${sourceY})`}>
                   <text x="0" y="0" fontSize="12" fill={dimTextColor} letterSpacing="4">SOURCE</text>
-                  <text x="0" y="22" fontSize="16" fill={subTextColor} fontWeight="bold" textAnchor="start">{recordingData?.source || "N/A"}</text>
+                  <text x="0" y="22" fontSize="16" fill={subTextColor} fontWeight="bold" textAnchor="start">{recordingData?.source || ""}</text>
                 </g>
               </g>
             );
@@ -386,9 +729,9 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
           <g transform={`translate(750, 40)`}>
             <text x="0" y="0" fontSize="12" fill={dimTextColor} letterSpacing="4">EQUIPMENT</text>
             {(() => {
-              const eqText = recordingData?.equipment || "N/A";
+              const eqText = recordingData?.equipment || "";
               // 绝对坐标防撞机制：动态测算底部 RELEASED 的反向占地面积
-              const dateStr = (data.releaseDate || "").split(/[-.]/)[0] || "2000";
+              const dateStr = (data.releaseDate || "").split(/[-.]/)[0] || "";
               const dateWidth = TypographyService.measureWidth(dateStr, titleFont, 32, { fontWeight: 'bold' });
               const releasedBoxWidth = Math.max(dateWidth, 75); // RELEASED 的宽度约为 70
               
@@ -417,7 +760,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
             <g transform={`translate(0, 96)`}>
               <text x="0" y="0" fontSize="12" fill={dimTextColor} letterSpacing="4" textAnchor="end">RECORDED</text>
               <text x="0" y="32" fontSize="32" fill={theme.accent} fontWeight="bold" letterSpacing="1" textAnchor="end">
-                {recordingData?.recDate || "2025.01.01"}
+                {recordingData?.recDate || ""}
               </text>
             </g>
           </g>
@@ -431,7 +774,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
           </g>
 
           <g transform={`translate(${verticalPadding}, ${yListA})`} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}>
-            {renderGroupList(groupsA, 0)}
+            {renderGroupList(displayGroupsA, 0)}
           </g>
 
           <line x1={verticalPadding} y1={yDivider} x2={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0)} y2={yDivider} stroke={dimTextColor} strokeWidth="1" opacity="0.5" />
@@ -443,7 +786,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
           </g>
 
           <g transform={`translate(${verticalPadding}, ${yListB})`} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}>
-            {renderGroupList(groupsB, data.sideA.length)}
+            {renderGroupList(displayGroupsB, data.sideA.length)}
           </g>
         </g>
       )}

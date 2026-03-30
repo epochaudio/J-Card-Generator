@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 
 import ContentBack from './ContentBack.jsx';
 import ContentFront from './ContentFront.jsx';
+import ShortBackContent from './ShortBackContent.jsx';
 import SpineContent from './SpineContent.jsx';
 import { JCARD_DIMENSIONS } from '../constants/app.js';
 import TypographyService from '../services/TypographyService.js';
@@ -228,7 +229,7 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
       <line x1={xBack} y1="0" x2={xBack} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.3" />
 
       <g clipPath="url(#panel-short-back)">
-        <ContentBack width={wShort} data={data} theme={theme} isCompact={true} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} />
+        <ShortBackContent width={wShort} data={data} theme={theme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} fontConfig={fontConfig} />
       </g>
 
       <g clipPath="url(#panel-spine)">
