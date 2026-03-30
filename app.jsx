@@ -520,8 +520,8 @@ export default function App() {
         layout: {
           ...data.layout,
           mode: LayoutEngine.detectMode(releaseData, rawTracks),
-          noteUpper: "",
-          noteLower: "STEREO",
+          noteUpper: "STEREO",
+          noteLower: "",
           forceCaps: false,
           worksData: releaseData.works // Store Works hierarchy
         }
@@ -1160,8 +1160,8 @@ export default function App() {
             <section className="space-y-4">
               <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><LayoutTemplate size={14} /> 布局选项</h2>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs text-gray-400 mb-1">顶部备注</label><input type="text" value={data.layout.noteUpper || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteUpper: e.target.value } })} className="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="例如：STEREO / 录音日期" /></div>
-                <div><label className="block text-xs text-gray-400 mb-1">底部备注</label><input type="text" value={data.layout.noteLower || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteLower: e.target.value } })} className="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="例如：2023 发行" /></div>
+                <div><label className="block text-xs text-gray-400 mb-1">顶部备注</label><input type="text" value={data.layout.noteUpper || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteUpper: e.target.value } })} className="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="例如：STEREO / MONO / 年份 / 录音日期" /></div>
+                <div><label className="block text-xs text-gray-400 mb-1">底部备注</label><input type="text" value={data.layout.noteLower || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteLower: e.target.value } })} className="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="例如：版权 / 版本信息 / 自定义说明" /></div>
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1">布局模式</label>
