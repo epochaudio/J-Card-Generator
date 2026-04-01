@@ -1,31 +1,9 @@
 import React, { useMemo } from 'react';
 
-import TypographyService from '../services/TypographyService.js';
 import { resolveShortBackArchiveLayout } from '../utils/ShortBackArchiveLayout.js';
-import { resolveShortBackMode } from '../utils/ShortBackModeResolver.js';
+import { resolveShortBackTrackLayout } from '../utils/ShortBackTrackLayout.js';
 
 const SHORT_BACK_PADDING_X = 24;
-
-const fitSingleLine = (text, fontFamily, fontSize, maxWidth, fontOptions = {}) => {
-  const normalized = String(text || '').trim();
-  if (!normalized) return '';
-
-  if (TypographyService.measureWidth(normalized, fontFamily, fontSize, fontOptions) <= maxWidth) {
-    return normalized;
-  }
-
-  const suffix = '...';
-  for (let i = normalized.length - 1; i > 0; i -= 1) {
-    const candidate = `${normalized.slice(0, i).trimEnd()}${suffix}`;
-    if (TypographyService.measureWidth(candidate, fontFamily, fontSize, fontOptions) <= maxWidth) {
-      return candidate;
-    }
-  }
-
-  return suffix;
-};
-
-const formatTrackCountLabel = (count) => `${count} ${count === 1 ? 'TRACK' : 'TRACKS'}`;
 
 const ShortBackContent = ({
   width,
@@ -42,10 +20,7 @@ const ShortBackContent = ({
   const titleFont = fontConfig?.fonts?.title || 'Arial, sans-serif';
   const monoFont = fontConfig?.fonts?.mono || 'Courier New, monospace';
 
-  const resolvedMode = useMemo(
-    () => resolveShortBackMode(data.layout?.mode, data.layout?.shortBackMode),
-    [data.layout?.mode, data.layout?.shortBackMode]
-  );
+  const resolvedMode = data.layout?.shortBackMode || 'TRACKS_COMPACT';
 
   const archiveLayout = useMemo(() => {
     if (resolvedMode !== 'META_ARCHIVE') return null;
@@ -62,16 +37,27 @@ const ShortBackContent = ({
       label: 'SIDE A',
       duration: data.sideADuration || '0:00',
       tracks: data.sideA || [],
-      startY: 132
+      startY: 132,
+      blockHeight: 336
     },
     {
       key: 'B',
       label: 'SIDE B',
       duration: data.sideBDuration || '0:00',
       tracks: data.sideB || [],
-      startY: 640
+      startY: 640,
+      blockHeight: 336
     }
   ]), [data.sideA, data.sideADuration, data.sideB, data.sideBDuration]);
+
+  const compactTrackLayout = useMemo(() => {
+    if (resolvedMode !== 'TRACKS_COMPACT') return [];
+    return resolveShortBackTrackLayout({
+      width,
+      sideSummaries: sideSummaryData,
+      fontConfig
+    });
+  }, [resolvedMode, width, sideSummaryData, fontConfig]);
 
   const renderArchiveMode = () => {
     if (!archiveLayout) return null;
@@ -189,42 +175,55 @@ const ShortBackContent = ({
   };
 
   const renderTracksCompactMode = () => {
-    const maxVisibleTracksPerSide = 5;
-    const trackTextMaxWidth = width - SHORT_BACK_PADDING_X * 2 - 34;
-
     return (
       <g>
-        <text x={SHORT_BACK_PADDING_X} y="56" fontFamily={monoFont} fontSize="11" fill={dimTextColor} letterSpacing="4">TRACK INDEX</text>
-        {sideSummaryData.map((side) => {
-          const visibleTracks = side.tracks.slice(0, maxVisibleTracksPerSide);
-          const hiddenCount = Math.max(0, side.tracks.length - visibleTracks.length);
+        <text x={SHORT_BACK_PADDING_X} y="56" fontFamily={monoFont} fontSize="13" fill={dimTextColor} letterSpacing="4">TRACK INDEX</text>
+        {compactTrackLayout.map((side) => (
+          <g key={side.key} transform={`translate(${SHORT_BACK_PADDING_X}, ${side.startY})`}>
+            <circle cx="18" cy="0" r="18" fill={theme.accent} />
+            <text x="18" y="1" fontFamily={titleFont} fontWeight="bold" fontSize="20" fill={isLight ? '#fff' : '#121212'} textAnchor="middle" dominantBaseline="middle">{side.key}</text>
+            <text x={width - SHORT_BACK_PADDING_X * 2} y="1" fontFamily={monoFont} fontSize="14" fontWeight="bold" fill={subTextColor} textAnchor="end" dominantBaseline="middle">
+              {side.duration}
+            </text>
 
-          return (
-            <g key={side.key} transform={`translate(${SHORT_BACK_PADDING_X}, ${side.startY})`}>
-              <circle cx="16" cy="0" r="16" fill={theme.accent} />
-              <text x="16" y="1" fontFamily={titleFont} fontWeight="bold" fontSize="16" fill={isLight ? '#fff' : '#121212'} textAnchor="middle" dominantBaseline="middle">{side.key}</text>
-              <text x={width - SHORT_BACK_PADDING_X * 2} y="1" fontFamily={monoFont} fontSize="12" fill={dimTextColor} textAnchor="end" dominantBaseline="middle">
-                {side.duration}
-              </text>
-              <text x="0" y="38" fontFamily={monoFont} fontSize="11" fill={dimTextColor} letterSpacing="2">{formatTrackCountLabel(side.tracks.length)}</text>
-
-              {visibleTracks.map((track, index) => (
-                <text key={`${side.key}-${track.id || index}`} x="0" y={76 + (index * 28)} fontFamily={bodyFont} fontSize="13" fill={subTextColor} dominantBaseline="middle">
-                  <tspan fontFamily={monoFont} fill={dimTextColor}>{String(index + 1).padStart(2, '0')}</tspan>
-                  <tspan dx="8" fontWeight="bold">
-                    {fitSingleLine(track.title || '', bodyFont, 13, trackTextMaxWidth, { fontWeight: 'bold' })}
+            {side.visibleTracks.map((track, index) => (
+              <text
+                key={`${side.key}-${track.id || index}`}
+                x="0"
+                y={track.y - 12}
+                fontFamily={bodyFont}
+                fontSize={side.trackFontSize}
+                fill={subTextColor}
+                dominantBaseline="hanging"
+              >
+                <tspan x="0" dy="0">
+                  <tspan fontFamily={monoFont} fontSize={side.numberFontSize} fill={dimTextColor}>
+                    {String(index + 1).padStart(2, '0')}
                   </tspan>
-                </text>
-              ))}
+                  <tspan dx="8" fontWeight="bold">
+                    {track.fittedLines?.[0] || track.title || ''}
+                  </tspan>
+                </tspan>
+                {track.fittedLines?.slice(1).map((line, lineIndex) => (
+                  <tspan
+                    key={`${side.key}-${track.id || index}-line-${lineIndex}`}
+                    x={side.trackTextIndent}
+                    dy={side.trackLineHeight}
+                    fontWeight="bold"
+                  >
+                    {line}
+                  </tspan>
+                ))}
+              </text>
+            ))}
 
-              {hiddenCount > 0 && (
-                <text x="0" y={76 + (visibleTracks.length * 28)} fontFamily={monoFont} fontSize="11" fill={dimTextColor} letterSpacing="2">
-                  +{hiddenCount} MORE
-                </text>
-              )}
-            </g>
-          );
-        })}
+            {side.hiddenCount > 0 && (
+              <text x="0" y={side.moreY - 12} fontFamily={monoFont} fontSize={side.moreFontSize} fill={dimTextColor} letterSpacing="2">
+                +{side.hiddenCount} MORE
+              </text>
+            )}
+          </g>
+        ))}
       </g>
     );
   };

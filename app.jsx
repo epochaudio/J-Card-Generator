@@ -15,7 +15,7 @@ import { getFontConfig, FONT_THEMES } from './src/config/fonts.js';
 import { parseDurationToMs } from './src/utils/formatDuration.js';
 import { urlToBase64 } from './src/utils/imageUtils.js';
 import LayoutEngine from './src/utils/LayoutEngine.js';
-import { SHORT_BACK_MODE_VALUES } from './src/utils/ShortBackModeResolver.js';
+import { normalizeShortBackMode } from './src/utils/ShortBackModeResolver.js';
 import SpineLayoutEngine from './src/utils/SpineLayoutEngine.js';
 
 let trackIdCounter = 0;
@@ -71,7 +71,7 @@ const normalizeLayoutSettings = (layout = {}) => ({
   frontStyle: 'STANDARD',
   spineInverted: true,
   ...layout,
-  shortBackMode: SHORT_BACK_MODE_VALUES.includes(layout?.shortBackMode) ? layout.shortBackMode : 'AUTO'
+  shortBackMode: normalizeShortBackMode(layout?.mode || 'STANDARD', layout?.shortBackMode)
 });
 
 const normalizeProjectData = (projectData) => {
@@ -143,7 +143,6 @@ const createEmptyTrack = (trackNumber = 1, artist = "Artist Name") => ({
 });
 
 const SHORT_BACK_MODE_OPTIONS = [
-  { value: 'AUTO', label: '自动' },
   { value: 'META_ARCHIVE', label: '档案信息' },
   { value: 'TRACKS_COMPACT', label: '紧凑曲目' }
 ];
@@ -1180,7 +1179,7 @@ export default function App() {
                 </div>
                 <div className="mt-3">
                   <label className="block text-xs text-gray-400 mb-1">Short Back 模式</label>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
                     {SHORT_BACK_MODE_OPTIONS.map(option => (
                       <button
                         key={option.value}
@@ -1193,7 +1192,7 @@ export default function App() {
                       </button>
                     ))}
                   </div>
-                  <p className="mt-2 text-[11px] text-gray-400">控制最左侧折页的显示内容，不影响主封底曲目顺序。</p>
+                  <p className="mt-2 text-[11px] text-gray-400">控制最左侧折页的显示内容，不影响主封底曲目顺序。紧凑曲目会根据标题长度与可用空间自动调整显示密度。</p>
                 </div>
                 <div className="mt-2">
                   <label className="block text-xs text-gray-400 mb-1">封面模式 (Front Layout)</label>

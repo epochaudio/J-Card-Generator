@@ -215,7 +215,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   const contentHeight = JCARD_DIMENSIONS.height;
   const marginY = isCompact ? 60 : 80;
   const footerHeight = isCompact ? 40 : 60;
-  const headerHeight = isCompact ? 25 : 50;
+  const headerHeight = isCompact ? 38 : 72;
   const gapBetweenSides = isCompact ? 20 : 60;
   const verticalPadding = isCompact ? 40 : 40;
 
@@ -225,10 +225,22 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   const hasNoteUpper = !!data.layout?.noteUpper;
   const hasNoteLower = !!data.layout?.noteLower;
   const isClassical = data.layout.mode === 'CLASSICAL';
+  const sideBIndexStart = isClassical ? data.sideA.length : 0;
 
   // 字号边界：取决于面板是 compact（ShortBack 200px）还是全宽（Back 618px）
   const maxFont = isCompact ? 15 : 25;
-  const minFont = isCompact ? 8 : 12;
+  const minFont = isCompact ? 8 : 14;
+  const noteFontFloor = isCompact ? 8 : 11;
+  const trackTailFontFloor = isCompact ? 10 : 12;
+  const trackNumberFontFloor = isCompact ? 10 : 12;
+  const sideHeaderTitleFontSize = isCompact ? 14 : 24;
+  const sideHeaderDurationFontSize = isCompact ? 11 : 16;
+  const sideHeaderTitleTracking = isCompact ? 1.2 : 2.2;
+  const sideHeaderLineY = isCompact ? 22 : 40;
+  const sideHeaderAccentWidth = isCompact ? 16 : 36;
+  const sideHeaderAccentHeight = isCompact ? 2 : 4;
+  const sideHeaderRightX = width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0) - (isCompact ? 0 : 20);
+  const sideDividerRightX = width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0);
 
   // 获取当前字体配置（全局可用）
   const bodyFont = fontConfig?.fonts?.body || "Arial, sans-serif";
@@ -310,7 +322,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       if (!isClassical) {
         // 全新视觉：测量无点的等宽数字前缀 (例如 "01")，字号略小且使用 monoFont
         const numStr = String(currentIdx + 1).padStart(2, '0');
-        const numSize = Math.max(estFontSize - 2, 10);
+        const numSize = Math.max(estFontSize - 2, trackNumberFontFloor);
         prefixW = TypographyService.measureWidth(numStr, monoFont, numSize, { fontWeight: 'normal' }) + 12; // 12px 为与标题间的空白缓冲
         
         let suffixStr = "";
@@ -321,7 +333,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
           suffixStr += `  ${item.duration}`; // 取消括号，仅用空格分隔时间码
         }
         if (suffixStr) {
-          const suffixSize = Math.max(estFontSize - 4, 10);
+          const suffixSize = Math.max(estFontSize - 4, trackTailFontFloor);
           suffixW = TypographyService.measureWidth(suffixStr, bodyFont, suffixSize);
         }
       }
@@ -339,8 +351,8 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       return clampWrappedLines(wrapped, maxLines, maxWidth, fontFamily, fontSize, fontOptions);
     };
 
-    const calculateRealVisualLines = (groups, fontSize, startGlobalIdx = 0, strategyConfig = renderStrategy) => {
-      let currentIdx = startGlobalIdx;
+    const calculateRealVisualLines = (groups, fontSize, startLocalIdx = 0, strategyConfig = renderStrategy) => {
+      let currentIdx = startLocalIdx;
       return groups.reduce((acc, item) => {
         if (item.type === 'group') {
           const groupHeaderFontSize = Math.min(fontSize + 2, maxFont + 2);
@@ -399,7 +411,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         let noteHeight = 0;
         const noteLineLimit = strategyConfig.noteMaxLines ?? 2;
         if (showNotesGlobal && item.showNote !== false && item.note && noteLineLimit > 0) {
-          const noteFontSize = Math.max(fontSize * 0.6, 8);
+          const noteFontSize = Math.max(fontSize * 0.66, noteFontFloor);
           // 减去 25px 给 note 留出悬挂缩进
           const noteLines = wrapAndClamp(
             item.note,
@@ -428,7 +440,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         ? buildDisplayGroups(groupsB, strategyConfig, true)
         : buildDisplayTracks(groupsB, strategyConfig, isCompilation);
       const visualLinesA = calculateRealVisualLines(displayGroupsA, fontSize, 0, strategyConfig);
-      const visualLinesB = calculateRealVisualLines(displayGroupsB, fontSize, data.sideA.length, strategyConfig);
+      const visualLinesB = calculateRealVisualLines(displayGroupsB, fontSize, sideBIndexStart, strategyConfig);
       const totalVisualItems = visualLinesA + visualLinesB;
       const naturalLH = totalVisualItems > 0 ? availableForTracks / totalVisualItems : maxLH;
 
@@ -466,8 +478,8 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
     const yHeaderA = marginY;
     const yListA = yHeaderA + headerHeight;
     const heightA = selectedEvaluation.visualLinesA * calculatedLH;
-    const yDivider = yListA + heightA + (gapBetweenSides / 2);
-    const yHeaderB = yDivider + (gapBetweenSides / 2);
+    const yHeaderB = yListA + heightA + gapBetweenSides;
+    const yDivider = yHeaderB - Math.max(16, gapBetweenSides * 0.42);
     const yListB = yHeaderB + headerHeight;
 
     return {
@@ -477,7 +489,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       usableWidth,
       trackFontSize: fontSize,
       groupHeaderFontSize: Math.min(fontSize + 2, maxFont + 2),
-      noteFontSize: Math.max(fontSize * 0.6, 8),
+      noteFontSize: Math.max(fontSize * 0.66, noteFontFloor),
       calculatedLH,
       selectedStrategy: {
         ...selectedEvaluation.strategy,
@@ -492,7 +504,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       yHeaderB,
       yListB
     };
-  }, [availableForTracks, bodyFont, data.sideA.length, gapBetweenSides, groupsA, groupsB, headerHeight, isClassical, isCompact, isCompilation, marginY, maxFont, minFont, monoFont, renderStrategy, titleFont, width]);
+  }, [availableForTracks, bodyFont, gapBetweenSides, groupsA, groupsB, headerHeight, isClassical, isCompact, isCompilation, marginY, maxFont, minFont, monoFont, noteFontFloor, renderStrategy, sideBIndexStart, titleFont, trackNumberFontFloor, trackTailFontFloor, width]);
 
   const {
     displayGroupsA,
@@ -511,16 +523,44 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
     yListB
   } = layoutMetrics;
 
-  // 徽章视觉等比膨胀系统：防止字体涨大时，固定尺寸的徽章被压制
-  const badgeRadius = Math.max(14, Math.floor(trackFontSize * 0.65)); 
-  const badgeFontSize = Math.max(14, Math.floor(trackFontSize * 0.6));
-
   // 字体配置（渲染时用）
   // (已提升至全局作用域)
 
-  const renderGroupList = (groups, startGlobalIdx) => {
+  const renderSideHeader = (sideLabel, duration) => (
+    <g>
+      <text
+        x="0"
+        y="0"
+        fontFamily={monoFont}
+        fontSize={sideHeaderTitleFontSize}
+        fontWeight="bold"
+        fill={textColor}
+        letterSpacing={sideHeaderTitleTracking}
+        dominantBaseline="hanging"
+      >
+        {sideLabel}
+      </text>
+      <text
+        x={sideHeaderRightX}
+        y="3"
+        fontFamily={monoFont}
+        fontSize={sideHeaderDurationFontSize}
+        fontWeight="bold"
+        fill={subTextColor}
+        letterSpacing="1.2"
+        textAnchor="end"
+        dominantBaseline="hanging"
+      >
+        {duration}
+      </text>
+      <line x1="0" y1={sideHeaderLineY} x2={sideHeaderRightX} y2={sideHeaderLineY} stroke={dimTextColor} strokeWidth="1" opacity="0.42" />
+      <rect x="0" y={sideHeaderLineY - sideHeaderAccentHeight} width={sideHeaderAccentWidth} height={sideHeaderAccentHeight} rx={sideHeaderAccentHeight / 2} fill={theme.accent} />
+    </g>
+  );
+
+  const renderGroupList = (groups, startLocalIdx) => {
     let yCursor = 0;
-    let localIdx = startGlobalIdx;
+    let localIdx = startLocalIdx;
     const wrapAndClamp = (text, fontFamily, fontSize, maxWidth, fontOptions = {}, maxLines = null) => {
       const wrapped = TypographyService.wrapText(text, fontFamily, fontSize, maxWidth, fontOptions);
       return clampWrappedLines(wrapped, maxLines, maxWidth, fontFamily, fontSize, fontOptions);
@@ -613,12 +653,12 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       let suffixW = 0;
       if (!isClassical) {
         const numStr = String(localIdx + 1).padStart(2, '0');
-        const numSize = Math.max(trackFontSize - 2, 10);
+        const numSize = Math.max(trackFontSize - 2, trackNumberFontFloor);
         prefixW = TypographyService.measureWidth(numStr, monoFont, numSize, { fontWeight: 'normal' }) + 12;
         let suffixStr = "";
         if (item.showArtist && !isCompact && item.artist) suffixStr += ` - ${item.artist} `;
         if (item.showDuration && !isCompact && item.duration) suffixStr += `  ${item.duration}`;
-        if (suffixStr) suffixW = TypographyService.measureWidth(suffixStr, bodyFont, Math.max(trackFontSize - 4, 10));
+        if (suffixStr) suffixW = TypographyService.measureWidth(suffixStr, bodyFont, Math.max(trackFontSize - 4, trackTailFontFloor));
       }
       const safeAvailableW = usableWidth - prefixW - suffixW;
       
@@ -633,13 +673,13 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
 
       const trackNode = titleLines.map((line, lineIdx) => {
         const isFirstLine = lineIdx === 0;
-        const numSize = Math.max(trackFontSize - 2, 10);
+        const numSize = Math.max(trackFontSize - 2, trackNumberFontFloor);
         return (
           <text key={`t-${i}-${lineIdx}`} x="0" y={thisY + calculatedLH * (hasNote ? 0.35 : 0.5) + (lineIdx * calculatedLH * 0.85)} fill={subTextColor} fontSize={trackFontSize} dominantBaseline="middle">
             {isFirstLine && !isClassical && <tspan fontWeight="normal" fontFamily={monoFont} fontSize={numSize} fill={dimTextColor}>{String(localIdx).padStart(2, '0')}</tspan>}
             <tspan fontWeight="bold" dx={isFirstLine ? 12 : 32}>{line}</tspan>
             {isFirstLine && item.showArtist && !isCompact && <tspan fill={dimTextColor}> - {item.artist}</tspan>}
-            {isFirstLine && item.showDuration && !isCompact && !isClassical && <tspan fontSize={Math.max(trackFontSize - 4, 10)} fontFamily={monoFont} fill={dimTextColor}>  {item.duration}</tspan>}
+            {isFirstLine && item.showDuration && !isCompact && !isClassical && <tspan fontSize={Math.max(trackFontSize - 4, trackTailFontFloor)} fontFamily={monoFont} fill={dimTextColor}>  {item.duration}</tspan>}
           </text>
         );
       });
@@ -768,25 +808,21 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       ) : (
         <g transform={`translate(0, 0)`}>
           <g transform={`translate(${verticalPadding}, ${yHeaderA})`}>
-            <circle cx={badgeRadius} cy="0" r={badgeRadius} fill={theme.accent} />
-            <text x={badgeRadius} y="1" fontFamily={titleFont} fontWeight="bold" fontSize={badgeFontSize} fill={isLight ? "#fff" : "#121212"} textAnchor="middle" dominantBaseline="middle">A</text>
-            <text x={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0) - (isCompact ? 0 : 20)} y="1" fontFamily={monoFont} fontSize={12} letterSpacing="2" fill={dimTextColor} textAnchor="end" dominantBaseline="middle">{data.sideADuration}</text>
+            {renderSideHeader('SIDE A', data.sideADuration)}
           </g>
 
           <g transform={`translate(${verticalPadding}, ${yListA})`} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}>
             {renderGroupList(displayGroupsA, 0)}
           </g>
 
-          <line x1={verticalPadding} y1={yDivider} x2={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0)} y2={yDivider} stroke={dimTextColor} strokeWidth="1" opacity="0.5" />
+          <line x1={verticalPadding} y1={yDivider} x2={sideDividerRightX} y2={yDivider} stroke={dimTextColor} strokeWidth="1" opacity="0.28" />
 
           <g transform={`translate(${verticalPadding}, ${yHeaderB})`}>
-            <circle cx={badgeRadius} cy="0" r={badgeRadius} fill={theme.accent} />
-            <text x={badgeRadius} y="1" fontFamily={titleFont} fontWeight="bold" fontSize={badgeFontSize} fill={isLight ? "#fff" : "#121212"} textAnchor="middle" dominantBaseline="middle">B</text>
-            <text x={width - verticalPadding * 2 - (hasNoteLower ? 20 : 0) - (hasNoteUpper ? 20 : 0) - (isCompact ? 0 : 20)} y="1" fontFamily={monoFont} fontSize={12} letterSpacing="2" fill={dimTextColor} textAnchor="end" dominantBaseline="middle">{data.sideBDuration}</text>
+            {renderSideHeader('SIDE B', data.sideBDuration)}
           </g>
 
           <g transform={`translate(${verticalPadding}, ${yListB})`} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"}>
-            {renderGroupList(displayGroupsB, data.sideA.length)}
+            {renderGroupList(displayGroupsB, sideBIndexStart)}
           </g>
         </g>
       )}

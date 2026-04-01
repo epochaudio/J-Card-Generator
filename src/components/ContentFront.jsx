@@ -31,9 +31,9 @@ const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, fr
           <image href={coverImageB} x="-50%" y={midPoint - 100} width="200%" height={midPoint + 200} preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" opacity="0.4" />
         )}
 
-        <line x1="80" y1={midPoint} x2={width - 80} y2={midPoint} stroke={textColor} strokeWidth="1" opacity="0.3" />
-        <text x={width / 2} y={midPoint - 8} textAnchor="middle" fontSize="10" fill={textColor} opacity="0.6" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE A ▲</text>
-        <text x={width / 2} y={midPoint + 16} textAnchor="middle" fontSize="10" fill={textColor} opacity="0.6" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE B ▼</text>
+        <line x1="80" y1={midPoint} x2={width - 80} y2={midPoint} stroke={textColor} strokeWidth="1.2" opacity="0.38" />
+        <text x={width / 2} y={midPoint - 12} textAnchor="middle" fontSize="14" fill={textColor} opacity="0.78" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE A ▲</text>
+        <text x={width / 2} y={midPoint + 20} textAnchor="middle" fontSize="14" fill={textColor} opacity="0.78" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE B ▼</text>
 
         {coverImage ? (
           <image href={coverImage} x={(width - imgSize) / 2} y={marginY} width={imgSize} height={imgSize} preserveAspectRatio="xMidYMid meet" />

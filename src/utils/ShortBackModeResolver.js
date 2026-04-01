@@ -1,20 +1,16 @@
 export const SHORT_BACK_MODE_VALUES = [
-  'AUTO',
   'META_ARCHIVE',
   'TRACKS_COMPACT'
 ];
 
-export const resolveShortBackMode = (layoutMode = 'STANDARD', shortBackMode = 'AUTO') => {
-  if (shortBackMode && shortBackMode !== 'AUTO') {
+export const normalizeShortBackMode = (layoutMode = 'STANDARD', shortBackMode) => {
+  if (SHORT_BACK_MODE_VALUES.includes(shortBackMode)) {
     return shortBackMode;
   }
 
+  // 兼容旧项目里保存的 AUTO，并给缺失值一个稳定默认值。
   if (layoutMode === 'CLASSICAL') {
     return 'META_ARCHIVE';
-  }
-
-  if (layoutMode === 'COMPILATION') {
-    return 'TRACKS_COMPACT';
   }
 
   return 'TRACKS_COMPACT';
