@@ -38,7 +38,7 @@ const ShortBackContent = ({
       duration: data.sideADuration || '0:00',
       tracks: data.sideA || [],
       startY: 132,
-      blockHeight: 336
+      blockHeight: 360
     },
     {
       key: 'B',
@@ -46,7 +46,7 @@ const ShortBackContent = ({
       duration: data.sideBDuration || '0:00',
       tracks: data.sideB || [],
       startY: 640,
-      blockHeight: 336
+      blockHeight: 360
     }
   ]), [data.sideA, data.sideADuration, data.sideB, data.sideBDuration]);
 

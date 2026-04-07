@@ -1,7 +1,7 @@
 import TypographyService from '../services/TypographyService.js';
 
-const TRACK_LIST_TOP_Y = 76;
-const TRACK_LIST_BOTTOM_PADDING = 18;
+const TRACK_LIST_TOP_Y = 64;
+const TRACK_LIST_BOTTOM_PADDING = 12;
 const TRACK_NUMBER_WIDTH = 26;
 const TRACK_NUMBER_GAP = 8;
 const TRACK_TEXT_INDENT = TRACK_NUMBER_WIDTH + TRACK_NUMBER_GAP;
