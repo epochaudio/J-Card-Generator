@@ -5,15 +5,21 @@ import TypographyService from '../services/TypographyService.js';
 
 const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, frontStyle, isLight, textColor, subTextColor, titleLayout, titleStartY, badgeY, artistY, fontConfig }) => {
   const badgeText = data.coverBadge || "";
+  const badgeAlign = data.layout?.coverBadgeAlign === 'left' ? 'left' : 'center';
   // 标语折行参数需与 JCardPreview.jsx 中的 previewLayout 一致
   const BADGE_FONT_SIZE = 20;
   const badgeFont = fontConfig?.fonts?.serif || "Georgia, serif";
-  const badgeMaxWidth = width - 160; // 左右各 80px
+  const badgeHorizontalPadding = JCARD_DIMENSIONS.front.badgeHorizontalPadding;
+  const badgeMaxWidth = width - (badgeHorizontalPadding * 2);
   const badgeLines = badgeText
     ? TypographyService.wrapText(badgeText, badgeFont, BADGE_FONT_SIZE, badgeMaxWidth, { fontStyle: 'italic', fontWeight: 'bold' })
     : [''];
   const badgeLineHeight = 26;
   const panelHeight = JCARD_DIMENSIONS.height;
+  const titleCenterX = 750;
+  const badgeLeftX = titleCenterX - (width / 2 - badgeHorizontalPadding);
+  const badgeX = badgeAlign === 'left' ? badgeLeftX : titleCenterX;
+  const badgeTextAnchor = badgeAlign === 'left' ? 'start' : 'middle';
 
   if (frontStyle === 'REVERSIBLE') {
     const midPoint = panelHeight / 2;
@@ -80,14 +86,14 @@ const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, fr
             {badgeLines.map((line, i) => (
               <text
                 key={i}
-                x="750"
+                x={badgeX}
                 y={badgeY + (i * badgeLineHeight)}
                 fontFamily={fontConfig?.fonts?.serif || "Georgia, serif"}
                 fontStyle="italic"
                 fontWeight="bold"
                 fontSize="20"
                 fill={textColor}
-                textAnchor="middle"
+                textAnchor={badgeTextAnchor}
                 letterSpacing="0.5"
                 style={{
                   textShadow: isLight ? "0 0 10px rgba(255,255,255,0.8)" : "0 0 10px rgba(0,0,0,0.8)",

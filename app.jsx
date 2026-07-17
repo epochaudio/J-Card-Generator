@@ -19,6 +19,23 @@ import { normalizeShortBackMode } from './src/utils/ShortBackModeResolver.js';
 import SpineLayoutEngine from './src/utils/SpineLayoutEngine.js';
 
 let trackIdCounter = 0;
+const NOTE_LOWER_MAX_VISIBLE_CHARS = 16;
+const NOTE_LOWER_RECOMMENDED_VISIBLE_CHARS = 12;
+
+const segmentVisibleChars = (text = '') => {
+  const normalized = String(text || '');
+
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    return Array.from(segmenter.segment(normalized), (segment) => segment.segment);
+  }
+
+  return Array.from(normalized);
+};
+
+const truncateVisibleChars = (text = '', maxVisibleChars = Infinity) => (
+  segmentVisibleChars(text).slice(0, maxVisibleChars).join('')
+);
 
 const createTrackId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -62,17 +79,25 @@ const normalizeTrackList = (tracks = [], fallbackArtist = 'Artist Name') => (
   tracks.map(track => normalizeTrack(track, fallbackArtist))
 );
 
-const normalizeLayoutSettings = (layout = {}) => ({
-  noteUpper: "",
-  noteLower: "",
-  forceCaps: true,
-  minimalSpine: false,
-  mode: 'STANDARD',
-  frontStyle: 'STANDARD',
-  spineInverted: true,
-  ...layout,
-  shortBackMode: normalizeShortBackMode(layout?.mode || 'STANDARD', layout?.shortBackMode)
-});
+const normalizeLayoutSettings = (layout = {}) => {
+  const normalizedLayout = {
+    noteUpper: "",
+    noteLower: "",
+    coverBadgeAlign: 'center',
+    forceCaps: true,
+    minimalSpine: false,
+    mode: 'STANDARD',
+    frontStyle: 'STANDARD',
+    spineInverted: true,
+    ...layout,
+  };
+
+  return {
+    ...normalizedLayout,
+    noteLower: truncateVisibleChars(normalizedLayout.noteLower, NOTE_LOWER_MAX_VISIBLE_CHARS),
+    shortBackMode: normalizeShortBackMode(normalizedLayout.mode, normalizedLayout.shortBackMode)
+  };
+};
 
 const normalizeProjectData = (projectData) => {
   const fallbackArtist = projectData?.artist || 'Artist Name';
@@ -145,6 +170,11 @@ const createEmptyTrack = (trackNumber = 1, artist = "Artist Name") => ({
 const SHORT_BACK_MODE_OPTIONS = [
   { value: 'META_ARCHIVE', label: '档案信息' },
   { value: 'TRACKS_COMPACT', label: '紧凑曲目' }
+];
+
+const COVER_BADGE_ALIGN_OPTIONS = [
+  { value: 'center', label: '居中' },
+  { value: 'left', label: '靠左' }
 ];
 
 const getElectronSecureStore = () => {
@@ -1151,7 +1181,29 @@ export default function App() {
                   <div><label className="block text-xs text-gray-400 mb-1">发行日期</label><input type="text" value={data.releaseDate || ''} onChange={(e) => setData({ ...data, releaseDate: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="YYYY" /></div>
                   <div><label className="block text-xs text-gray-400 mb-1">目录编号</label><input type="text" value={data.tapeId || ''} onChange={(e) => setData({ ...data, tapeId: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /></div>
                 </div>
-                <div><label className="block text-xs text-gray-400 mb-1">封面标语</label><div className="flex gap-2"><textarea rows={3} maxLength={200} value={data.coverBadge || ''} onChange={(e) => setData({ ...data, coverBadge: e.target.value })} className="flex-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none placeholder-gray-500 resize-none bg-white text-gray-900" placeholder="例如：永恒的经典..." /><button onClick={handleGenerateSlogan} disabled={loadingStates.slogan} className="px-2 border border-gray-300 rounded self-start transition-colors h-20 flex items-center justify-center bg-white text-purple-600 hover:bg-purple-50">{loadingStates.slogan ? <span className="animate-spin text-xs">⏳</span> : <Sparkles size={16} />}</button></div></div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">封面标语</label>
+                  <div className="flex gap-2">
+                    <textarea rows={3} maxLength={200} value={data.coverBadge || ''} onChange={(e) => setData({ ...data, coverBadge: e.target.value })} className="flex-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none placeholder-gray-500 resize-none bg-white text-gray-900" placeholder="例如：永恒的经典..." />
+                    <button onClick={handleGenerateSlogan} disabled={loadingStates.slogan} className="px-2 border border-gray-300 rounded self-start transition-colors h-20 flex items-center justify-center bg-white text-purple-600 hover:bg-purple-50">{loadingStates.slogan ? <span className="animate-spin text-xs">⏳</span> : <Sparkles size={16} />}</button>
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-xs text-gray-400 mb-1">标语对齐</label>
+                    <div className="flex gap-2 text-xs">
+                      {COVER_BADGE_ALIGN_OPTIONS.map(option => (
+                        <button
+                          key={option.value}
+                          onClick={() => setData({ ...data, layout: { ...data.layout, coverBadgeAlign: option.value } })}
+                          className={`flex-1 py-1 rounded border transition-colors ${data.layout.coverBadgeAlign === option.value
+                            ? 'bg-amber-600 text-white border-amber-600'
+                            : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -1160,7 +1212,25 @@ export default function App() {
               <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><LayoutTemplate size={14} /> 布局选项</h2>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="block text-xs text-gray-400 mb-1">顶部备注</label><input type="text" value={data.layout.noteUpper || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteUpper: e.target.value } })} className="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="例如：STEREO / MONO / 年份 / 录音日期" /></div>
-                <div><label className="block text-xs text-gray-400 mb-1">底部备注</label><input type="text" value={data.layout.noteLower || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteLower: e.target.value } })} className="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="例如：版权 / 版本信息 / 自定义说明" /></div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">底部备注</label>
+                  <input
+                    type="text"
+                    value={data.layout.noteLower || ''}
+                    onChange={(e) => setData({
+                      ...data,
+                      layout: {
+                        ...data.layout,
+                        noteLower: truncateVisibleChars(e.target.value, NOTE_LOWER_MAX_VISIBLE_CHARS)
+                      }
+                    })}
+                    className="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900"
+                    placeholder="例如：版权 / 版本信息 / 自定义说明"
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    建议 {NOTE_LOWER_RECOMMENDED_VISIBLE_CHARS} 字内，最多 {NOTE_LOWER_MAX_VISIBLE_CHARS} 个可见字符
+                  </p>
+                </div>
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1">布局模式</label>

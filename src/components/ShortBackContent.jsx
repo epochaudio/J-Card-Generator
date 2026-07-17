@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { resolveShortBackArchiveLayout } from '../utils/ShortBackArchiveLayout.js';
 import { resolveShortBackTrackLayout } from '../utils/ShortBackTrackLayout.js';
 
-const SHORT_BACK_PADDING_X = 24;
+const SHORT_BACK_PADDING_X = 32;
 
 const ShortBackContent = ({
   width,
@@ -38,15 +38,15 @@ const ShortBackContent = ({
       duration: data.sideADuration || '0:00',
       tracks: data.sideA || [],
       startY: 132,
-      blockHeight: 360
+      blockHeight: 420
     },
     {
       key: 'B',
       label: 'SIDE B',
       duration: data.sideBDuration || '0:00',
       tracks: data.sideB || [],
-      startY: 640,
-      blockHeight: 360
+      startY: 592,
+      blockHeight: 460
     }
   ]), [data.sideA, data.sideADuration, data.sideB, data.sideBDuration]);
 
@@ -55,6 +55,7 @@ const ShortBackContent = ({
     return resolveShortBackTrackLayout({
       width,
       sideSummaries: sideSummaryData,
+      horizontalPadding: SHORT_BACK_PADDING_X,
       fontConfig
     });
   }, [resolvedMode, width, sideSummaryData, fontConfig]);

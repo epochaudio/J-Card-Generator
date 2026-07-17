@@ -1,40 +1,42 @@
 import TypographyService from '../services/TypographyService.js';
 
-const TRACK_LIST_TOP_Y = 64;
-const TRACK_LIST_BOTTOM_PADDING = 12;
-const TRACK_NUMBER_WIDTH = 26;
+const DEFAULT_HORIZONTAL_PADDING = 32;
+const TRACK_LIST_TOP_Y = 56;
+const TRACK_LIST_BOTTOM_PADDING = 10;
+const TRACK_NUMBER_WIDTH = 18;
 const TRACK_NUMBER_GAP = 8;
 const TRACK_TEXT_INDENT = TRACK_NUMBER_WIDTH + TRACK_NUMBER_GAP;
 const MAX_LINES_PER_TRACK = 2;
+const MORE_TOP_GAP = 12;
 
 const DENSITY_PRESETS = [
   {
     id: 'AIRY',
-    trackFontSize: 14,
-    lineHeight: 17,
-    trackGap: 11,
-    moreFontSize: 12,
-    maxTrackCount: 6,
+    trackFontSize: 15,
+    lineHeight: 18,
+    trackGap: 8,
+    moreFontSize: 13,
+    maxTrackCount: 8,
     minAverageRetention: 0.78,
     maxSevereRatio: 0.12
   },
   {
     id: 'BALANCED',
-    trackFontSize: 13,
-    lineHeight: 16,
-    trackGap: 9,
-    moreFontSize: 12,
-    maxTrackCount: 7,
+    trackFontSize: 15,
+    lineHeight: 18,
+    trackGap: 6,
+    moreFontSize: 13,
+    maxTrackCount: 9,
     minAverageRetention: 0.7,
     maxSevereRatio: 0.3
   },
   {
     id: 'DENSE',
-    trackFontSize: 13,
-    lineHeight: 15,
-    trackGap: 7,
-    moreFontSize: 11,
-    maxTrackCount: 7,
+    trackFontSize: 15,
+    lineHeight: 17,
+    trackGap: 4,
+    moreFontSize: 12,
+    maxTrackCount: 10,
     minAverageRetention: 0.6,
     maxSevereRatio: 0.5
   }
@@ -166,11 +168,13 @@ const resolvePresetCandidate = ({
       preset
     });
 
-    const moreY = cursorY;
+    const trackContentHeight = visibleTracks.length > 0
+      ? cursorY - TRACK_LIST_TOP_Y - preset.trackGap
+      : 0;
+    const moreTopGap = hiddenCount > 0 && visibleTracks.length > 0 ? MORE_TOP_GAP : 0;
     const moreHeight = hiddenCount > 0 ? Math.round(preset.moreFontSize * 1.2) : 0;
-    const totalContentHeight = visibleTracks.length > 0
-      ? (cursorY - TRACK_LIST_TOP_Y - preset.trackGap) + moreHeight
-      : moreHeight;
+    const moreY = TRACK_LIST_TOP_Y + trackContentHeight + moreTopGap;
+    const totalContentHeight = trackContentHeight + moreTopGap + moreHeight;
 
     if (!canFitHeight(totalContentHeight, blockHeight)) {
       continue;
@@ -205,6 +209,11 @@ const resolvePresetCandidate = ({
     trackTextMaxWidth,
     preset
   });
+  const hiddenCount = Math.max(0, tracks.length - visibleTracks.length);
+  const trackContentHeight = visibleTracks.length > 0
+    ? cursorY - TRACK_LIST_TOP_Y - preset.trackGap
+    : 0;
+  const moreTopGap = hiddenCount > 0 && visibleTracks.length > 0 ? MORE_TOP_GAP : 0;
 
   return {
     densityId: preset.id,
@@ -214,8 +223,8 @@ const resolvePresetCandidate = ({
     numberFontSize: Math.max(12, preset.trackFontSize - 1),
     moreFontSize: preset.moreFontSize,
     visibleTracks,
-    hiddenCount: Math.max(0, tracks.length - visibleTracks.length),
-    moreY: cursorY,
+    hiddenCount,
+    moreY: TRACK_LIST_TOP_Y + trackContentHeight + moreTopGap,
     averageRetention: visibleTracks.length
       ? visibleTracks.reduce((sum, track) => sum + track.titleRetention, 0) / visibleTracks.length
       : 1
@@ -255,10 +264,11 @@ const chooseBestCandidate = (candidates, totalTracks) => {
 export const resolveShortBackTrackLayout = ({
   width,
   sideSummaries,
+  horizontalPadding = DEFAULT_HORIZONTAL_PADDING,
   fontConfig
 }) => {
   const bodyFont = fontConfig?.fonts?.body || 'Arial, sans-serif';
-  const trackTextMaxWidth = width - (24 * 2) - TRACK_TEXT_INDENT;
+  const trackTextMaxWidth = width - (horizontalPadding * 2) - TRACK_TEXT_INDENT;
 
   return sideSummaries.map((side) => {
     const candidates = DENSITY_PRESETS.map((preset) => resolvePresetCandidate({

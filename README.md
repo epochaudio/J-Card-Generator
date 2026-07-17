@@ -1,5 +1,12 @@
 # 磁带封面生成器 (J-Card Genesis) 📼
 
+> **v1.5.8 Update**:
+> 1. 🧵 **Spine 底部双轨排版**: 当 `artist` 与 `noteLower` 同时存在时，底部元信息不再沿脊部长度方向串行堆叠，而是改为 `artist` 主轨居中、`noteLower` 副轨靠外的并行双轨模型，消除旧版在 spine 下端的重叠风险。
+> 2. 📐 **底部占位改为真实最大值**: Spine 底部预留长度不再按“备注长度 + 固定安全间距”估算，而是按双轨中的真实最大占位求解，让标题区长度预算更稳定、更符合实际渲染结果。
+> 3. ✂️ **底部备注输入上限**: `Note Lower` 现在限制为最多 `16` 个可见字符，并在界面中提示“建议 12 字内”，防止底部备注从输入层面失控，进一步降低窄脊部下的拥挤风险。
+> 4. 🔤 **字体资源修复**: 替换损坏的 Inter、Roboto、Rock Salt 与 Shadows Into Light 字体文件，恢复现代、复古与手写主题的预期字形和导出一致性。
+> 5. ✅ **字体构建校验**: 构建前会验证所有 `.ttf` 资源的文件签名，防止下载页面或其他非字体内容被误打包进 App。
+>
 > **v1.5.4 Update**:
 > 1. 🧭 **Short Back 模式收口**: 移除了用户侧的 `AUTO` 选项，左侧折页现在只保留 `档案信息 / 紧凑曲目` 两种明确模式，减少伪自动带来的预期偏差。
 > 2. 📏 **紧凑曲目动态测量**: `Short Back (Fold-in)` 的 `紧凑曲目` 不再固定每面显示 5 首，而是会根据标题长度、截断保留率与实际可用高度，在不同密度级别之间动态求解显示数量。
@@ -140,6 +147,8 @@
 *   **Spine Layout**:
     *   **Note Upper**: 脊部顶部备注（常填 `STEREO / MONO`、年份、录音日期等）。
     *   **Note Lower**: 脊部底部备注（常填版权、版本信息或自定义说明）。
+    *   **双轨底部元信息**: 当 `artist` 与 `Note Lower` 同时存在时，系统会将两者放入平行双轨中，`artist` 保持主轨居中，`Note Lower` 退到外侧副轨，避免底部重叠。
+    *   **输入上限**: `Note Lower` 建议控制在 `12` 字内，系统会在输入层限制为最多 `16` 个可见字符。
     *   支持“极简脊部”、“强制大写”与可选的**脊部短标题**兜底策略。
     *   为避免打印时出现过细过小的脊部说明字，系统在空间紧张时会更早进入 `no-notes / artist-only` 这类保守模式。
 *   **Track Ordering**:
@@ -165,16 +174,11 @@ A: 建议直接 Google 搜索专辑曲目列表，复制文本后使用软件的
 
 ## 🖨️ 打印与规格说明
 
-### 推荐设备：Canon SELPHY CP1500
-*   **相纸**: 6 寸 (4R / 4x6 英寸 / 100x148mm)。
-*   **打印**: 导出 PNG 后直接打印，**无需裁剪**，即打即用。
+导出画布为 **1748 x 1181 px**。按 300 DPI 打印时，对应约 **148 x 100 mm**，适合 Canon SELPHY CP1500 等 6 寸 / 4R 横向照片打印流程。
 
-### J-Card 布局 (U-Card)
-本生成器采用四折页布局：
-1.  **Front**: 封面 (正方形)。
-2.  **Spine**: 脊部。
-3.  **Back**: 封底 (A面曲目)。
-4.  **Extension**: 扩展折页 (B面曲目/歌词/详情)。
+面板从左到右依次为 **Short Back / Fold-in (200 px)**、**Spine (150 px)**、**Front (780 px)**、**Back (618 px)**。打印时请选择 **适配尺寸**，不要选择 **充满**，避免二次放大后裁掉边缘或折线。
+
+完整 panel 尺寸、折线位置和打印注意事项请见 [HELP.md](./HELP.md#4-j-card-规格与打印设置)。
 
 ## 🛠️ 开发与构建 (Development)
 
@@ -195,12 +199,12 @@ npm run electron:build
 # 单独构建 macOS arm64 DMG
 npm run electron:build:mac-arm64:dmg
 
-# 单独构建 Windows x86 安装包
-./node_modules/.bin/electron-builder --win nsis --ia32 --config.win.signAndEditExecutable=false -c.directories.output=dist_electron_win_x86
+# 构建 Windows x86-64（x64）NSIS 安装包
+npm run electron:build:win-x64
 ```
 
 ### 构建说明
-*   当前版本号为 `1.5.4`，界面底部版本号由 `package.json` 通过 Vite 注入。
+*   当前版本号为 `1.5.8`，界面底部版本号由 `package.json` 通过 Vite 注入。
 *   在 macOS 沙箱或受限环境中，`electron-builder` 直接构建 Windows 包可能因 `wine` 权限受限失败；必要时可追加 `--config.win.signAndEditExecutable=false`。
 *   在某些 arm64 macOS 环境中，`electron-builder` 生成 `.dmg` 可能失败，此时可回退为系统 `hdiutil` 手工封装。
 

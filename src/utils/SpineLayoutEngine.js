@@ -10,6 +10,7 @@ const SPINE_RULES = {
   twoLineTitleMax: 56,
   emergencyTitleMin: 38,
   topStackGap: 4,
+  bottomLaneGap: 4,
   metaModes: [
     {
       id: 'full',
@@ -344,7 +345,29 @@ function buildTopItems({ noteUpper, tapeId, bodyFont, metaMode }) {
   };
 }
 
-function buildBottomItems({ noteLower, artist, bodyFont, metaMode }) {
+function resolveBottomLaneOffset(artistItem, noteItem, crossAxisBudget) {
+  if (!artistItem || !noteItem) return 0;
+
+  const laneGap = Math.max(
+    SPINE_RULES.bottomLaneGap,
+    Math.round(Math.max(artistItem.fontSize, noteItem.fontSize) * 0.18)
+  );
+  const requiredOffset = artistItem.fontSize / 2 + noteItem.fontSize / 2 + laneGap;
+  const maxOffset = Math.max(0, crossAxisBudget / 2 - noteItem.fontSize / 2);
+
+  return Math.min(requiredOffset, maxOffset);
+}
+
+function buildBottomItems({ noteLower, artist, bodyFont, metaMode, crossAxisBudget, outerLaneDirection }) {
+  const artistItem = fitSingleLineItem({
+    text: artist,
+    fontFamily: bodyFont,
+    minFontSize: metaMode.artistMin,
+    maxFontSize: metaMode.artistMax,
+    maxWidth: metaMode.bottomBudget,
+    allowEllipsis: true,
+  });
+
   const note = metaMode.showNotes
     ? fitSingleLineItem({
         text: noteLower,
@@ -357,20 +380,8 @@ function buildBottomItems({ noteLower, artist, bodyFont, metaMode }) {
       })
     : null;
 
-  const artistBudget = note
-    ? Math.max(80, metaMode.bottomBudget - metaMode.safeGap)
-    : metaMode.bottomBudget;
-
-  const artistItem = fitSingleLineItem({
-    text: artist,
-    fontFamily: bodyFont,
-    minFontSize: metaMode.artistMin,
-    maxFontSize: metaMode.artistMax,
-    maxWidth: artistBudget,
-    allowEllipsis: true,
-  });
-
   const items = [];
+  const noteTrackOffset = resolveBottomLaneOffset(artistItem, note, crossAxisBudget);
 
   if (note) {
     items.push({
@@ -379,7 +390,7 @@ function buildBottomItems({ noteLower, artist, bodyFont, metaMode }) {
       width: note.width,
       fontSize: note.fontSize,
       physicalOffset: 0,
-      crossOffset: 0,
+      crossOffset: artistItem ? outerLaneDirection * noteTrackOffset : 0,
       fontOptions: { letterSpacing: 1 },
       fillRole: 'title',
       opacity: 0.8,
@@ -392,7 +403,7 @@ function buildBottomItems({ noteLower, artist, bodyFont, metaMode }) {
       text: artistItem.text,
       width: artistItem.width,
       fontSize: artistItem.fontSize,
-      physicalOffset: note ? metaMode.safeGap : 0,
+      physicalOffset: 0,
       crossOffset: 0,
       fontOptions: {},
       fillRole: 'title',
@@ -400,9 +411,7 @@ function buildBottomItems({ noteLower, artist, bodyFont, metaMode }) {
     });
   }
 
-  const blockLength = note
-    ? Math.max(note.width, metaMode.safeGap + (artistItem?.width || 0))
-    : (artistItem?.width || 0);
+  const blockLength = Math.max(note?.width || 0, artistItem?.width || 0);
 
   return {
     items,
@@ -491,6 +500,7 @@ const SpineLayoutEngine = {
     const topEdgePos = -halfHeight + SPINE_RULES.topMargin;
     const bottomEdgePos = halfHeight - SPINE_RULES.bottomMargin;
     const crossAxisBudget = Math.max(40, panelWidth - SPINE_RULES.panelSidePadding * 2);
+    const outerLaneDirection = data?.layout?.spineInverted === false ? -1 : 1;
 
     let chosenLayout = null;
 
@@ -507,6 +517,8 @@ const SpineLayoutEngine = {
         artist: formatText(data?.artist, forceCaps),
         bodyFont,
         metaMode,
+        crossAxisBudget,
+        outerLaneDirection,
       });
 
       const titleStart = topEdgePos + topMeta.blockLength + (topMeta.blockLength > 0 ? metaMode.titleGap : 0);
@@ -586,6 +598,8 @@ const SpineLayoutEngine = {
         artist: formatText(data?.artist, forceCaps),
         bodyFont,
         metaMode: fallbackMetaMode,
+        crossAxisBudget,
+        outerLaneDirection,
       });
 
       const titleStart = topEdgePos + fallbackMetaMode.titleGap;

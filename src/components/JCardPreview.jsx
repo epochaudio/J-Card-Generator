@@ -79,7 +79,7 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
     const badgeTextStr = data.coverBadge || "";
     const BADGE_FONT_SIZE = 20;
     const badgeFont = fontConfig?.fonts?.serif || "Georgia, serif";
-    const badgeMaxWidth = JCARD_DIMENSIONS.panels.front - 160;
+    const badgeMaxWidth = JCARD_DIMENSIONS.panels.front - (JCARD_DIMENSIONS.front.badgeHorizontalPadding * 2);
     
     const badgeLines = badgeTextStr
       ? TypographyService.wrapText(badgeTextStr, badgeFont, BADGE_FONT_SIZE, badgeMaxWidth, { fontStyle: 'italic', fontWeight: 'bold' })

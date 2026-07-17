@@ -19,6 +19,7 @@ export const JCARD_DIMENSIONS = {
   front: {
     reversibleImageSize: 520,
     standardCoverViewBox: 1200,
+    badgeHorizontalPadding: 80,
     previewImageBottom: 780,
     artistBaseline: 1125
   }
