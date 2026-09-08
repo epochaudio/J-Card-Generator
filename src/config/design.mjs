@@ -1,8 +1,7 @@
 const MIN_TEXT_CONTRAST = 4.5;
 const ACCENT_ADJUSTMENT_STEPS = 20;
 
-// Persisted design choices. Missing fields always mean the original appearance.
-export const DESIGN_EDITIONS = ['legacy', 'publication'];
+// Persisted choices for the unified cover design.
 export const FRONT_STYLES = ['STANDARD', 'EDITORIAL', 'REVERSIBLE'];
 export const TITLE_SIZES = { compact: 64, balanced: 84, expressive: 104 };
 export const PALETTES = {

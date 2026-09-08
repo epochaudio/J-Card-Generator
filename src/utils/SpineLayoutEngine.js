@@ -5,8 +5,7 @@ const SPINE_RULES = {
   bottomMargin: 40,
   panelSidePadding: 18,
   singleLineTitleMin: 42,
-  singleLineTitleMax: 84,
-  publicationTitleMax: 64,
+  singleLineTitleMax: 64,
   twoLineTitleMin: 30,
   twoLineTitleMax: 56,
   emergencyTitleMin: 38,
@@ -492,7 +491,6 @@ const SpineLayoutEngine = {
     const titleFont = fontConfig?.fonts?.title || 'Arial, sans-serif';
     const bodyFont = fontConfig?.fonts?.body || 'Arial, sans-serif';
     const forceCaps = !!data?.layout?.forceCaps;
-    const publication = data?.layout?.designEdition === 'publication';
 
     const fullTitle = formatText(data?.title, forceCaps);
     const customShortTitle = formatText(data?.spineTitle, forceCaps);
@@ -523,8 +521,8 @@ const SpineLayoutEngine = {
         outerLaneDirection,
       });
 
-      const titleStart = topEdgePos + (publication ? metaMode.topBudget : topMeta.blockLength) + (publication || topMeta.blockLength > 0 ? metaMode.titleGap : 0);
-      const titleEnd = bottomEdgePos - (publication ? metaMode.bottomBudget : bottomMeta.blockLength) - (publication || bottomMeta.blockLength > 0 ? metaMode.titleGap : 0);
+      const titleStart = topEdgePos + metaMode.topBudget + metaMode.titleGap;
+      const titleEnd = bottomEdgePos - metaMode.bottomBudget - metaMode.titleGap;
       const titleZoneLength = Math.max(0, titleEnd - titleStart);
       const titleCenterX = titleStart + titleZoneLength / 2;
 
@@ -542,7 +540,7 @@ const SpineLayoutEngine = {
             text: strategy.text,
             fontFamily: titleFont,
             minFontSize: SPINE_RULES.singleLineTitleMin,
-            maxFontSize: publication ? SPINE_RULES.publicationTitleMax : SPINE_RULES.singleLineTitleMax,
+            maxFontSize: SPINE_RULES.singleLineTitleMax,
             maxWidth: titleZoneLength,
             fontOptions: { fontWeight: 'bold' },
             allowEllipsis: false,

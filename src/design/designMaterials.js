@@ -60,7 +60,7 @@ export async function prepareDesignImages(snapshot, signal) {
     canvas.width = SAMPLE_WIDTH; canvas.height = entries.length * SAMPLE_ROW_HEIGHT;
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     for (const [index, entry] of entries.entries()) {
-      const font = getFontConfig(entry.id, 'publication');
+      const font = getFontConfig(entry.id);
       await bounded(ExportService.ensureFonts(font), signal);
       checkCancelled(signal);
       const y = index * SAMPLE_ROW_HEIGHT;

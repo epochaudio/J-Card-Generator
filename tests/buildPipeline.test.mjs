@@ -21,7 +21,9 @@ test('architecture checks reject truncated binaries and the wrong platform', () 
   assert.throws(() => verifyArchitecture(mac, 'x64'));
   const win = Buffer.alloc(128); win.write('MZ'); win.writeUInt32LE(64, 0x3c); win.writeUInt32LE(0x4550, 64); win.writeUInt16LE(0x8664, 68);
   assert.doesNotThrow(() => verifyArchitecture(win, 'x64'));
+  assert.throws(() => verifyArchitecture(win, 'ia32'));
   win.writeUInt16LE(0x14c, 68);
+  assert.doesNotThrow(() => verifyArchitecture(win, 'ia32'));
   assert.throws(() => verifyArchitecture(win, 'x64'));
   for (const bytes of [Buffer.alloc(0), Buffer.alloc(4), Buffer.from('MZ')]) assert.throws(() => verifyArchitecture(bytes, 'x64'));
 });

@@ -11,10 +11,10 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 process.chdir(root);
 const require = createRequire(import.meta.url);
 const target = process.argv[2];
-if (!['all', 'mac-arm64', 'win-x64'].includes(target) || process.argv.length !== 3) {
-  throw new Error('Usage: node scripts/build-desktop.mjs all|mac-arm64|win-x64');
+if (!['all', 'mac-arm64', 'win-x64', 'win-x86'].includes(target) || process.argv.length !== 3) {
+  throw new Error('Usage: node scripts/build-desktop.mjs all|mac-arm64|win-x64|win-x86');
 }
-if (target !== 'win-x64' && process.platform !== 'darwin') throw new Error('macOS packaging requires macOS.');
+if (!target.startsWith('win-') && process.platform !== 'darwin') throw new Error('macOS packaging requires macOS.');
 const pkg = JSON.parse(fs.readFileSync('package.json'));
 const lockfile = JSON.parse(fs.readFileSync('package-lock.json'));
 assertVersions(pkg, lockfile);
@@ -87,7 +87,7 @@ try {
     fs.writeFileSync(`${file}.sha256`, `${sha256}  ${name}\n`);
     record.artifacts.push({ name, platform, architecture, bytes: fs.statSync(file).size, sha256, checks });
   }
-  if (target !== 'win-x64') {
+  if (!target.startsWith('win-')) {
     const raw = path.join(temp, 'mac');
     run(process.execPath, [builder, '--mac', 'dir', '--arm64', '--publish', 'never', `-c.directories.output=${raw}`]);
     const app = path.join(raw, 'mac-arm64', `${pkg.build.productName}.app`);
@@ -117,9 +117,10 @@ try {
     artifact(dmg, 'darwin', 'arm64', ['dmg-integrity', 'mounted-resources', 'version', 'arm64', 'ad-hoc-signature']);
   }
   if (target !== 'mac-arm64') {
+    const architecture = target === 'win-x86' ? 'ia32' : 'x64';
     const raw = path.join(temp, 'win');
-    run(process.execPath, [builder, '--win', 'nsis', '--x64', '--publish', 'never', '--config.win.signAndEditExecutable=false', `-c.directories.output=${raw}`]);
-    const name = `${pkg.build.productName} Setup ${pkg.version}-x64.exe`;
+    run(process.execPath, [builder, '--win', 'nsis', `--${architecture}`, '--publish', 'never', '--config.win.signAndEditExecutable=false', `-c.directories.output=${raw}`]);
+    const name = `${pkg.build.productName} Setup ${pkg.version}-${architecture}.exe`;
     const installer = path.join(raw, name);
     run(sevenZip, ['t', installer]);
     const extracted = path.join(temp, 'extracted');
@@ -128,10 +129,10 @@ try {
     if (archives.length !== 1) throw new Error('Installer must contain exactly one app.asar');
     verifyAsar(archives[0]);
     const executable = path.join(path.dirname(path.dirname(archives[0])), `${pkg.build.productName}.exe`);
-    verifyArchitecture(fs.readFileSync(executable), 'x64');
+    verifyArchitecture(fs.readFileSync(executable), architecture);
     const dest = path.join(deliver, name);
     fs.copyFileSync(installer, dest);
-    artifact(dest, 'win32', 'x64', ['nsis-integrity', 'extracted-resources', 'version', 'x64']);
+    artifact(dest, 'win32', architecture, ['nsis-integrity', 'extracted-resources', 'version', architecture]);
   }
   if (hash(JSON.stringify(snapshot())) !== sourceSha256 || git('rev-parse', 'HEAD') !== commit) throw new Error('Source changed during build; outputs will not be delivered.');
   record.completedAt = new Date().toISOString();

@@ -15,6 +15,7 @@
     "electron:dev": "concurrently \"npm run dev\" \"electron .\"",
     "electron:build": "node scripts/build-desktop.mjs all",
     "electron:build:mac-arm64:dmg": "node scripts/build-desktop.mjs mac-arm64",
+    "electron:build:win-x86": "node scripts/build-desktop.mjs win-x86",
     "electron:build:win-x64": "node scripts/build-desktop.mjs win-x64"
   },
   "dependencies": {

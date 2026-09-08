@@ -38,7 +38,6 @@ export function contentStamp(snapshot) {
 }
 
 export function eligibility(snapshot, locks = {}) {
-  if (snapshot.data.layout.designEdition !== 'publication') return '请先选择出版排版，再使用智能搭配。';
   if (!SINGLE_FRONT_STYLES.includes(snapshot.data.layout.frontStyle)) return '第一版支持经典居中和编辑左齐；双面颠倒请继续手动设计。';
   if (!snapshot.coverImage) return '请先上传或生成主封面，再使用智能搭配。';
   if (locks.palette && snapshot.theme.paletteId === 'legacy' && snapshot.jCardThemeMode === 'cover') return '锁定的封面背景暂不能可靠检查文字对比度，请改用纯色背景或解锁配色。';
@@ -62,7 +61,7 @@ export function buildDesignInput(snapshot, locks = {}, intent = '') {
       sideA: summarize(snapshot.data.sideA), sideB: summarize(snapshot.data.sideB) },
     resources: { fonts: Object.values(FONT_THEMES).map(font => ({ id: font.id, name: font.name })),
       palettes: PALETTES, frontStyles: SINGLE_FRONT_STYLES, titleSizes: Object.keys(TITLE_SIZES) },
-    constraints: { dimensions: JCARD_DIMENSIONS, edition: 'publication', preserveContent: true, preserveImage: true },
+    constraints: { dimensions: JCARD_DIMENSIONS, preserveContent: true, preserveImage: true },
     intent: intent.trim(),
     locked: { ...(locks.font ? { fontTheme: snapshot.fontTheme } : {}),
       ...(locks.palette ? { palette: { paletteId: snapshot.theme.paletteId, accent: snapshot.theme.accent,

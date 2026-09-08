@@ -1,8 +1,8 @@
 import { normalizeAlbumSource, normalizeTrackSource } from '../musicbrainz/projectMetadata.mjs';
 import { formatDurationMs, parseDurationToMs } from '../utils/formatDuration.mjs';
-import { DESIGN_EDITIONS, FRONT_STYLES, TITLE_SIZES, PALETTES } from '../config/design.mjs';
+import { FRONT_STYLES, TITLE_SIZES, PALETTES } from '../config/design.mjs';
 
-export const PROJECT_VERSION = 2;
+export const PROJECT_VERSION = 3;
 export const PROJECT_FORMAT = 'jcard-project';
 // Two embedded covers plus text; also checked before parsing files on disk.
 export const MAX_PROJECT_BYTES = 64 * 1024 * 1024;
@@ -95,9 +95,8 @@ export function normalizeSnapshot(input) {
       layout: {
         ...strings(layout, ['noteUpper', 'noteLower']), mode,
         frontStyle: choice(layout.frontStyle, FRONT_STYLES, 'STANDARD', '封面布局'),
-        designEdition: choice(layout.designEdition, DESIGN_EDITIONS, 'legacy', '排版版本'),
         titleSize: choice(layout.titleSize, Object.keys(TITLE_SIZES), 'balanced', '标题尺寸'),
-        texture: boolean(layout.texture, true, '纸纹'),
+        texture: boolean(layout.texture, false, '纸纹'),
         shortBackMode: choice(shortBackMode, ['META_ARCHIVE', 'TRACKS_COMPACT'], mode === 'CLASSICAL' ? 'META_ARCHIVE' : 'TRACKS_COMPACT', '折页模式'),
         coverBadgeAlign: choice(layout.coverBadgeAlign, ['center', 'left'], 'center', '标语对齐'),
         forceCaps: boolean(layout.forceCaps, true, '大写'),
@@ -130,7 +129,7 @@ export function parseProject(content) {
   try { envelope = JSON.parse(content); } catch { throw new Error('作品文件不是有效的 JSON，当前作品未改变。'); }
   object(envelope, '文件');
   if (envelope.format !== PROJECT_FORMAT) throw new Error('这不是 J-Card 作品文件。');
-  if (![1, PROJECT_VERSION].includes(envelope.version)) throw new Error('不支持此作品格式版本，请使用对应版本的应用打开。');
+  if (envelope.version !== PROJECT_VERSION) throw new Error('不支持此作品格式版本，请使用对应版本的应用打开。');
   return normalizeSnapshot(envelope.project);
 }
 

@@ -6,14 +6,9 @@ import { FONT_THEMES, getFontConfig } from '../config/fonts.js';
 const buttonStyle = selected => `rounded-lg border px-2 py-2 text-xs transition-colors ${selected ? 'border-orange-700 bg-orange-50 text-orange-900' : 'border-gray-200 text-gray-600 hover:border-gray-400'}`;
 const layouts = [ ['STANDARD', '经典居中'], ['EDITORIAL', '编辑左齐'], ['REVERSIBLE', '双面颠倒'] ];
 export default function DesignPanel({ data, theme, fontTheme, mode, onLayout, onTheme, onFont, onMode, onAutoColor, hasImage }) {
-  const publication = data.layout.designEdition === 'publication';
-  const font = getFontConfig(fontTheme, data.layout.designEdition);
+  const font = getFontConfig(fontTheme);
   return <section id="design-panel" className="space-y-4 scroll-mt-4" aria-label="封面设计">
     <h2 className="text-sm font-semibold flex items-center gap-2"><Palette size={16} /> 封面设计</h2>
-    <div className="flex gap-2">
-      <button className={`${buttonStyle(publication)} flex-1`} aria-pressed={publication} onClick={() => onLayout({ designEdition: 'publication', texture: false })}>出版排版</button>
-      <button className={`${buttonStyle(!publication)} flex-1`} aria-pressed={!publication} onClick={() => onLayout({ designEdition: 'legacy', frontStyle: data.layout.frontStyle === 'EDITORIAL' ? 'STANDARD' : data.layout.frontStyle })}>原版排版</button>
-    </div>
     <div>
       <label htmlFor="design-font" className="block text-xs text-gray-500 mb-2">字体搭配</label>
       <select id="design-font" value={fontTheme} onChange={event => onFont(event.target.value)} className="w-full rounded border border-gray-200 bg-white p-2 text-sm">
@@ -43,17 +38,16 @@ export default function DesignPanel({ data, theme, fontTheme, mode, onLayout, on
     <fieldset>
       <legend className="text-xs text-gray-500 mb-2">正面布局</legend>
       <div className="grid grid-cols-3 gap-2">
-        {layouts.map(([value, label]) => <button key={value} className={buttonStyle(data.layout.frontStyle === value)} aria-pressed={data.layout.frontStyle === value} onClick={() => onLayout({ frontStyle: value, ...(value === 'EDITORIAL' ? { designEdition: 'publication' } : {}) })}>
+        {layouts.map(([value, label]) => <button key={value} className={buttonStyle(data.layout.frontStyle === value)} aria-pressed={data.layout.frontStyle === value} onClick={() => onLayout({ frontStyle: value })}>
           <span aria-hidden="true" className={`flex flex-col gap-1 w-9 h-12 border border-current rounded-sm p-1 mx-auto mb-2 ${value === 'STANDARD' ? 'items-center' : ''}`}><span className="bg-current opacity-20 w-full h-6" /><span className="bg-current opacity-60 w-4 h-0.5" /><span className="bg-current opacity-30 w-3 h-0.5" /></span>{label}
         </button>)}
       </div>
     </fieldset>
-    {publication && data.layout.frontStyle !== 'REVERSIBLE' && <label className="flex items-center justify-between text-xs text-gray-500">标题尺寸
+    {data.layout.frontStyle !== 'REVERSIBLE' && <label className="flex items-center justify-between text-xs text-gray-500">标题尺寸
       <select aria-label="标题尺寸" value={data.layout.titleSize || 'balanced'} onChange={event => onLayout({ titleSize: event.target.value })} className="border border-gray-200 rounded p-1 bg-white">
         <option value="compact">克制</option><option value="balanced">均衡</option><option value="expressive">醒目</option>
       </select>
     </label>}
-    {publication && <label className="flex gap-2 items-center text-xs text-gray-500"><input type="checkbox" checked={!!data.layout.texture} onChange={event => onLayout({ texture: event.target.checked })} />轻微纸纹</label>}
-    {!publication && <p className="text-xs text-gray-500">保留原版字号与间距；选择出版排版可使用新的文字层级。</p>}
+    <label className="flex gap-2 items-center text-xs text-gray-500"><input type="checkbox" checked={!!data.layout.texture} onChange={event => onLayout({ texture: event.target.checked })} />轻微纸纹</label>
   </section>;
 }

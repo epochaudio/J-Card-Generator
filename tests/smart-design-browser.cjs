@@ -34,7 +34,7 @@ const fs = require('node:fs/promises');
    const ctx = canvas.getContext('2d'); const gradient = ctx.createLinearGradient(0, 0, 500, 500);
    gradient.addColorStop(0, '#dea769'); gradient.addColorStop(1, '#273b40'); ctx.fillStyle = gradient; ctx.fillRect(0,0,500,500);
    ctx.fillStyle = '#e9ce99'; ctx.beginPath(); ctx.arc(340,160,65,0,Math.PI*2); ctx.fill();
-   const source = normalizeSnapshot({ data: { title: '夜色与回声', artist: '林间 Quartet', sideA: [{ id: 'a', title: '回声 Echo', duration: '3:25' }], sideB: [{ id: 'b', title: '晚风', duration: '4:12' }], layout: { designEdition: 'publication' } }, theme: { paletteId: 'paper' }, fontTheme: 'modern', coverImage: canvas.toDataURL() });
+   const source = normalizeSnapshot({ data: { title: '夜色与回声', artist: '林间 Quartet', sideA: [{ id: 'a', title: '回声 Echo', duration: '3:25' }], sideB: [{ id: 'b', title: '晚风', duration: '4:12' }] }, theme: { paletteId: 'paper' }, fontTheme: 'modern', coverImage: canvas.toDataURL() });
    await projectStorage.writeDraft(serializeProject(source));
    localStorage.setItem('jcard_ai_settings_v1', JSON.stringify(normalizeAISettings({ version: 3, visionProvider: provider, providers: { [provider]: { apiKey: 'test-vision-only', visionModel: provider === 'deepseek' ? 'deepseek-v4.1-flash-expires-on-0910' : 'qwen3-vl-plus' } } })));
   }, process.env.JCARD_VISION_PROVIDER || 'aliyun');

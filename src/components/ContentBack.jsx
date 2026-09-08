@@ -212,8 +212,7 @@ const buildDisplayGroups = (groups, strategy, isClassical) => {
 
 
 const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTextColor, dimTextColor, recordingData, fontConfig, onLayoutStatus }) => {
-  const publication = data.layout?.designEdition === 'publication';
-  const columns = publication && !isCompact && data.layout?.mode !== 'CLASSICAL';
+  const columns = !isCompact && data.layout?.mode !== 'CLASSICAL';
   const contentHeight = JCARD_DIMENSIONS.height;
   const marginY = isCompact ? 60 : 80;
   const footerHeight = isCompact ? 40 : 60;
@@ -355,7 +354,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
      * - 新：用 Pretext 的物理像素测量，结果与实际字体精确关联
      */
     const wrapAndClamp = (text, fontFamily, fontSize, maxWidth, fontOptions = {}, maxLines = null) => {
-      const wrapped = publication ? TypographyService.wrapMeasuredText(text, fontFamily, fontSize, maxWidth, fontOptions) : TypographyService.wrapText(text, fontFamily, fontSize, maxWidth, fontOptions);
+      const wrapped = TypographyService.wrapMeasuredText(text, fontFamily, fontSize, maxWidth, fontOptions);
       return clampWrappedLines(wrapped, maxLines, maxWidth, fontFamily, fontSize, fontOptions);
     };
 
@@ -437,7 +436,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
     };
 
     // 行高边界
-    const maxLH = isCompact ? 50 : publication ? 60 : 110;
+    const maxLH = isCompact ? 50 : 60;
     const minLHValue = isCompact ? 16 : 30;
 
     const evaluateStrategy = (strategyConfig, fontSize) => {
@@ -512,7 +511,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       yHeaderB,
       yListB
     };
-  }, [availableForTracks, bodyFont, gapBetweenSides, groupsA, groupsB, headerHeight, isClassical, isCompact, isCompilation, marginY, maxFont, minFont, monoFont, noteFontFloor, renderStrategy, sideBIndexStart, titleFont, trackNumberFontFloor, trackTailFontFloor, width, columns, publication, sideHeaderRightX, data.sideA, data.sideB]);
+  }, [availableForTracks, bodyFont, gapBetweenSides, groupsA, groupsB, headerHeight, isClassical, isCompact, isCompilation, marginY, maxFont, minFont, monoFont, noteFontFloor, renderStrategy, sideBIndexStart, titleFont, trackNumberFontFloor, trackTailFontFloor, width, columns, sideHeaderRightX, data.sideA, data.sideB]);
 
   const {
     displayGroupsA,
@@ -565,7 +564,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       >
         {duration}
       </text>
-      <line x1="0" y1={sideHeaderLineY} x2={sideHeaderRightX} y2={sideHeaderLineY} stroke={theme.divider || dimTextColor} strokeWidth="1" opacity={publication ? 1 : 0.42} />
+      <line x1="0" y1={sideHeaderLineY} x2={sideHeaderRightX} y2={sideHeaderLineY} stroke={theme.divider || dimTextColor} strokeWidth="1" opacity="1" />
       <rect x="0" y={sideHeaderLineY - sideHeaderAccentHeight} width={sideHeaderAccentWidth} height={sideHeaderAccentHeight} rx={sideHeaderAccentHeight / 2} fill={theme.accent} />
     </g>
   );
@@ -574,7 +573,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
     let yCursor = 0;
     let localIdx = startLocalIdx;
     const wrapAndClamp = (text, fontFamily, fontSize, maxWidth, fontOptions = {}, maxLines = null) => {
-      const wrapped = publication ? TypographyService.wrapMeasuredText(text, fontFamily, fontSize, maxWidth, fontOptions) : TypographyService.wrapText(text, fontFamily, fontSize, maxWidth, fontOptions);
+      const wrapped = TypographyService.wrapMeasuredText(text, fontFamily, fontSize, maxWidth, fontOptions);
       return clampWrappedLines(wrapped, maxLines, maxWidth, fontFamily, fontSize, fontOptions);
     };
 
@@ -661,7 +660,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
           ? wrapAndClamp(item.note, bodyFont, noteFontSize, usableWidth - numberColumn, {}, noteLimit) : [];
         const baseline = thisY + calculatedLH * (noteLines.length ? 0.35 : 0.5);
         yCursor += calculatedLH + (titleLines.length - 1) * calculatedLH * 0.85 + noteLines.length * noteFontSize * 1.2;
-        return <g key={`track-${i}`} data-track-row="publication">
+        return <g key={`track-${i}`} data-track-row="columns">
           <text x="0" y={baseline} fontFamily={monoFont} fontSize={Math.max(trackFontSize - 2, trackNumberFontFloor)} fill={dimTextColor} dominantBaseline="middle">{String(localIdx).padStart(2, '0')}</text>
           {titleLines.map((line, index) => <text key={index} x={numberColumn} y={baseline + index * calculatedLH * 0.85} fontFamily={bodyFont} fontSize={trackFontSize} fontWeight="bold" fill={textColor} dominantBaseline="middle">{line}</text>)}
           {item.showDuration && <text x={usableWidth} y={baseline} textAnchor="end" fontFamily={monoFont} fontSize={Math.max(trackFontSize - 4, trackTailFontFloor)} fill={dimTextColor} dominantBaseline="middle">{item.duration}</text>}
@@ -842,7 +841,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
             {renderGroupList(displayGroupsA, 0)}
           </g>
 
-          <line x1={verticalPadding} y1={yDivider} x2={sideDividerRightX} y2={yDivider} stroke={theme.divider || dimTextColor} strokeWidth="1" opacity={publication ? 1 : 0.28} />
+          <line x1={verticalPadding} y1={yDivider} x2={sideDividerRightX} y2={yDivider} stroke={theme.divider || dimTextColor} strokeWidth="1" opacity="1" />
 
           <g transform={`translate(${verticalPadding}, ${yHeaderB})`}>
             {renderSideHeader('SIDE B', data.sideBDuration)}

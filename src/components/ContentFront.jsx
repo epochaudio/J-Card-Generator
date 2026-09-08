@@ -1,25 +1,9 @@
 import React from 'react';
 
 import { JCARD_DIMENSIONS } from '../constants/app.js';
-import TypographyService from '../services/TypographyService.js';
 
-const ContentFront = ({ resourceId, xOffset, width, data, theme, coverImage, coverImageB, frontStyle, isLight, textColor, subTextColor, titleLayout, titleStartY, badgeY, artistY, fontConfig, publicationLayout }) => {
-  const badgeText = data.coverBadge || "";
-  const badgeAlign = data.layout?.coverBadgeAlign === 'left' ? 'left' : 'center';
-  // 标语折行参数需与 JCardPreview.jsx 中的 previewLayout 一致
-  const BADGE_FONT_SIZE = 20;
-  const badgeFont = fontConfig?.fonts?.serif || "Georgia, serif";
-  const badgeHorizontalPadding = JCARD_DIMENSIONS.front.badgeHorizontalPadding;
-  const badgeMaxWidth = width - (badgeHorizontalPadding * 2);
-  const badgeLines = badgeText
-    ? TypographyService.wrapText(badgeText, badgeFont, BADGE_FONT_SIZE, badgeMaxWidth, { fontStyle: 'italic', fontWeight: 'bold' })
-    : [''];
-  const badgeLineHeight = 26;
+const ContentFront = ({ resourceId, xOffset, width, data, theme, coverImage, coverImageB, frontStyle, textColor, subTextColor, frontLayout }) => {
   const panelHeight = JCARD_DIMENSIONS.height;
-  const titleCenterX = 750;
-  const badgeLeftX = titleCenterX - (width / 2 - badgeHorizontalPadding);
-  const badgeX = badgeAlign === 'left' ? badgeLeftX : titleCenterX;
-  const badgeTextAnchor = badgeAlign === 'left' ? 'start' : 'middle';
 
   if (frontStyle === 'REVERSIBLE') {
     const midPoint = panelHeight / 2;
@@ -61,77 +45,23 @@ const ContentFront = ({ resourceId, xOffset, width, data, theme, coverImage, cov
     );
   }
 
-  if (publicationLayout) {
-    const { image, blocks, x, anchor, margin } = publicationLayout;
-    return (
-      <g transform={`translate(${xOffset}, 0)`} data-panel="front" data-overflow={publicationLayout.overflow}>
-        {coverImage ? <image href={coverImage} x={image.x} y={image.y} width={image.size} height={image.size} preserveAspectRatio="xMidYMid meet" /> : (
-          <g fill="none" stroke={theme.accent} opacity="0.5">
-            <circle cx={width / 2} cy={image.y + image.size / 2} r={image.size * 0.18} strokeWidth="2" />
-            <circle cx={width / 2} cy={image.y + image.size / 2} r={image.size * 0.025} strokeWidth="2" />
-          </g>
-        )}
-        {blocks.map(block => {
-          const badgeLeft = block.role === 'badge' && data.layout?.coverBadgeAlign === 'left';
-          return <g key={block.role} data-front-role={block.role}>
-            {block.lines.map((line, index) => <text key={index} x={badgeLeft ? margin : x} y={block.y + index * block.lineHeight}
-              textAnchor={badgeLeft ? 'start' : anchor} fontFamily={block.font} fontWeight={block.weight} fontSize={block.size}
-              letterSpacing={block.tracking} fill={block.role === 'title' ? textColor : subTextColor}>{line}</text>)}
-          </g>;
-        })}
-      </g>
-    );
-  }
-
+  const { image, blocks, x, anchor, margin } = frontLayout;
   return (
-    <g transform={`translate(${xOffset}, 0)`}>
-      <rect x="0" y="0" width={width} height={panelHeight} fill={`url(#${resourceId('grid')})`} opacity="0.2" />
-      {coverImage ? (
-        <>
-          <svg x="0" y="0" width={width} height={width} viewBox={`0 0 ${JCARD_DIMENSIONS.front.standardCoverViewBox} ${JCARD_DIMENSIONS.front.standardCoverViewBox}`} preserveAspectRatio="xMidYMid slice">
-            <image href={coverImage} width={JCARD_DIMENSIONS.front.standardCoverViewBox} height={JCARD_DIMENSIONS.front.standardCoverViewBox} preserveAspectRatio="xMidYMid slice" filter={`url(#${resourceId('bg-blur')})`} transform="scale(1.1)" transform-origin="center" />
-            <image href={coverImage} width={JCARD_DIMENSIONS.front.standardCoverViewBox} height={JCARD_DIMENSIONS.front.standardCoverViewBox} preserveAspectRatio="xMidYMid meet" transform="scale(1)" transform-origin="center" />
-          </svg>
-        </>
-      ) : (
-        <path d={`M ${width / 2 - 200} 400 Q ${width / 2} 100 ${width / 2 + 200} 400`} stroke={theme.accent} strokeWidth="4" fill="none" opacity="0.8" />
+    <g transform={`translate(${xOffset}, 0)`} data-panel="front" data-overflow={frontLayout.overflow}>
+      {coverImage ? <image href={coverImage} x={image.x} y={image.y} width={image.size} height={image.size} preserveAspectRatio="xMidYMid meet" /> : (
+        <g fill="none" stroke={theme.accent} opacity="0.5">
+          <circle cx={width / 2} cy={image.y + image.size / 2} r={image.size * 0.18} strokeWidth="2" />
+          <circle cx={width / 2} cy={image.y + image.size / 2} r={image.size * 0.025} strokeWidth="2" />
+        </g>
       )}
-      <g transform={`translate(${width / 2 - 750}, 0)`}>
-        {titleLayout.lines.map((line, index) => (
-          <text key={index} x="750" y={titleStartY + (index * titleLayout.lineHeight)} fontFamily={fontConfig?.fonts?.title || "Arial Black, sans-serif"} fontSize={titleLayout.fontSize} fill={textColor} textAnchor="middle" letterSpacing="-1" style={{ textShadow: isLight ? "none" : "0 4px 12px rgba(0,0,0,0.5)" }}>
-            {line}
-          </text>
-        ))}
-
-        {badgeText && (
-          <g>
-            {badgeLines.map((line, i) => (
-              <text
-                key={i}
-                x={badgeX}
-                y={badgeY + (i * badgeLineHeight)}
-                fontFamily={fontConfig?.fonts?.serif || "Georgia, serif"}
-                fontStyle="italic"
-                fontWeight="bold"
-                fontSize="20"
-                fill={textColor}
-                textAnchor={badgeTextAnchor}
-                letterSpacing="0.5"
-                style={{
-                  textShadow: isLight ? "0 0 10px rgba(255,255,255,0.8)" : "0 0 10px rgba(0,0,0,0.8)",
-                  opacity: 0.9
-                }}
-              >
-                {line}
-              </text>
-            ))}
-          </g>
-        )}
-
-        <text x="750" y={artistY} fontFamily={fontConfig?.fonts?.body || "Arial, sans-serif"} fontSize="32" fontWeight="bold" fill={subTextColor} textAnchor="middle" letterSpacing="6" style={{ textShadow: isLight ? "none" : "0 2px 4px rgba(0,0,0,0.8)" }}>
-          {data.artist}{theme.mood_description ? ` · ${theme.mood_description}` : ""}
-        </text>
-      </g>
+      {blocks.map(block => {
+        const badgeLeft = block.role === 'badge' && data.layout?.coverBadgeAlign === 'left';
+        return <g key={block.role} data-front-role={block.role}>
+          {block.lines.map((line, index) => <text key={index} x={badgeLeft ? margin : x} y={block.y + index * block.lineHeight}
+            textAnchor={badgeLeft ? 'start' : anchor} fontFamily={block.font} fontWeight={block.weight} fontSize={block.size}
+            letterSpacing={block.tracking} fill={block.role === 'title' ? textColor : subTextColor}>{line}</text>)}
+        </g>;
+      })}
     </g>
   );
 };

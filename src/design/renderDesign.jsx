@@ -24,7 +24,7 @@ export function visiblyDifferent(a, b) {
 }
 
 export async function renderDesign(snapshot, signal) {
-  const fontConfig = getFontConfig(snapshot.fontTheme, 'publication');
+  const fontConfig = getFontConfig(snapshot.fontTheme);
   await bounded(ExportService.ensureFonts(fontConfig), signal);
   const dominantColor = await bounded(ColorExtractor.extractColor(snapshot.coverImage, { representative: true }), signal);
   checkCancelled(signal);
@@ -43,7 +43,7 @@ export async function renderDesign(snapshot, signal) {
   document.body.appendChild(host);
   const root = createRoot(host);
   try {
-    flushSync(() => root.render(<JCardPreview {...snapshot} fontConfig={fontConfig} dominantColor={dominantColor} contrastTextType={ColorExtractor.getContrastYIQ(dominantColor) === 'dark' ? 'dark' : 'light'} />));
+    flushSync(() => root.render(<JCardPreview {...snapshot} fontConfig={fontConfig} dominantColor={dominantColor} />));
     const svg = host.querySelector('svg');
     if (!svg) throw new Error('候选预览未能生成。');
     const back = svg.querySelector('[data-back-overflow]');

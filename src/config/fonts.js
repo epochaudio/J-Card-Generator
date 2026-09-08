@@ -80,9 +80,9 @@ export const FONT_THEMES = {
 
 export const DEFAULT_FONT_THEME = 'modern';
 
-export const getFontConfig = (themeId, edition = 'legacy') => {
+export const getFontConfig = (themeId) => {
     const config = FONT_THEMES[themeId] || FONT_THEMES[DEFAULT_FONT_THEME];
-    if (edition !== 'publication' || themeId === 'editorial') return config;
+    if (themeId === 'editorial') return config;
     const fonts = { ...config.fonts };
     if (themeId === 'handwritten') {
         fonts.body = "'Inter', 'Noto Sans SC', sans-serif";

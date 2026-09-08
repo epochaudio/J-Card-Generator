@@ -4,17 +4,19 @@ import { PALETTES, contrastRatio, contrastInk, readableAccent, resolvePalette } 
 import { normalizeSnapshot, serializeProject, parseProject } from '../src/project/projectFormat.mjs';
 
 const album = { data: { title: '夜色与回声', artist: '陈明 · Quartet', sideA: [{ id: 'a', title: '回声', duration: '3:25' }], sideB: [] } };
-test('version 1 opens with original design; saving upgrades format without changing choices', () => {
-  const legacy = parseProject(JSON.stringify({ format: 'jcard-project', version: 1, project: album }));
-  assert.equal(legacy.data.layout.designEdition, 'legacy');
-  assert.equal(legacy.theme.paletteId, 'legacy');
-  assert.equal(legacy.data.layout.frontStyle, 'STANDARD');
-  assert.deepEqual(parseProject(serializeProject(legacy)), legacy);
-  assert.equal(JSON.parse(serializeProject(legacy)).version, 2);
+test('unified format round-trips without an edition and rejects older formats', () => {
+  const current = normalizeSnapshot(album);
+  assert.equal(Object.hasOwn(current.data.layout, 'designEdition'), false);
+  assert.equal(current.data.layout.texture, false);
+  assert.deepEqual(parseProject(serializeProject(current)), current);
+  assert.equal(JSON.parse(serializeProject(current)).version, 3);
+  for (const version of [1, 2]) {
+    assert.throws(() => parseProject(JSON.stringify({ format: 'jcard-project', version, project: album })), /版本/);
+  }
 });
-test('publication choices round-trip independently from content, date and custom accent', () => {
+test('design choices round-trip independently from content, date and custom accent', () => {
   for (const paletteId of Object.keys(PALETTES)) for (const frontStyle of ['STANDARD', 'EDITORIAL', 'REVERSIBLE']) {
-    const source = { ...album, data: { ...album.data, layout: { frontStyle, designEdition: 'publication', titleSize: 'compact', texture: false } }, theme: { paletteId, accent: '#86512a' }, fontTheme: 'editorial', recordingData: { recDate: '1994-08-01' } };
+    const source = { ...album, data: { ...album.data, layout: { frontStyle, titleSize: 'compact', texture: false } }, theme: { paletteId, accent: '#86512a' }, fontTheme: 'editorial', recordingData: { recDate: '1994-08-01' } };
     const restored = parseProject(serializeProject(source));
     assert.deepEqual(restored, normalizeSnapshot(source));
     assert.equal(restored.theme.accent, '#86512a');
@@ -23,7 +25,7 @@ test('publication choices round-trip independently from content, date and custom
   }
 });
 test('invalid design choices fail closed', () => {
-  for (const patch of [{ designEdition: 'future' }, { titleSize: 'giant' }, { frontStyle: 'UNKNOWN' }, { texture: 'yes' }]) {
+  for (const patch of [{ titleSize: 'giant' }, { frontStyle: 'UNKNOWN' }, { texture: 'yes' }]) {
     assert.throws(() => normalizeSnapshot({ ...album, data: { ...album.data, layout: patch } }));
   }
   assert.throws(() => normalizeSnapshot({ ...album, theme: { paletteId: 'missing' } }));

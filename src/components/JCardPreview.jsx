@@ -5,200 +5,35 @@ import ContentFront from './ContentFront.jsx';
 import ShortBackContent from './ShortBackContent.jsx';
 import SpineContent from './SpineContent.jsx';
 import { JCARD_DIMENSIONS } from '../constants/app.js';
-import TypographyService from '../services/TypographyService.js';
 import { resolvePalette, contrastInk, readableAccent } from '../config/design.mjs';
 import { computeFrontLayout } from '../utils/FrontLayout.js';
 
-const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingData, jCardThemeMode, dominantColor, contrastTextType, fontConfig, onBackStatus }) => {
+const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingData, jCardThemeMode, dominantColor, fontConfig, onBackStatus }) => {
   const resourcePrefix = `jcard-${useId().replace(/:/g, '')}`;
   const resourceId = name => `${resourcePrefix}-${name}`;
-  const publication = data.layout?.designEdition === 'publication';
   const palette = resolvePalette(theme, jCardThemeMode, dominantColor);
   const curThemeMode = theme.paletteId && theme.paletteId !== 'legacy' ? 'palette' : jCardThemeMode || 'dark';
-  const curDominantColor = dominantColor || '#232629';
-  const curContrastType = contrastTextType || 'light';
-
-  const { title } = data;
   const width = JCARD_DIMENSIONS.width;
   const height = JCARD_DIMENSIONS.height;
-
-  let bgFill = "#232629";
-  let textColor = "#eff0f1";
-  let subTextColor = "#b0b3b8";
-  let dimTextColor = "#7d8187";
-  let spineFill = theme.accent;
-  let spineTitleColor = "#ffffff";
-  let spineIdColor = "rgba(255,255,255,0.9)";
-  let coverMaskColor = "#000000";
-  let coverMaskOpacity = 0.4;
-
+  const bgFill = palette.background;
+  const isLight = contrastInk(bgFill) !== '#ffffff';
+  // A strong neutral mask makes local image brightness less disruptive.
+  const coverMaskColor = '#000000';
+  const coverMaskOpacity = 0.86;
+  const textColor = curThemeMode === 'cover' ? '#ffffff' : palette.text;
+  const subTextColor = curThemeMode === 'cover' ? '#e5e5e5' : palette.secondary;
+  const dimTextColor = curThemeMode === 'cover' ? '#c9c9c9' : palette.muted;
   const isMinimalSpine = !!data.layout?.minimalSpine;
-  const isLightModeLogic = (curThemeMode === 'light') ||
-    (curThemeMode === 'color' && curContrastType === 'dark') ||
-    (curThemeMode === 'cover' && curContrastType === 'dark');
-
-  if (curThemeMode === 'cover') {
-    if (curContrastType === 'dark') {
-      textColor = "#1a1a1a";
-      subTextColor = "#4a4a4a";
-      dimTextColor = "#666666";
-      coverMaskColor = "#ffffff";
-      coverMaskOpacity = 0.6;
-    } else {
-      textColor = "#ffffff";
-      subTextColor = "rgba(255,255,255,0.9)";
-      dimTextColor = "rgba(255,255,255,0.7)";
-      coverMaskColor = "#000000";
-      coverMaskOpacity = 0.4;
-    }
-  } else if (curThemeMode === 'light') {
-    bgFill = "#ffffff";
-    textColor = "#1a1a1a";
-    subTextColor = "#4a4a4a";
-    dimTextColor = "#666666";
-    spineTitleColor = "#1a1a1a";
-    spineIdColor = theme.accent;
-  } else if (curThemeMode === 'color') {
-    bgFill = curDominantColor;
-    if (curContrastType === 'dark') {
-      textColor = "#1a1a1a";
-      subTextColor = "#4a4a4a";
-      dimTextColor = "#666666";
-      spineTitleColor = "#1a1a1a";
-      spineIdColor = theme.accent;
-    } else {
-      textColor = "#ffffff";
-      subTextColor = "#e0e0e0";
-      dimTextColor = "#888888";
-    }
-  }
-
-  const isLight = publication || curThemeMode === 'palette' ? contrastInk(palette.background) !== '#ffffff' : isLightModeLogic;
-  if (publication || curThemeMode === 'palette') {
-    bgFill = palette.background;
-    textColor = palette.text; subTextColor = palette.secondary; dimTextColor = palette.muted;
-    spineFill = palette.accent;
-    spineTitleColor = contrastInk(spineFill); spineIdColor = spineTitleColor;
-    if (curThemeMode === 'cover') {
-      // A strong neutral mask makes local image brightness less disruptive.
-      coverMaskColor = '#000000'; coverMaskOpacity = 0.86;
-      textColor = '#ffffff'; subTextColor = '#e5e5e5'; dimTextColor = '#c9c9c9';
-    }
-  }
-  const effectiveTheme = publication ? { ...theme, accent: readableAccent(theme.accent, curThemeMode === 'cover' ? '#232629' : bgFill), divider: palette.divider } : theme;
-  const publicationLayout = useMemo(() => publication ? computeFrontLayout(data, fontConfig, theme) : null, [publication, data, fontConfig, theme]);
-
-  if (isMinimalSpine) {
-    spineFill = publication ? bgFill : isLight ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)";
-    spineTitleColor = textColor;
-    spineIdColor = publication ? readableAccent(theme.accent, spineFill) : theme.accent;
-  }
-
-  const badgeLayout = useMemo(() => {
-    const badgeTextStr = data.coverBadge || "";
-    const BADGE_FONT_SIZE = 20;
-    const badgeFont = fontConfig?.fonts?.serif || "Georgia, serif";
-    const badgeMaxWidth = JCARD_DIMENSIONS.panels.front - (JCARD_DIMENSIONS.front.badgeHorizontalPadding * 2);
-    
-    const badgeLines = badgeTextStr
-      ? TypographyService.wrapText(badgeTextStr, badgeFont, BADGE_FONT_SIZE, badgeMaxWidth, { fontStyle: 'italic', fontWeight: 'bold' })
-      : [''];
-    const badgeLineH = 26;
-    const badgeTotalH = (badgeLines.length > 0 && badgeTextStr) ? badgeLines.length * badgeLineH : 0;
-    
-    return {
-      text: badgeTextStr,
-      lines: badgeLines,
-      totalHeight: badgeTotalH,
-      lineHeight: badgeLineH,
-      gapToTitle: 32 // 标语和标题之间的固定间距
-    };
-  }, [data.coverBadge, fontConfig]);
-
-  const titleLayout = useMemo(() => {
-    if (!title) return { lines: [], fontSize: 64, lineHeight: 72, totalHeight: 0 };
-
-    const titleFont = fontConfig?.fonts?.title || "Arial Black, sans-serif";
-    const panelWidth = JCARD_DIMENSIONS.panels.front;
-    const TITLE_HORIZONTAL_PADDING = 80;
-    const maxWidth = panelWidth - TITLE_HORIZONTAL_PADDING * 2;
-
-    // 字号边界：最小 48px 保证可读性，最大 144px 彻底释放画布张力
-    const MIN_TITLE_FONT = 48;
-    const MAX_TITLE_FONT = 144;
-
-    // 计算绝对安全的画布高度
-    // 图片底部固定为 780，歌手名基线为 1125，字体大小 32。预留缓冲带后安全空隙总高约 280px。
-    const MAX_SAFE_ZONE_HEIGHT = 280; 
-    
-    // 如果存在辅助标语，那就必须要从这 280px 额度里把它和缝隙的空间先扣除
-    const spaceEatenByBadge = badgeLayout.totalHeight > 0 ? (badgeLayout.gapToTitle + badgeLayout.totalHeight) : 0;
-    const safeMaxTitleHeight = Math.max(80, MAX_SAFE_ZONE_HEIGHT - spaceEatenByBadge); // 保底给标题留 80px 高度
-
-    const fontSize = TypographyService.fitFontSizeMultiline(
-      title, titleFont, maxWidth, safeMaxTitleHeight,
-      MIN_TITLE_FONT, MAX_TITLE_FONT,
-      { fontWeight: 'bold' }
-    );
-
-    // 取得精确折行
-    const lines = TypographyService.wrapText(
-      title, titleFont, fontSize, maxWidth,
-      { fontWeight: 'bold' }
-    );
-
-    // 行高为字号的 1.12 倍
-    const LINE_HEIGHT_RATIO = 1.12;
-    const lineHeight = Math.round(fontSize * LINE_HEIGHT_RATIO);
-
-    // 最多显示 4 行，防止极端情况
-    const MAX_TITLE_LINES = 4;
-    const clampedLines = lines.slice(0, MAX_TITLE_LINES);
-
-    return {
-      lines: clampedLines,
-      fontSize,
-      lineHeight,
-      totalHeight: clampedLines.length * lineHeight
-    };
-  }, [title, fontConfig, badgeLayout]);
-
-  const previewLayout = useMemo(() => {
-    const imgBottom = JCARD_DIMENSIONS.front.previewImageBottom;
-    const fixedArtistY = JCARD_DIMENSIONS.front.artistBaseline;
-    const titleTotalH = titleLayout.totalHeight;
-    const badgeTotalH = badgeLayout.totalHeight;
-    
-    let totalContentBlockH = titleTotalH;
-    if (badgeTotalH > 0) {
-      totalContentBlockH += badgeLayout.gapToTitle + badgeTotalH;
-    }
-
-    const availableZoneCenterY = imgBottom + (fixedArtistY - imgBottom) / 2;
-    const blockTopY = availableZoneCenterY - (totalContentBlockH / 2);
-    const titleStartY = blockTopY + (titleLayout.lineHeight * 0.8);
-    const badgeBlockTopY = blockTopY + titleTotalH + badgeLayout.gapToTitle;
-    const badgeY = badgeBlockTopY + (badgeLayout.lineHeight * 0.8);
-    let artistY = fixedArtistY;
-    const contentBottomY = badgeBlockTopY + badgeTotalH;
-    if (contentBottomY > artistY - 20) {
-      artistY = contentBottomY + 30;
-    }
-
-    return {
-      titleStartY,
-      badgeY,
-      artistY
-    };
-  }, [data.coverBadge, titleLayout, fontConfig]);
-
-  const { titleStartY, badgeY, artistY } = previewLayout;
+  const spineFill = isMinimalSpine ? bgFill : palette.accent;
+  const spineTitleColor = isMinimalSpine ? textColor : contrastInk(spineFill);
+  const spineIdColor = isMinimalSpine ? readableAccent(theme.accent, spineFill) : spineTitleColor;
+  const effectiveTheme = { ...theme, accent: readableAccent(theme.accent, curThemeMode === 'cover' ? '#232629' : bgFill), divider: palette.divider };
+  const frontLayout = useMemo(() => computeFrontLayout(data, fontConfig, theme), [data, fontConfig, theme]);
 
   const wShort = JCARD_DIMENSIONS.panels.shortBack;
   const wSpine = JCARD_DIMENSIONS.panels.spine;
   const wFront = JCARD_DIMENSIONS.panels.front;
   const wBack = JCARD_DIMENSIONS.panels.back;
-  const xShort = 0;
   const xSpine = 200;
   const xFront = 350;
   const xBack = 1130;
@@ -236,12 +71,9 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
       ) : (
         <rect x="0" y="0" width={width} height={height} fill={bgFill} />
       )}
-      {(!publication || data.layout?.texture) && <rect x="0" y="0" width={width} height={height} fill="transparent" filter={`url(#${resourceId('noise')})`} opacity={publication ? 0.12 : isLight ? 0.2 : 0.4} />}
+      {data.layout?.texture && <rect x="0" y="0" width={width} height={height} fill="transparent" filter={`url(#${resourceId('noise')})`} opacity="0.12" />}
 
-      <rect x={xShort} y="0" width={wShort} height={height} fill="#000000" opacity={publication ? 0 : 0.2} style={{ mixBlendMode: 'multiply' }} />
-      <rect x={xSpine} y="0" width={wSpine} height={height} fill="#000000" opacity={publication ? 0 : 0.3} style={{ mixBlendMode: 'multiply' }} />
-      <rect x={xSpine} y="0" width={wSpine} height={height} fill={spineFill} opacity={!publication && coverImage && !isMinimalSpine ? 0.8 : 1} style={{ mixBlendMode: publication || isMinimalSpine ? 'normal' : 'multiply' }} />
-      <rect x={xBack} y="0" width={wBack} height={height} fill="#000000" opacity={publication ? 0 : 0.2} style={{ mixBlendMode: 'multiply' }} />
+      <rect x={xSpine} y="0" width={wSpine} height={height} fill={spineFill}  />
 
       <line x1={xSpine} y1="0" x2={xSpine} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.2" />
       <line x1={xFront} y1="0" x2={xFront} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.2" />
@@ -265,7 +97,7 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
       </g>
 
       <g clipPath={`url(#${resourceId('panel-front')})`}>
-        <ContentFront resourceId={resourceId} xOffset={xFront} width={wFront} data={data} theme={effectiveTheme} coverImage={coverImage} coverImageB={coverImageB} frontStyle={data.layout?.frontStyle || 'STANDARD'} isLight={isLight} textColor={textColor} subTextColor={subTextColor} titleLayout={titleLayout} titleStartY={titleStartY} badgeY={badgeY} artistY={artistY} fontConfig={fontConfig} publicationLayout={publicationLayout} />
+        <ContentFront resourceId={resourceId} xOffset={xFront} width={wFront} data={data} theme={effectiveTheme} coverImage={coverImage} coverImageB={coverImageB} frontStyle={data.layout?.frontStyle || 'STANDARD'} textColor={textColor} subTextColor={subTextColor} frontLayout={frontLayout} />
       </g>
 
       <g clipPath={`url(#${resourceId('panel-flap')})`} transform={`translate(${xBack}, 0)`}>

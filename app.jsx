@@ -146,7 +146,7 @@ const createDefaultData = () => ({
   coverBadge: "",
   sideADuration: "20:00",
   sideBDuration: "20:00",
-  layout: normalizeLayoutSettings({ designEdition: 'publication', titleSize: 'balanced', texture: false }),
+  layout: normalizeLayoutSettings({ titleSize: 'balanced', texture: false }),
   sideA: [
     createTrack({ title: "Track Name 1", artist: "Artist Name", duration: "3:45", note: "" }),
     createTrack({ title: "Track Name 2", artist: "Artist Name", duration: "4:20", note: "" }),
@@ -229,14 +229,13 @@ export default function App() {
   // modes: 'dark' (default #232629), 'cover' (blurred image), 'color' (dominant color)
   const [jCardThemeMode, setJCardThemeMode] = useState(() => readPreference(STORAGE_KEYS.themeMode, 'dark'));
   const [dominantColor, setDominantColor] = useState('#232629');
-  const [contrastTextType, setContrastTextType] = useState('light'); // 'light' means text should be white, 'dark' means black
 
   const [fontTheme, setFontTheme] = useState(() => {
     const saved = readPreference(STORAGE_KEYS.fontTheme, 'modern');
     return FONT_THEMES[saved] ? saved : 'modern';
   });
 
-  // Font configuration depends on the saved design edition; memoized below the data state.
+  // Refresh measured layout after the selected fonts finish loading.
   const [fontMetricsVersion, setFontMetricsVersion] = useState(0);
   const [backStatus, setBackStatus] = useState({ folded: false, overflow: false });
 
@@ -244,33 +243,29 @@ export default function App() {
     if (typeof document === 'undefined' || !document.fonts?.ready) return undefined;
 
     let active = true;
-    ExportService.ensureFonts(getFontConfig(fontTheme, data.layout?.designEdition)).then(() => {
+    ExportService.ensureFonts(getFontConfig(fontTheme)).then(() => {
       if (active) setFontMetricsVersion(prev => prev + 1);
     }).catch(error => { if (active) setError(error.message); });
 
     return () => {
       active = false;
     };
-  }, [fontTheme, data.layout?.designEdition]);
+  }, [fontTheme]);
 
   // Extract color when cover image changes
   useEffect(() => {
     let cancelled = false;
     if (coverImage) {
-      ColorExtractor.extractColor(coverImage, { representative: data.layout?.designEdition === 'publication' }).then(color => {
+      ColorExtractor.extractColor(coverImage, { representative: true }).then(color => {
         if (cancelled) return;
         setDominantColor(color);
-        // Check contrast for 'color' mode usage
-        const contrast = ColorExtractor.getContrastYIQ(color);
-        setContrastTextType(contrast === 'dark' ? 'dark' : 'light');
       });
     } else {
       // Reset if no cover
       setDominantColor('#232629');
-      setContrastTextType('light');
     }
     return () => { cancelled = true; };
-  }, [coverImage, data.layout?.designEdition]);
+  }, [coverImage]);
 
   const [imagePrompt, setImagePrompt] = useState("");
   const [showSearch, setShowSearch] = useState(false);
@@ -290,7 +285,7 @@ export default function App() {
     return result;
   };
 
-  const currentFontConfig = useMemo(() => getFontConfig(fontTheme, data.layout?.designEdition), [fontTheme, data.layout?.designEdition]);
+  const currentFontConfig = useMemo(() => getFontConfig(fontTheme), [fontTheme]);
   const [previewData, setPreviewData] = useState(() => createDefaultData());
   const [dragState, setDragState] = useState(null);
 
@@ -398,10 +393,10 @@ export default function App() {
     await ExportService.ensureFonts(currentFontConfig);
     flushSync(() => setFontMetricsVersion(prev => prev + 1));
     await waitForPreviewPaint();
-    if (data.layout?.designEdition === 'publication' && svgRef.current?.querySelector('[data-back-overflow="true"]')) {
+    if (svgRef.current?.querySelector('[data-back-overflow="true"]')) {
       throw new Error('背面曲目超出可读空间，请调整内容后再导出。');
     }
-    if (data.layout?.designEdition === 'publication' && data.layout.frontStyle !== 'REVERSIBLE' && computeFrontLayout(data, currentFontConfig, theme).overflow) {
+    if (data.layout.frontStyle !== 'REVERSIBLE' && computeFrontLayout(data, currentFontConfig, theme).overflow) {
       throw new Error('正面文字超出可读空间，请缩短标题或标语，或选择编辑左齐布局后再导出。');
     }
   };
@@ -808,7 +803,7 @@ export default function App() {
   const handleAutoColor = async () => {
     if (!coverImage) return;
     const epoch = projectEpoch.current;
-    const color = await ColorExtractor.extractColor(coverImage, { representative: data.layout?.designEdition === 'publication' });
+    const color = await ColorExtractor.extractColor(coverImage, { representative: true });
     if (color && epoch === projectEpoch.current) setTheme(prev => ({ ...prev, accent: color }));
   };
 
@@ -816,7 +811,7 @@ export default function App() {
     if (!coverImage || coverImage === restoredCover.current || (theme.paletteId && theme.paletteId !== 'legacy')) return;
     let cancelled = false;
     const epoch = projectEpoch.current;
-    void ColorExtractor.extractColor(coverImage, { representative: data.layout?.designEdition === 'publication' }).then(color => {
+    void ColorExtractor.extractColor(coverImage, { representative: true }).then(color => {
       if (!cancelled && epoch === projectEpoch.current && color) setTheme(prev => ({ ...prev, accent: color }));
     });
     return () => { cancelled = true; };
@@ -895,14 +890,13 @@ export default function App() {
                 svgRef={svgRef}
                 jCardThemeMode={jCardThemeMode}
                 dominantColor={dominantColor}
-                contrastTextType={contrastTextType}
                 recordingData={previewRecordingData}
                 fontConfig={currentFontConfig}
               />
             </div>
-            {data.layout?.designEdition === 'publication' && data.layout.frontStyle !== 'REVERSIBLE' && computeFrontLayout(data, currentFontConfig, theme).overflow && <p role="alert" className="mt-4 text-sm text-red-700">正面文字超出可读空间，请缩短标题或标语，或选择编辑左齐布局；当前内容暂不能导出。</p>}
-            {data.layout?.designEdition === 'publication' && backStatus.overflow && <p role="alert" className="mt-3 text-sm text-red-700">背面曲目超出可读空间，请调整内容后再导出。</p>}
-            {data.layout?.designEdition === 'publication' && backStatus.folded && <p className="mt-3 text-sm text-amber-800">背面已启用紧凑显示，部分说明、时长或长曲名可能已省略；请检查成品，作品文件仍保留完整内容。</p>}
+            {data.layout.frontStyle !== 'REVERSIBLE' && computeFrontLayout(data, currentFontConfig, theme).overflow && <p role="alert" className="mt-4 text-sm text-red-700">正面文字超出可读空间，请缩短标题或标语，或选择编辑左齐布局；当前内容暂不能导出。</p>}
+            {backStatus.overflow && <p role="alert" className="mt-3 text-sm text-red-700">背面曲目超出可读空间，请调整内容后再导出。</p>}
+            {backStatus.folded && <p className="mt-3 text-sm text-amber-800">背面已启用紧凑显示，部分说明、时长或长曲名可能已省略；请检查成品，作品文件仍保留完整内容。</p>}
             <p className="mt-6 text-sm font-mono text-gray-500">预览：J-CARD 四折页布局 (U-CARD 风格)</p>
             <div className="mt-4 text-xs font-mono flex flex-col items-center gap-1 opacity-60 text-gray-400">
               {/* 

@@ -33,7 +33,7 @@ const cases = [
   { name: '双封面', palette: 'cool', title: '双面声音', font: 'editorial', front: 'REVERSIBLE' },
   { name: '手记与清晰正文', palette: 'paper', title: '我的录音手记', font: 'handwritten' },
   { name: '无图', palette: 'paper', title: '声音档案', font: 'editorial', image: null },
-  { name: '原版对照', palette: 'legacy', title: '夜色与回声', font: 'modern', legacy: true },
+  { name: '自定义深色', palette: 'legacy', title: '夜色与回声', font: 'modern' },
   { name: '胶片字体', palette: 'warm', title: 'ANALOG DAYS', font: 'retro', image: 1 },
   { name: '电子字体', palette: 'cool', title: 'FUTURE SOUND', font: 'digital', image: 2 },
   { name: '普惠体中文', palette: 'paper', title: '声音与建筑', font: 'puhuiti' },
@@ -42,7 +42,7 @@ const cases = [
 function snapshot(item) {
   const all = tracks(item.count || 10);
   if (item.mode === 'CLASSICAL') all.forEach((track, index) => { track._workId = `work-${Math.floor(index / 5)}`; track._workTitle = index < 5 ? '第一组曲' : '第二组曲'; track._workComposer = '作曲家'; });
-  return normalizeSnapshot({ data: { title: item.title, artist: item.artist || '林间四重奏 · Quartet', tapeId: 'ARC—026', coverBadge: item.overflow ? '' : '留住那些值得反复聆听的声音', sideA: all.slice(0, all.length / 2), sideB: all.slice(all.length / 2), layout: { designEdition: item.legacy ? 'legacy' : 'publication', frontStyle: item.front || 'STANDARD', titleSize: 'balanced', texture: false, mode: item.mode || 'STANDARD' } },
+  return normalizeSnapshot({ data: { title: item.title, artist: item.artist || '林间四重奏 · Quartet', tapeId: 'ARC—026', coverBadge: item.overflow ? '' : '留住那些值得反复聆听的声音', sideA: all.slice(0, all.length / 2), sideB: all.slice(all.length / 2), layout: { frontStyle: item.front || 'STANDARD', titleSize: 'balanced', texture: false, mode: item.mode || 'STANDARD' } },
     theme: { paletteId: item.palette, accent: PALETTES[item.palette]?.accent || '#cc3300' }, fontTheme: item.font, coverImage: item.image === null ? null : covers[item.image || 0], coverImageB: covers[1], recordingData: { recDate: '2026-09-08' } });
 }
 const root = createRoot(document.getElementById('root'));
@@ -53,7 +53,7 @@ const nextPaint = () => new Promise(resolve => requestAnimationFrame(() => reque
 async function show(index) {
   current = index;
   const item = cases[index]; const state = snapshot(item);
-  const fontConfig = getFontConfig(state.fontTheme, state.data.layout.designEdition);
+  const fontConfig = getFontConfig(state.fontTheme);
   await ExportService.ensureFonts(fontConfig);
   flushSync(() => root.render(<main className="p-5 max-w-6xl mx-auto text-stone-800">
     <h1 className="text-xl font-semibold mb-3">磁带封面 · 设计验收</h1>
@@ -72,7 +72,7 @@ function check(index) {
   const svg = document.querySelector('#fixture svg');
   const issues = [];
   const front = svg.querySelector('[data-panel="front"]');
-  if (!item.legacy && item.front !== 'REVERSIBLE') {
+  if (item.front !== 'REVERSIBLE') {
     if ((front.dataset.overflow === 'true') !== !!item.overflow) issues.push('正面溢出状态不符合预期');
     if (!item.overflow) {
       const texts = [...front.querySelectorAll('text')];
@@ -84,7 +84,7 @@ function check(index) {
       for (let i = 1; i < groups.length; i++) if (groups[i].y < groups[i - 1].y + groups[i - 1].height) issues.push('正面文字块重叠');
     }
   }
-  if (!item.legacy && svg.querySelector('[data-back-overflow="true"]')) issues.push('背面溢出');
+  if (svg.querySelector('[data-back-overflow="true"]')) issues.push('背面溢出');
   const rows = [...svg.querySelectorAll('[data-track-row]')];
   for (const row of rows) {
     const texts = [...row.querySelectorAll('text')];
@@ -108,7 +108,7 @@ async function run() {
 }
 async function exportPreview() {
   const state = snapshot(cases[current]);
-  const config = getFontConfig(state.fontTheme, state.data.layout.designEdition);
+  const config = getFontConfig(state.fontTheme);
   document.getElementById('export-status').textContent = '正在嵌入字体并解码 SVG…';
   const content = await ExportService.serializeSVG(document.querySelector('#fixture svg'), config);
   if (exportURL) URL.revokeObjectURL(exportURL);
@@ -126,7 +126,7 @@ async function exportAllFonts() {
   const checked = new Set();
   for (let index = 0; index < cases.length; index++) {
     const item = cases[index];
-    if (checked.has(item.font) || item.legacy || item.overflow) continue;
+    if (checked.has(item.font) || item.overflow) continue;
     checked.add(item.font);
     try {
       await show(index); await exportPreview(); results.push(`PASS ${item.font} 字体嵌入与 SVG → PNG`);

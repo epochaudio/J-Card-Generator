@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { normalizeSnapshot, parseProject, serializeProject } from '../src/project/projectFormat.mjs';
 import { applyDesignFields, buildDesignInput, contentStamp, designChange, designFields, eligibility, parseDesignCandidates, selectDesignCandidates } from '../src/design/smartDesign.mjs';
 
-const album = () => normalizeSnapshot({ data: { title: '夜色与回声', artist: '林间 Quartet', sideA: [{ id: 'a', title: '回声 Echo', duration: '3:25' }], sideB: [], layout: { designEdition: 'publication' } }, theme: { paletteId: 'paper' }, fontTheme: 'modern' });
+const album = () => normalizeSnapshot({ data: { title: '夜色与回声', artist: '林间 Quartet', sideA: [{ id: 'a', title: '回声 Echo', duration: '3:25' }], sideB: [] }, theme: { paletteId: 'paper' }, fontTheme: 'modern' });
 const candidate = patch => ({ direction: 'harmony', fontTheme: 'editorial', paletteId: 'warm', frontStyle: 'EDITORIAL', titleSize: 'balanced', reason: '暖色呼应画面，衬线标题强调作品气质。', ...patch });
 
 test('unlocked source input does not contain or depend on current design, image prompt, API settings or current rendering', () => {
@@ -35,7 +35,7 @@ test('apply, save/reopen and field-only undo preserve subsequent content edits',
   b.data.sideA[0].title = '后续修改';
   const restored = applyDesignFields(b, before);
   assert.deepEqual(designFields(restored), designFields(a)); assert.equal(restored.data.sideA[0].title, '后续修改');
-  assert.equal(JSON.parse(serializeProject(restored)).version, 2);
+  assert.equal(JSON.parse(serializeProject(restored)).version, 3);
 });
 test('content summary retains counts and longest material without depending on current wrapping', () => {
   const source = album(); source.data.sideA = Array.from({ length: 40 }, (_, index) => ({ title: index === 39 ? '长'.repeat(260) : `Track ${index}`, duration: '3:00' }));
