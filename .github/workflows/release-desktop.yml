@@ -1,0 +1,53 @@
+name: Build verified desktop installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing source tag matching the application version (for example v1.6.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-build-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: mac-arm64
+            command: electron:build:mac-arm64:dmg
+          - os: windows-latest
+            target: win-x64
+            command: electron:build:win-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Preserve identical source bytes across platforms
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Test, package and verify the tagged source
+        run: npm run ${{ matrix.command }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}
+          path: dist_electron_builds/*-${{ matrix.target }}-*/*
+          if-no-files-found: error
+          retention-days: 30

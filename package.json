@@ -7,14 +7,15 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
+    "test": "node scripts/run-tests.mjs",
     "verify:fonts": "node scripts/verify-font-assets.mjs",
     "prebuild": "npm run verify:fonts",
     "build": "vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently \"npm run dev\" \"electron .\"",
-    "electron:build": "npm run build && electron-builder",
-    "electron:build:mac-arm64:dmg": "bash scripts/build-macos-arm64-dmg.sh",
-    "electron:build:win-x64": "npm run build && electron-builder --win nsis --x64 --config.win.signAndEditExecutable=false -c.directories.output=dist_electron_win_x64"
+    "electron:build": "node scripts/build-desktop.mjs all",
+    "electron:build:mac-arm64:dmg": "node scripts/build-desktop.mjs mac-arm64",
+    "electron:build:win-x64": "node scripts/build-desktop.mjs win-x64"
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.2",

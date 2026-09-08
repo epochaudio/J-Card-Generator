@@ -1,0 +1,45 @@
+name: Publish verified desktop installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Source tag to publish (for example v1.6.0)
+        required: true
+        type: string
+      build_run_id:
+        description: Successful Build verified desktop installers run ID
+        required: true
+        type: string
+      confirmation:
+        description: Type PUBLISH to make this release public
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: desktop-publish-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      BUILD_RUN_ID: ${{ inputs.build_run_id }}
+      PUBLISH_CONFIRMATION: ${{ inputs.confirmation }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify build provenance and downloaded assets before publishing
+        run: node scripts/publish-desktop.mjs
