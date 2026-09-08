@@ -3,7 +3,7 @@ import React from 'react';
 import { JCARD_DIMENSIONS } from '../constants/app.js';
 import TypographyService from '../services/TypographyService.js';
 
-const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, frontStyle, isLight, textColor, subTextColor, titleLayout, titleStartY, badgeY, artistY, fontConfig }) => {
+const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, frontStyle, isLight, textColor, subTextColor, titleLayout, titleStartY, badgeY, artistY, fontConfig, publicationLayout }) => {
   const badgeText = data.coverBadge || "";
   const badgeAlign = data.layout?.coverBadgeAlign === 'left' ? 'left' : 'center';
   // 标语折行参数需与 JCardPreview.jsx 中的 previewLayout 一致
@@ -57,6 +57,28 @@ const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, fr
             </g>
           )}
         </g>
+      </g>
+    );
+  }
+
+  if (publicationLayout) {
+    const { image, blocks, x, anchor, margin } = publicationLayout;
+    return (
+      <g transform={`translate(${xOffset}, 0)`} data-panel="front" data-overflow={publicationLayout.overflow}>
+        {coverImage ? <image href={coverImage} x={image.x} y={image.y} width={image.size} height={image.size} preserveAspectRatio="xMidYMid meet" /> : (
+          <g fill="none" stroke={theme.accent} opacity="0.5">
+            <circle cx={width / 2} cy={image.y + image.size / 2} r={image.size * 0.18} strokeWidth="2" />
+            <circle cx={width / 2} cy={image.y + image.size / 2} r={image.size * 0.025} strokeWidth="2" />
+          </g>
+        )}
+        {blocks.map(block => {
+          const badgeLeft = block.role === 'badge' && data.layout?.coverBadgeAlign === 'left';
+          return <g key={block.role} data-front-role={block.role}>
+            {block.lines.map((line, index) => <text key={index} x={badgeLeft ? margin : x} y={block.y + index * block.lineHeight}
+              textAnchor={badgeLeft ? 'start' : anchor} fontFamily={block.font} fontWeight={block.weight} fontSize={block.size}
+              letterSpacing={block.tracking} fill={block.role === 'title' ? textColor : subTextColor}>{line}</text>)}
+          </g>;
+        })}
       </g>
     );
   }

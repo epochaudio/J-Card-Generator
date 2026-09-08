@@ -107,6 +107,36 @@ function getMeasurementContext() {
  * ────────────────────────────────────────────── */
 
 const TypographyService = {
+  measureFontBox(text, fontFamily, fontSize, fontOptions = {}) {
+    const context = getMeasurementContext();
+    if (!context) return { ascent: fontSize, descent: fontSize * 0.3 };
+    context.font = buildCanvasFont(fontFamily, fontSize, fontOptions);
+    const metrics = context.measureText(text || 'Ag录音');
+    return { ascent: metrics.fontBoundingBoxAscent ?? fontSize, descent: metrics.fontBoundingBoxDescent ?? fontSize * 0.3 };
+  },
+  // Measure the complete fallback chain for mixed CJK/Latin publication text.
+  wrapMeasuredText(text, fontFamily, fontSize, maxWidth, fontOptions = {}) {
+    if (!text) return [];
+    const wordSegmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
+    const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    return String(text).split('\n').flatMap(paragraph => {
+      const lines = [];
+      let line = '';
+      const fits = candidate => TypographyService.measureWidth(candidate, fontFamily, fontSize, fontOptions) <= maxWidth;
+      for (const { segment } of wordSegmenter.segment(paragraph)) {
+        if (fits(line + segment)) { line += segment; continue; }
+        if (line.trim()) { lines.push(line.trimEnd()); line = ''; }
+        if (fits(segment.trimStart())) { line = segment.trimStart(); continue; }
+        for (const { segment: character } of graphemeSegmenter.segment(segment.trimStart())) {
+          if (line && !fits(line + character)) { lines.push(line); line = ''; }
+          line += character;
+        }
+      }
+      if (line.trim() || !lines.length) lines.push(line.trimEnd());
+      return lines;
+    });
+  },
+
   /**
    * 测量给定文本在指定字体/字号下的物理像素宽度
    *

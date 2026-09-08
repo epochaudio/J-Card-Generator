@@ -3,6 +3,13 @@
 @tailwind utilities;
 
 @font-face {
+  font-family: 'Noto Serif SC';
+  src: url('./assets/fonts/NotoSerifSC-VariableFont_wght.ttf') format('truetype');
+  font-weight: 200 900;
+  font-style: normal;
+}
+
+@font-face {
   font-family: 'Rock Salt';
   src: url('./assets/fonts/RockSalt-Regular.ttf') format('truetype');
   font-weight: normal;

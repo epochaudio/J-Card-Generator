@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { contrastInk } from '../config/design.mjs';
 
 import { resolveShortBackArchiveLayout } from '../utils/ShortBackArchiveLayout.js';
 import { resolveShortBackTrackLayout } from '../utils/ShortBackTrackLayout.js';
@@ -182,7 +183,7 @@ const ShortBackContent = ({
         {compactTrackLayout.map((side) => (
           <g key={side.key} transform={`translate(${SHORT_BACK_PADDING_X}, ${side.startY})`}>
             <circle cx="18" cy="0" r="18" fill={theme.accent} />
-            <text x="18" y="1" fontFamily={titleFont} fontWeight="bold" fontSize="20" fill={isLight ? '#fff' : '#121212'} textAnchor="middle" dominantBaseline="middle">{side.key}</text>
+            <text x="18" y="1" fontFamily={data.layout?.designEdition === 'publication' ? monoFont : titleFont} fontWeight="bold" fontSize="20" fill={data.layout?.designEdition === 'publication' ? contrastInk(theme.accent) : isLight ? '#fff' : '#121212'} textAnchor="middle" dominantBaseline="middle">{side.key}</text>
             <text x={width - SHORT_BACK_PADDING_X * 2} y="1" fontFamily={monoFont} fontSize="14" fontWeight="bold" fill={subTextColor} textAnchor="end" dominantBaseline="middle">
               {side.duration}
             </text>

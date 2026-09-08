@@ -5,18 +5,26 @@ import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Settings, Image 
 import { JCARD_DIMENSIONS, STORAGE_KEYS } from './src/constants/app.js';
 import ImportModal from './src/components/ImportModal.jsx';
 import JCardPreview from './src/components/JCardPreview.jsx';
+import DesignPanel from './src/components/DesignPanel.jsx';
+import { computeFrontLayout } from './src/utils/FrontLayout.js';
+import { PALETTES } from './src/config/design.mjs';
 import SearchModal from './src/components/SearchModal.jsx';
 import SettingsModal from './src/components/SettingsModal.jsx';
 import ColorExtractor from './src/services/ColorExtractor.js';
-import DashScopeService from './src/services/DashScopeService.js';
+import { createAIContentService } from './src/services/AIContentService.js';
+import useAISettings from './src/ai/useAISettings.jsx';
+import { PROVIDERS } from './src/ai/providerConfig.mjs';
 import ExportService from './src/services/ExportService.js';
 import MusicBrainzService from './src/services/MusicBrainzService.js';
 import { getFontConfig, FONT_THEMES } from './src/config/fonts.js';
-import { parseDurationToMs } from './src/utils/formatDuration.js';
+import { parseDurationToMs } from './src/utils/formatDuration.mjs';
 import { urlToBase64 } from './src/utils/imageUtils.js';
 import LayoutEngine from './src/utils/LayoutEngine.js';
 import { normalizeShortBackMode } from './src/utils/ShortBackModeResolver.js';
 import SpineLayoutEngine from './src/utils/SpineLayoutEngine.js';
+import { localDate, normalizeSnapshot } from './src/project/projectFormat.mjs';
+import useProjectFiles from './src/project/useProjectFiles.jsx';
+import ProjectControls from './src/project/ProjectControls.jsx';
 
 let trackIdCounter = 0;
 const NOTE_LOWER_MAX_VISIBLE_CHARS = 16;
@@ -133,7 +141,7 @@ const createDefaultData = () => ({
   coverBadge: "",
   sideADuration: "20:00",
   sideBDuration: "20:00",
-  layout: normalizeLayoutSettings(),
+  layout: normalizeLayoutSettings({ designEdition: 'publication', titleSize: 'balanced', texture: false }),
   sideA: [
     createTrack({ title: "Track Name 1", artist: "Artist Name", duration: "3:45", note: "" }),
     createTrack({ title: "Track Name 2", artist: "Artist Name", duration: "4:20", note: "" }),
@@ -177,89 +185,24 @@ const COVER_BADGE_ALIGN_OPTIONS = [
   { value: 'left', label: '靠左' }
 ];
 
-const getElectronSecureStore = () => {
-  if (typeof window === 'undefined') return null;
-  return window.electronAPI?.secureStore || null;
+const readPreference = (key, fallback) => {
+  try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
 };
-
-const loadStoredApiKey = async () => {
-  const secureStore = getElectronSecureStore();
-  const localStorageKeys = [
-    STORAGE_KEYS.dashscopeApiKey,
-    STORAGE_KEYS.legacyDashscopeApiKey,
-    STORAGE_KEYS.legacyGeminiApiKey
-  ];
-  const localKey = localStorageKeys.map((key) => localStorage.getItem(key)).find(Boolean) || "";
-
-  if (secureStore) {
-    const secureStorageKeys = [
-      STORAGE_KEYS.dashscopeApiKey,
-      STORAGE_KEYS.legacyDashscopeApiKey,
-      STORAGE_KEYS.legacyGeminiApiKey
-    ];
-    const secureValues = await Promise.all(
-      secureStorageKeys.map((key) => secureStore.getItem(key))
-    );
-    const secureKeyIndex = secureValues.findIndex(Boolean);
-    const secureKey = secureKeyIndex >= 0 ? secureValues[secureKeyIndex] : "";
-    const resolvedKey = secureKey || localKey;
-
-    if (!secureKey && localKey) {
-      await secureStore.setItem(STORAGE_KEYS.dashscopeApiKey, localKey);
-    }
-
-    if (secureKey && secureKeyIndex > 0) {
-      await secureStore.setItem(STORAGE_KEYS.dashscopeApiKey, secureKey);
-      await Promise.all(
-        secureStorageKeys
-          .filter((key) => key !== STORAGE_KEYS.dashscopeApiKey)
-          .map((key) => secureStore.removeItem(key))
-      );
-    }
-
-    localStorageKeys.forEach((key) => localStorage.removeItem(key));
-
-    return resolvedKey;
-  }
-
-  if (localKey) {
-    localStorage.setItem(STORAGE_KEYS.dashscopeApiKey, localKey);
-  }
-  localStorage.removeItem(STORAGE_KEYS.legacyDashscopeApiKey);
-  localStorage.removeItem(STORAGE_KEYS.legacyGeminiApiKey);
-
-  return localKey;
-};
-
-const persistApiKey = async (key) => {
-  const secureStore = getElectronSecureStore();
-  const removableKeys = [
-    STORAGE_KEYS.dashscopeApiKey,
-    STORAGE_KEYS.legacyDashscopeApiKey,
-    STORAGE_KEYS.legacyGeminiApiKey
-  ];
-
-  if (secureStore) {
-    if (key) {
-      await secureStore.setItem(STORAGE_KEYS.dashscopeApiKey, key);
-    } else {
-      await secureStore.removeItem(STORAGE_KEYS.dashscopeApiKey);
-    }
-    removableKeys.forEach((storageKey) => localStorage.removeItem(storageKey));
-    return;
-  }
-
-  if (key) {
-    localStorage.setItem(STORAGE_KEYS.dashscopeApiKey, key);
-  } else {
-    localStorage.removeItem(STORAGE_KEYS.dashscopeApiKey);
-  }
-  localStorage.removeItem(STORAGE_KEYS.legacyDashscopeApiKey);
-  localStorage.removeItem(STORAGE_KEYS.legacyGeminiApiKey);
+const initialRecordingData = () => {
+  let previous = {};
+  try { previous = JSON.parse(readPreference(STORAGE_KEYS.recordingData, '{}')); } catch { /* Keep defaults for damaged preferences. */ }
+  return { ...createDefaultRecordingData(), equipment: previous?.equipment || '', source: previous?.source || '', recDate: localDate() };
 };
 
 export default function App() {
-  const [apiKey, setApiKey] = useState("");
+  const projectEpoch = useRef(0);
+  const restoredCover = useRef(undefined);
+  const aiSettings = useAISettings();
+  const aiService = useMemo(() => createAIContentService(aiSettings.settings), [aiSettings.settings]);
+  const textProviderName = PROVIDERS[aiSettings.settings.textProvider].name;
+  const imageProviderName = PROVIDERS[aiSettings.settings.imageProvider].name;
+  const textKeyConfigured = Boolean(aiSettings.settings.providers[aiSettings.settings.textProvider].apiKey);
+  const imageKeyConfigured = Boolean(aiSettings.settings.providers[aiSettings.settings.imageProvider].apiKey);
   const svgRef = useRef(null);
   const [loadingStates, setLoadingStates] = useState({
     enhance: false,
@@ -277,57 +220,41 @@ export default function App() {
   const [coverImage, setCoverImage] = useState(null);
   const [coverImageB, setCoverImageB] = useState(null); // [NEW] Side B Cover
 
+  const [data, setData] = useState(() => createDefaultData());
   // --- Theme System ---
   // modes: 'dark' (default #232629), 'cover' (blurred image), 'color' (dominant color)
-  const [jCardThemeMode, setJCardThemeMode] = useState('dark');
+  const [jCardThemeMode, setJCardThemeMode] = useState(() => readPreference(STORAGE_KEYS.themeMode, 'dark'));
   const [dominantColor, setDominantColor] = useState('#232629');
   const [contrastTextType, setContrastTextType] = useState('light'); // 'light' means text should be white, 'dark' means black
 
-  // Load theme from local storage
-  useEffect(() => {
-    const savedTheme = localStorage.getItem(STORAGE_KEYS.themeMode);
-    if (savedTheme) setJCardThemeMode(savedTheme);
-  }, []);
+  const [fontTheme, setFontTheme] = useState(() => {
+    const saved = readPreference(STORAGE_KEYS.fontTheme, 'modern');
+    return FONT_THEMES[saved] ? saved : 'modern';
+  });
 
-  // Save theme to local storage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.themeMode, jCardThemeMode);
-  }, [jCardThemeMode]);
-
-  // --- Font Theme State ---
-  const [fontTheme, setFontTheme] = useState('modern');
-
-  useEffect(() => {
-    const savedFontTheme = localStorage.getItem(STORAGE_KEYS.fontTheme);
-    if (savedFontTheme && FONT_THEMES[savedFontTheme]) {
-      setFontTheme(savedFontTheme);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.fontTheme, fontTheme);
-  }, [fontTheme]);
-
-  const currentFontConfig = getFontConfig(fontTheme);
+  // Font configuration depends on the saved design edition; memoized below the data state.
   const [fontMetricsVersion, setFontMetricsVersion] = useState(0);
+  const [backStatus, setBackStatus] = useState({ folded: false, overflow: false });
 
   useEffect(() => {
     if (typeof document === 'undefined' || !document.fonts?.ready) return undefined;
 
     let active = true;
-    document.fonts.ready.then(() => {
+    ExportService.ensureFonts(getFontConfig(fontTheme, data.layout?.designEdition)).then(() => {
       if (active) setFontMetricsVersion(prev => prev + 1);
-    });
+    }).catch(error => { if (active) setError(error.message); });
 
     return () => {
       active = false;
     };
-  }, [fontTheme]);
+  }, [fontTheme, data.layout?.designEdition]);
 
   // Extract color when cover image changes
   useEffect(() => {
+    let cancelled = false;
     if (coverImage) {
-      ColorExtractor.extractColor(coverImage).then(color => {
+      ColorExtractor.extractColor(coverImage, { representative: data.layout?.designEdition === 'publication' }).then(color => {
+        if (cancelled) return;
         setDominantColor(color);
         // Check contrast for 'color' mode usage
         const contrast = ColorExtractor.getContrastYIQ(color);
@@ -338,7 +265,8 @@ export default function App() {
       setDominantColor('#232629');
       setContrastTextType('light');
     }
-  }, [coverImage]);
+    return () => { cancelled = true; };
+  }, [coverImage, data.layout?.designEdition]);
 
   const [imagePrompt, setImagePrompt] = useState("");
   const [searchQuery, setSearchQuery] = useState({ album: '', artist: '' });
@@ -352,70 +280,21 @@ export default function App() {
     setLoadingStates(prev => ({ ...prev, [key]: value }));
   };
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadApiKey = async () => {
-      try {
-        const savedKey = await loadStoredApiKey();
-        if (!cancelled && savedKey) {
-          setApiKey(savedKey);
-        }
-      } catch (e) {
-        console.error("Failed to load stored DashScope API key", e);
-      }
-    };
-
-    void loadApiKey();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const saveApiKey = (key) => {
-    setApiKey(key);
-    void persistApiKey(key).catch((error) => {
-      console.error("Failed to persist DashScope API key", error);
-    });
+  const saveAISettings = async next => {
+    const result = await aiSettings.save(next);
+    // Results from requests using the previous configuration cannot update the current editor.
+    projectEpoch.current += 1;
+    setLoadingStates({});
+    return result;
   };
 
-  const [data, setData] = useState(() => createDefaultData());
+  const currentFontConfig = useMemo(() => getFontConfig(fontTheme, data.layout?.designEdition), [fontTheme, data.layout?.designEdition]);
   const [previewData, setPreviewData] = useState(() => createDefaultData());
   const [dragState, setDragState] = useState(null);
 
   // --- NEW: Custom Recording Metadata State with Persistence ---
-  const [recordingData, setRecordingData] = useState(() => createDefaultRecordingData());
-  const [previewRecordingData, setPreviewRecordingData] = useState(() => createDefaultRecordingData());
-
-  // Load recording data from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.recordingData);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Merge saved data but FORCE recDate to be Today
-        const today = new Date().toISOString().split('T')[0];
-        setRecordingData({
-          ...parsed,
-          recDate: today
-        });
-      } catch (e) {
-        console.error("Failed to parse saved recording data", e);
-      }
-    } else {
-      // Init default date if no save found
-      setRecordingData(prev => ({
-        ...prev,
-        recDate: new Date().toISOString().split('T')[0]
-      }));
-    }
-  }, []);
-
-  // Save recording data to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.recordingData, JSON.stringify(recordingData));
-  }, [recordingData]);
+  const [recordingData, setRecordingData] = useState(initialRecordingData);
+  const [previewRecordingData, setPreviewRecordingData] = useState(initialRecordingData);
 
   const updateRecordingData = (field, value) => {
     setRecordingData(prev => ({ ...prev, [field]: value }));
@@ -423,9 +302,42 @@ export default function App() {
 
   const [theme, setTheme] = useState({
     background: "#121212",
-    accent: "#cc3300",
+    accent: PALETTES.paper.accent,
+    paletteId: 'paper',
     mood_description: ""
   });
+
+  const projectSnapshot = useMemo(() => ({ data, recordingData, coverImage, coverImageB, theme, fontTheme, jCardThemeMode, imagePrompt }),
+    [data, recordingData, coverImage, coverImageB, theme, fontTheme, jCardThemeMode, imagePrompt]);
+
+  const applyProject = (snapshot) => {
+    const next = normalizeSnapshot(snapshot);
+    projectEpoch.current += 1;
+    restoredCover.current = next.coverImage;
+    flushSync(() => {
+      setData(next.data); setPreviewData(next.data);
+      setRecordingData(next.recordingData); setPreviewRecordingData(next.recordingData);
+      setCoverImage(next.coverImage); setCoverImageB(next.coverImageB);
+      setTheme(next.theme); setFontTheme(next.fontTheme); setJCardThemeMode(next.jCardThemeMode);
+      setImagePrompt(next.imagePrompt);
+      setLoadingStates({}); setError(''); setSearchResults([]); setSearchQuery({ album: '', artist: '' });
+      setImportText(''); setDragState(null); setShowImport(false); setShowSearch(false);
+    });
+  };
+  const newProject = () => normalizeSnapshot({
+    ...projectSnapshot, data: createDefaultData(), coverImage: null, coverImageB: null, imagePrompt: '',
+    recordingData: { ...createDefaultRecordingData(), equipment: recordingData.equipment, source: recordingData.source, recDate: localDate() }
+  });
+  const projectFiles = useProjectFiles(projectSnapshot, applyProject, newProject);
+
+  useEffect(() => {
+    if (!projectFiles.ready) return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.themeMode, jCardThemeMode);
+      localStorage.setItem(STORAGE_KEYS.fontTheme, fontTheme);
+      localStorage.setItem(STORAGE_KEYS.recordingData, JSON.stringify({ equipment: recordingData.equipment, source: recordingData.source }));
+    } catch { /* Project files and drafts do not depend on preference storage. */ }
+  }, [projectFiles.ready, jCardThemeMode, fontTheme, recordingData.equipment, recordingData.source]);
 
   const spineLayoutStatus = useMemo(
     () => SpineLayoutEngine.compute({
@@ -473,7 +385,15 @@ export default function App() {
       setPreviewData(data);
       setPreviewRecordingData(recordingData);
     });
+    await ExportService.ensureFonts(currentFontConfig);
+    flushSync(() => setFontMetricsVersion(prev => prev + 1));
     await waitForPreviewPaint();
+    if (data.layout?.designEdition === 'publication' && svgRef.current?.querySelector('[data-back-overflow="true"]')) {
+      throw new Error('背面曲目超出可读空间，请调整内容后再导出。');
+    }
+    if (data.layout?.designEdition === 'publication' && data.layout.frontStyle !== 'REVERSIBLE' && computeFrontLayout(data, currentFontConfig, theme).overflow) {
+      throw new Error('正面文字超出可读空间，请缩短标题或标语，或选择编辑左齐布局后再导出。');
+    }
   };
 
   const calculateTotalDuration = (tracks) => formatTrackDurationTotal(tracks);
@@ -481,11 +401,8 @@ export default function App() {
   // Set default prompt when data changes
   // Removed automatic prompt generation useEffect per user request
 
-  const getApiKeyOrWarn = () => {
-    return apiKey || "";
-  };
-
   const handleSearch = async () => {
+    const epoch = projectEpoch.current;
     if (!searchQuery.album.trim() && !searchQuery.artist.trim()) return;
 
     setLoadingState('search', true);
@@ -493,19 +410,25 @@ export default function App() {
     setError('');
     try {
       const results = await MusicBrainzService.searchReleaseGroup(searchQuery.album, searchQuery.artist);
+      if (epoch !== projectEpoch.current) return;
       setSearchResults(results);
-    } catch (e) { setError(e.message || "Search failed"); } finally { setLoadingState('search', false); }
+    } catch (e) { if (epoch !== projectEpoch.current) return; setError(e.message || "Search failed"); } finally { if (epoch === projectEpoch.current) setLoadingState('search', false); }
   };
 
   const handleSelectReleaseGroup = async (rg) => {
+    const epoch = projectEpoch.current;
     setLoadingState('search', true);
     setError('');
     try {
       const bestReleaseId = await MusicBrainzService.getBestReleaseId(rg.id);
+      if (epoch !== projectEpoch.current) return;
       if (!bestReleaseId) throw new Error("No valid release found for this album.");
       const releaseData = await MusicBrainzService.getReleaseDetails(bestReleaseId);
+      if (epoch !== projectEpoch.current) return;
       const coverUrlOriginal = await MusicBrainzService.getCoverArt(rg.id);
+      if (epoch !== projectEpoch.current) return;
       const coverUrl = await urlToBase64(coverUrlOriginal);
+      if (epoch !== projectEpoch.current) return;
 
       const labelInfo = releaseData['label-info']?.[0];
       const catalogNumber = labelInfo?.['catalog-number'];
@@ -557,16 +480,17 @@ export default function App() {
       }));
       if (coverUrl) setCoverImage(coverUrl);
       setShowSearch(false);
-    } catch (e) { setError("Import failed: " + e.message); } finally { setLoadingState('search', false); }
+    } catch (e) { if (epoch !== projectEpoch.current) return; setError("Import failed: " + e.message); } finally { if (epoch === projectEpoch.current) setLoadingState('search', false); }
   };
 
   const handleSmartImport = async () => {
+    const epoch = projectEpoch.current;
     if (!importText.trim()) return;
-    const key = getApiKeyOrWarn();
     setLoadingState('import', true);
     setError('');
     try {
-      const parsed = await DashScopeService.parseImportData(importText, key);
+      const parsed = await aiService.parseImportData(importText);
+      if (epoch !== projectEpoch.current) return;
       const updates = {};
 
       if (parsed.sideA || parsed.sideB) {
@@ -607,6 +531,7 @@ export default function App() {
       if (parsed.album_artist) updates.artist = parsed.album_artist.toUpperCase();
       if (parsed.cover_url) {
         const base64Cover = await urlToBase64(parsed.cover_url);
+        if (epoch !== projectEpoch.current) return;
         setCoverImage(base64Cover);
       }
 
@@ -635,21 +560,22 @@ export default function App() {
       setData(prev => normalizeProjectData({ ...prev, ...updates }));
       setShowImport(false);
       setImportText('');
-    } catch (err) {
+    } catch (err) { if (epoch !== projectEpoch.current) return;
       setError(err.message || "Failed to parse text.");
-      if (!apiKey && (err.message.includes("API Key") || err.message.includes("403"))) {
+      if (!textKeyConfigured && (err.message.includes("API Key") || err.message.includes("403"))) {
         setShowSettings(true);
       }
     } finally {
-      setLoadingState('import', false);
+      if (epoch === projectEpoch.current) setLoadingState('import', false);
     }
   };
 
   const handleAIEnhance = async () => {
-    const key = getApiKeyOrWarn();
+    const epoch = projectEpoch.current;
     setLoadingState('enhance', true); setError('');
     try {
-      const parsed = await DashScopeService.enhanceContent(data, key);
+      const parsed = await aiService.enhanceContent(data);
+      if (epoch !== projectEpoch.current) return;
 
       const updates = {};
       if (parsed.album_title) {
@@ -666,39 +592,41 @@ export default function App() {
         setImagePrompt(parsed.cover_prompt + (parsed.negative_prompt ? `\n\nNegative: ${parsed.negative_prompt}` : ""));
       }
 
-    } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoadingState('enhance', false); }
+    } catch (err) { if (epoch !== projectEpoch.current) return; setError(err.message); if (!textKeyConfigured) setShowSettings(true); } finally { if (epoch === projectEpoch.current) setLoadingState('enhance', false); }
   };
 
   const handleTitleMagic = async () => {
-    const key = getApiKeyOrWarn();
+    const epoch = projectEpoch.current;
     setLoadingState('title', true);
     try {
       const allTracks = [...data.sideA, ...data.sideB];
-      const result = await DashScopeService.suggestTitle(allTracks, key);
+      const result = await aiService.suggestTitle(allTracks);
+      if (epoch !== projectEpoch.current) return;
       if (result.suggested_title) {
         setData(prev => ({ ...prev, title: result.suggested_title.toUpperCase(), spineTitle: "" }));
       }
-    } catch (err) { setError(err.message); } finally { setLoadingState('title', false); }
+    } catch (err) { if (epoch !== projectEpoch.current) return; setError(err.message); } finally { if (epoch === projectEpoch.current) setLoadingState('title', false); }
   };
 
   const handleGenerateCover = async () => {
+    const epoch = projectEpoch.current;
     // Validation: Prompt must not be empty
     if (!imagePrompt.trim()) {
       alert("请先在下方【AI 图片提示词】框中输入描述，再点击生成。");
       return;
     }
 
-    const key = getApiKeyOrWarn();
     setLoadingState('image', true); setError('');
     try {
       const finalPrompt = imagePrompt.trim();
-      const imgDataUrl = await DashScopeService.generateImage(finalPrompt, key);
+      const imgDataUrl = await aiService.generateImage(finalPrompt);
+      if (epoch !== projectEpoch.current) return;
       setCoverImage(imgDataUrl);
-    } catch (err) { setError(err.message); } finally { setLoadingState('image', false); }
+    } catch (err) { if (epoch !== projectEpoch.current) return; setError(err.message); } finally { if (epoch === projectEpoch.current) setLoadingState('image', false); }
   };
 
   const handleGenerateCoverPrompt = async () => {
-    const key = getApiKeyOrWarn();
+    const epoch = projectEpoch.current;
     setLoadingState('prompt', true); setError('');
     try {
       const allTracks = [...data.sideA, ...data.sideB];
@@ -707,7 +635,8 @@ export default function App() {
       // Collect notes
       const notes = allTracks.map(t => t.note).join(' ');
 
-      const result = await DashScopeService.generateImagePrompt(isDark, allTracks, notes, key);
+      const result = await aiService.generateImagePrompt(isDark, allTracks, notes);
+      if (epoch !== projectEpoch.current) return;
 
       if (result.cover_prompt) {
         let fullPrompt = result.cover_prompt;
@@ -716,28 +645,32 @@ export default function App() {
         }
         setImagePrompt(fullPrompt);
       }
-    } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoadingState('prompt', false); }
+    } catch (err) { if (epoch !== projectEpoch.current) return; setError(err.message); if (!textKeyConfigured) setShowSettings(true); } finally { if (epoch === projectEpoch.current) setLoadingState('prompt', false); }
   };
 
   const handleGenerateSlogan = async () => {
-    const key = getApiKeyOrWarn();
+    const epoch = projectEpoch.current;
     setLoadingState('slogan', true); setError('');
     try {
       const allTracks = [...data.sideA, ...data.sideB];
-      const result = await DashScopeService.generateSlogan(allTracks, key);
+      const result = await aiService.generateSlogan(allTracks);
+      if (epoch !== projectEpoch.current) return;
       if (result.slogan) {
         // Ensure it respects the newline format
         const formattedSlogan = Array.isArray(result.slogan) ? result.slogan.join('\n') : result.slogan;
         setData(prev => ({ ...prev, coverBadge: formattedSlogan }));
       }
-    } catch (err) { setError(err.message); if (!apiKey) setShowSettings(true); } finally { setLoadingState('slogan', false); }
+    } catch (err) { if (epoch !== projectEpoch.current) return; setError(err.message); if (!textKeyConfigured) setShowSettings(true); } finally { if (epoch === projectEpoch.current) setLoadingState('slogan', false); }
   };
 
   const handleFileUpload = (event, target = 'A') => {
+    const epoch = projectEpoch.current;
     const file = event.target.files[0];
     if (file) {
+      if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) { setError('请上传 PNG、JPEG、WebP 或 GIF 图片。'); return; }
       const reader = new FileReader();
       reader.onloadend = () => {
+        if (epoch !== projectEpoch.current) return;
         if (target === 'B') {
           setCoverImageB(reader.result);
         } else {
@@ -750,38 +683,24 @@ export default function App() {
 
   const downloadSVG = async () => {
     if (!svgRef.current) return;
-    await syncPreviewNow();
-    const svgData = new XMLSerializer().serializeToString(svgRef.current);
-    const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${data.title.replace(/\s+/g, '_')}_JCard.svg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      await syncPreviewNow();
+      const svgData = await ExportService.serializeSVG(svgRef.current, currentFontConfig);
+      const url = URL.createObjectURL(new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = url; link.download = `${data.title.replace(/\s+/g, '_')}_JCard.svg`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { setError(error.message); }
   };
 
   const downloadPNG = async () => {
     if (!svgRef.current) return;
-    await syncPreviewNow();
-
-    // Serialize current SVG
-    let svgData = new XMLSerializer().serializeToString(svgRef.current);
-
-    // Embed Fonts for stability
+    let svgData;
     try {
-      const fontStyles = await ExportService.getEmbeddableFontStyles(fontTheme);
-      if (fontStyles) {
-        if (svgData.includes('<defs>')) {
-          svgData = svgData.replace('<defs>', `<defs><style>${fontStyles}</style>`);
-        } else {
-          svgData = svgData.replace(/<svg[^>]*>/, match => `${match}<defs><style>${fontStyles}</style></defs>`);
-        }
-      }
-    } catch (e) {
-      console.error("Font embedding failed:", e);
-    }
+      await syncPreviewNow();
+      svgData = await ExportService.serializeSVG(svgRef.current, currentFontConfig);
+    } catch (error) { setError(error.message); return; }
 
     const canvas = document.createElement("canvas");
     canvas.width = JCARD_DIMENSIONS.width;
@@ -1005,44 +924,33 @@ export default function App() {
 
   const handleAutoColor = async () => {
     if (!coverImage) return;
-    const color = await ColorExtractor.extractColor(coverImage);
-    if (color) setTheme(prev => ({ ...prev, accent: color }));
+    const epoch = projectEpoch.current;
+    const color = await ColorExtractor.extractColor(coverImage, { representative: data.layout?.designEdition === 'publication' });
+    if (color && epoch === projectEpoch.current) setTheme(prev => ({ ...prev, accent: color }));
   };
 
-  useEffect(() => { if (coverImage) handleAutoColor(); }, [coverImage]);
+  useEffect(() => {
+    if (!coverImage || coverImage === restoredCover.current || (theme.paletteId && theme.paletteId !== 'legacy')) return;
+    let cancelled = false;
+    const epoch = projectEpoch.current;
+    void ColorExtractor.extractColor(coverImage, { representative: data.layout?.designEdition === 'publication' }).then(color => {
+      if (!cancelled && epoch === projectEpoch.current && color) setTheme(prev => ({ ...prev, accent: color }));
+    });
+    return () => { cancelled = true; };
+  }, [coverImage]);
 
-  const handleReset = () => {
-    if (window.confirm("确定要清空当前所有内容并开始新项目吗？\n（将保留API Key、录音设备和媒体来源设置）")) {
-      // 1. Reset Data to Defaults
-      setData(createDefaultData());
-
-      // 2. Clear Images & Search
-      setCoverImage(null);
-      setCoverImageB(null);
-      setSearchResults([]);
-      setImportText("");
-      setImagePrompt("");
-      setError("");
-
-      const today = new Date().toISOString().split('T')[0];
-      setRecordingData(prev => ({
-        equipment: prev.equipment || "",
-        source: prev.source || "",
-        mode: "AAA",
-        labelOverride: "",
-        recDate: today
-        // implicitly clears 'credits' by exclusion
-      }));
-    }
-  };
+  const handleReset = projectFiles.createNew;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden font-sans relative bg-gray-50 text-gray-900">
       <SettingsModal
         isOpen={showSettings}
-        apiKey={apiKey}
+        aiSettings={aiSettings.settings}
+        ready={aiSettings.ready}
+        loadError={aiSettings.error}
+        onRetry={aiSettings.retry}
         onClose={() => setShowSettings(false)}
-        onApiKeyChange={saveApiKey}
+        onSave={saveAISettings}
       />
 
       <ImportModal
@@ -1067,57 +975,16 @@ export default function App() {
       />
 
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b shrink-0 bg-white border-gray-200 shadow-sm relative z-10">
-        <div className="flex items-center gap-2"><Disc className="text-orange-500 w-6 h-6" /><h1 className="text-xl font-bold tracking-wider">磁带封面生成器 <span className="text-orange-500 text-sm">(J-CARD GENESIS)</span></h1></div>
-        <div className="flex items-center gap-3">
+      <header className="flex flex-wrap gap-3 items-center justify-between px-6 py-4 border-b shrink-0 bg-white border-gray-200 shadow-sm relative z-10">
+        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap"><Disc className="text-orange-500 w-6 h-6" /><h1 className="text-xl font-bold tracking-wider">磁带封面生成器 <span className="text-orange-500 text-sm">(J-CARD GENESIS)</span></h1></div>
+        <div className="flex flex-wrap items-center gap-3 whitespace-nowrap">
 
-          {/* Font Theme Switcher (Header) */}
-          <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
-            {Object.values(FONT_THEMES).map(theme => (
-              <button
-                key={theme.id}
-                onClick={() => setFontTheme(theme.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${fontTheme === theme.id
-                  ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-                  }`}
-                title={theme.description}
-              >
-                <Type size={14} />
-                <span className="hidden xl:inline">{theme.name.split(' ')[0]}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="h-6 w-px bg-gray-300 mx-1"></div>
-
-          {/* Theme Switcher: Segmented Control */}
-          <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
-            {['dark', 'light', 'cover', 'color'].map(mode => (
-              <button
-                key={mode}
-                onClick={() => setJCardThemeMode(mode)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${jCardThemeMode === mode
-                  ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-                  }`}
-                title={`Switch to ${mode} mode`}
-              >
-                {mode === 'dark' && <Moon size={14} />}
-                {mode === 'light' && <Sun size={14} />}
-                {mode === 'cover' && <ImageIcon size={14} />}
-                {mode === 'color' && <Palette size={14} />}
-                <span className="hidden xl:inline">{mode}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="h-6 w-px bg-gray-300 mx-2"></div>
-          <button onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-colors ${!apiKey ? 'text-gray-400 hover:text-gray-500 hover:bg-gray-100' : 'text-orange-600 hover:bg-orange-50'}`}><Settings size={20} /></button>
+          <button onClick={() => document.getElementById('design-panel')?.scrollIntoView({ behavior: 'smooth' })} className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-200 text-sm hover:bg-gray-50"><Palette size={16} />设计</button>
+          <button aria-label="AI 服务设置" title="配置密钥、模型与套餐说明" onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-colors ${!textKeyConfigured ? 'text-gray-400 hover:text-gray-500 hover:bg-gray-100' : 'text-orange-600 hover:bg-orange-50'}`}><Settings size={20} /></button>
           <div className="h-6 w-px bg-gray-300 mx-1"></div>
           <button onClick={handleReset} className="p-2 rounded-full transition-colors text-gray-400 hover:bg-gray-100 hover:text-red-500" title="新建/重置项目"><RotateCcw size={20} /></button>
           <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
-          <button onClick={handleAIEnhance} disabled={loadingStates.enhance} className={`flex items-center gap-2 px-4 py-2 rounded-md font-semibold transition-all ${loadingStates.enhance ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg hover:shadow-indigo-500/20'}`}>{loadingStates.enhance ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}{loadingStates.enhance ? 'AI 策划中...' : 'AI 创意总监'}</button>
+          <button title={`${textProviderName} · 普通 API 按量计费`} onClick={handleAIEnhance} disabled={loadingStates.enhance || !aiSettings.ready} className={`flex items-center gap-2 px-4 py-2 rounded-md font-semibold transition-all ${loadingStates.enhance ? 'bg-gray-600 cursor-not-allowed' : 'bg-orange-700 hover:bg-orange-800 text-white'}`}>{loadingStates.enhance ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}{loadingStates.enhance ? 'AI 策划中...' : 'AI 创意总监'}</button>
 
           {/* Export Buttons */}
           <button onClick={downloadSVG} className="flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 shadow-sm"><Download size={18} />导出 SVG</button>
@@ -1125,12 +992,20 @@ export default function App() {
         </div>
       </header>
 
+      <ProjectControls project={projectFiles} />
+      <div className="px-6 py-1 text-xs text-gray-500 bg-gray-50 border-b shrink-0">
+        文本：{textProviderName}{textKeyConfigured ? '' : '（未配置密钥）'} · 图片：{imageProviderName}{imageKeyConfigured ? '' : '（未配置密钥）'} · 普通 API 按量计费
+        {aiSettings.error && <span role="alert" className="ml-2 text-red-700">{aiSettings.error}</span>}
+      </div>
+
       <main className="flex flex-1 overflow-hidden">
         <div className="flex flex-col lg:flex-row gap-8 w-full h-full">
           {/* Left Column: Preview */}
-          <div className="w-full lg:w-2/3 flex flex-col items-center justify-center relative p-8">
+          <div className="w-full lg:w-2/3 flex flex-col items-center justify-start overflow-y-auto relative p-8">
             <div className={`w-full transition-all duration-500 max-w-5xl`}>
               <JCardPreview
+                onBackStatus={setBackStatus}
+                key={fontMetricsVersion}
                 data={previewData}
                 theme={theme}
                 coverImage={coverImage}
@@ -1143,6 +1018,9 @@ export default function App() {
                 fontConfig={currentFontConfig}
               />
             </div>
+            {data.layout?.designEdition === 'publication' && data.layout.frontStyle !== 'REVERSIBLE' && computeFrontLayout(data, currentFontConfig, theme).overflow && <p role="alert" className="mt-4 text-sm text-red-700">正面文字超出可读空间，请缩短标题或标语，或选择编辑左齐布局；当前内容暂不能导出。</p>}
+            {data.layout?.designEdition === 'publication' && backStatus.overflow && <p role="alert" className="mt-3 text-sm text-red-700">背面曲目超出可读空间，请调整内容后再导出。</p>}
+            {data.layout?.designEdition === 'publication' && backStatus.folded && <p className="mt-3 text-sm text-amber-800">背面已启用紧凑显示，部分说明、时长或长曲名可能已省略；请检查成品，作品文件仍保留完整内容。</p>}
             <p className="mt-6 text-sm font-mono text-gray-500">预览：J-CARD 四折页布局 (U-CARD 风格)</p>
             <div className="mt-4 text-xs font-mono flex flex-col items-center gap-1 opacity-60 text-gray-400">
               {/* 
@@ -1161,6 +1039,9 @@ export default function App() {
 
           {/* Right Column: Controls */}
           <div className="w-full lg:w-1/3 min-w-[350px] overflow-y-auto border-l border-gray-200 bg-white p-6 space-y-8 custom-scrollbar">
+            <DesignPanel data={data} theme={theme} fontTheme={fontTheme} mode={jCardThemeMode}
+              onLayout={patch => setData(prev => ({ ...prev, layout: { ...prev.layout, ...patch } }))}
+              onTheme={setTheme} onFont={setFontTheme} onMode={setJCardThemeMode} onAutoColor={handleAutoColor} hasImage={!!coverImage} />
             <section className="space-y-4">
               <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Type size={14} /> 专辑信息</h2>
               <div className="space-y-3">
@@ -1264,22 +1145,7 @@ export default function App() {
                   </div>
                   <p className="mt-2 text-[11px] text-gray-400">控制最左侧折页的显示内容，不影响主封底曲目顺序。紧凑曲目会根据标题长度与可用空间自动调整显示密度。</p>
                 </div>
-                <div className="mt-2">
-                  <label className="block text-xs text-gray-400 mb-1">封面模式 (Front Layout)</label>
-                  <div className="flex gap-2 text-xs">
-                    {['STANDARD', 'REVERSIBLE'].map(style => (
-                      <button
-                        key={style}
-                        onClick={() => setData({ ...data, layout: { ...data.layout, frontStyle: style } })}
-                        className={`flex-1 py-1 rounded border transition-colors ${data.layout.frontStyle === style
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        {style === 'STANDARD' ? '标准单页' : '双拼颠倒 (Reversible)'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+
               </div>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
@@ -1344,10 +1210,7 @@ export default function App() {
 
             {/* AI Art & Style Options */}
             <section className="space-y-4">
-              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Palette size={14} /> 封面设计</h2>
-
-              {/* Emphasis Color */}
-              <div><label className="block text-xs text-gray-400 mb-1">强调色 (Accent)</label><div className="flex items-center gap-2"><input type="color" value={theme.accent || '#000000'} onChange={(e) => setTheme({ ...theme, accent: e.target.value })} className="h-8 w-8 rounded cursor-pointer bg-transparent border-none" /><button onClick={handleAutoColor} disabled={!coverImage} className={`p-1.5 rounded hover:bg-gray-600 transition-colors ${!coverImage ? 'opacity-30 cursor-not-allowed' : 'text-orange-400 hover:text-white'}`}><Droplet size={16} /></button></div></div>
+              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><ImageIcon size={14} /> 封面图片</h2>
 
               {/* Prompt Input */}
               <div>

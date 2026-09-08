@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 
 import { JCARD_DIMENSIONS } from '../constants/app.js';
-import { formatDurationMs, parseDurationToMs } from '../utils/formatDuration.js';
+import { formatDurationMs, parseDurationToMs } from '../utils/formatDuration.mjs';
 import LayoutEngine from '../utils/LayoutEngine.js';
 import TypographyService from '../services/TypographyService.js';
 
@@ -211,7 +211,9 @@ const buildDisplayGroups = (groups, strategy, isClassical) => {
 };
 
 
-const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTextColor, dimTextColor, recordingData, fontConfig }) => {
+const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTextColor, dimTextColor, recordingData, fontConfig, onLayoutStatus }) => {
+  const publication = data.layout?.designEdition === 'publication';
+  const columns = publication && !isCompact && data.layout?.mode !== 'CLASSICAL';
   const contentHeight = JCARD_DIMENSIONS.height;
   const marginY = isCompact ? 60 : 80;
   const footerHeight = isCompact ? 40 : 60;
@@ -247,6 +249,11 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   const titleFont = fontConfig?.fonts?.title || "Arial, sans-serif";
   const monoFont = fontConfig?.fonts?.mono || "Courier New, monospace";
   const isCompilation = data.layout?.mode === 'COMPILATION';
+  const numberColumn = 44;
+  const durationGap = 18;
+  const durationColumn = fontSize => Math.max(54, ...[...data.sideA, ...data.sideB].map(track => TypographyService.measureWidth(track.duration || '', monoFont, Math.max(fontSize - 4, trackTailFontFloor)))) + durationGap;
+  const displayTitle = item => columns && item.showArtist && item.artist ? `${item.displayTitle} · ${item.artist}` : item.displayTitle;
+
 
   const renderStrategy = useMemo(() => {
     if (!isClassical) {
@@ -291,7 +298,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   const layoutMetrics = useMemo(() => {
     // 物理可用宽度（左右各 40px 边距）
     const HORIZONTAL_PADDING = 40;
-    const usableWidth = width - HORIZONTAL_PADDING * 2;
+    const usableWidth = columns ? sideHeaderRightX : width - HORIZONTAL_PADDING * 2;
 
     // 获取当前字体配置
     // (已提升至全局作用域)
@@ -317,6 +324,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
      * 这导致原本文本完美排满 usableWidth 时，追加部分会直接冲出右边界被裁切。
      */
     const getTrackTitleAvailableWidth = (item, estFontSize, currentIdx, strategyConfig) => {
+      if (columns) return usableWidth - numberColumn - (item.showDuration ? durationColumn(estFontSize) : 0);
       let prefixW = 32; // 第二行默认悬挂缩进的宽度
       let suffixW = 0;
       if (!isClassical) {
@@ -347,7 +355,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
      * - 新：用 Pretext 的物理像素测量，结果与实际字体精确关联
      */
     const wrapAndClamp = (text, fontFamily, fontSize, maxWidth, fontOptions = {}, maxLines = null) => {
-      const wrapped = TypographyService.wrapText(text, fontFamily, fontSize, maxWidth, fontOptions);
+      const wrapped = publication ? TypographyService.wrapMeasuredText(text, fontFamily, fontSize, maxWidth, fontOptions) : TypographyService.wrapText(text, fontFamily, fontSize, maxWidth, fontOptions);
       return clampWrappedLines(wrapped, maxLines, maxWidth, fontFamily, fontSize, fontOptions);
     };
 
@@ -401,7 +409,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         // 普通曲目 (精确核减前后缀引发的排版溢出空间)
         const safeAvailableW = getTrackTitleAvailableWidth(item, fontSize, currentIdx, strategyConfig);
         const titleLines = wrapAndClamp(
-          item.displayTitle,
+          displayTitle(item),
           bodyFont,
           fontSize,
           safeAvailableW,
@@ -429,7 +437,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
     };
 
     // 行高边界
-    const maxLH = isCompact ? 50 : 110;
+    const maxLH = isCompact ? 50 : publication ? 60 : 110;
     const minLHValue = isCompact ? 16 : 30;
 
     const evaluateStrategy = (strategyConfig, fontSize) => {
@@ -504,7 +512,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       yHeaderB,
       yListB
     };
-  }, [availableForTracks, bodyFont, gapBetweenSides, groupsA, groupsB, headerHeight, isClassical, isCompact, isCompilation, marginY, maxFont, minFont, monoFont, noteFontFloor, renderStrategy, sideBIndexStart, titleFont, trackNumberFontFloor, trackTailFontFloor, width]);
+  }, [availableForTracks, bodyFont, gapBetweenSides, groupsA, groupsB, headerHeight, isClassical, isCompact, isCompilation, marginY, maxFont, minFont, monoFont, noteFontFloor, renderStrategy, sideBIndexStart, titleFont, trackNumberFontFloor, trackTailFontFloor, width, columns, publication, sideHeaderRightX, data.sideA, data.sideB]);
 
   const {
     displayGroupsA,
@@ -522,6 +530,10 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
     yHeaderB,
     yListB
   } = layoutMetrics;
+
+  useEffect(() => {
+    onLayoutStatus?.({ folded: selectedStrategy.isAutoFolded, overflow: selectedStrategy.overflowDetected });
+  }, [onLayoutStatus, selectedStrategy.isAutoFolded, selectedStrategy.overflowDetected]);
 
   // 字体配置（渲染时用）
   // (已提升至全局作用域)
@@ -553,7 +565,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       >
         {duration}
       </text>
-      <line x1="0" y1={sideHeaderLineY} x2={sideHeaderRightX} y2={sideHeaderLineY} stroke={dimTextColor} strokeWidth="1" opacity="0.42" />
+      <line x1="0" y1={sideHeaderLineY} x2={sideHeaderRightX} y2={sideHeaderLineY} stroke={theme.divider || dimTextColor} strokeWidth="1" opacity={publication ? 1 : 0.42} />
       <rect x="0" y={sideHeaderLineY - sideHeaderAccentHeight} width={sideHeaderAccentWidth} height={sideHeaderAccentHeight} rx={sideHeaderAccentHeight / 2} fill={theme.accent} />
     </g>
   );
@@ -562,7 +574,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
     let yCursor = 0;
     let localIdx = startLocalIdx;
     const wrapAndClamp = (text, fontFamily, fontSize, maxWidth, fontOptions = {}, maxLines = null) => {
-      const wrapped = TypographyService.wrapText(text, fontFamily, fontSize, maxWidth, fontOptions);
+      const wrapped = publication ? TypographyService.wrapMeasuredText(text, fontFamily, fontSize, maxWidth, fontOptions) : TypographyService.wrapText(text, fontFamily, fontSize, maxWidth, fontOptions);
       return clampWrappedLines(wrapped, maxLines, maxWidth, fontFamily, fontSize, fontOptions);
     };
 
@@ -641,6 +653,21 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
 
       const thisY = yCursor;
       localIdx++;
+      if (columns) {
+        const textWidth = usableWidth - numberColumn - (item.showDuration ? durationColumn(trackFontSize) : 0);
+        const titleLines = wrapAndClamp(displayTitle(item), bodyFont, trackFontSize, textWidth, { fontWeight: 'bold' }, selectedStrategy.maxTrackLines);
+        const noteLimit = selectedStrategy.noteMaxLines ?? 2;
+        const noteLines = showNotesGlobal && item.showNote !== false && item.note && noteLimit > 0
+          ? wrapAndClamp(item.note, bodyFont, noteFontSize, usableWidth - numberColumn, {}, noteLimit) : [];
+        const baseline = thisY + calculatedLH * (noteLines.length ? 0.35 : 0.5);
+        yCursor += calculatedLH + (titleLines.length - 1) * calculatedLH * 0.85 + noteLines.length * noteFontSize * 1.2;
+        return <g key={`track-${i}`} data-track-row="publication">
+          <text x="0" y={baseline} fontFamily={monoFont} fontSize={Math.max(trackFontSize - 2, trackNumberFontFloor)} fill={dimTextColor} dominantBaseline="middle">{String(localIdx).padStart(2, '0')}</text>
+          {titleLines.map((line, index) => <text key={index} x={numberColumn} y={baseline + index * calculatedLH * 0.85} fontFamily={bodyFont} fontSize={trackFontSize} fontWeight="bold" fill={textColor} dominantBaseline="middle">{line}</text>)}
+          {item.showDuration && <text x={usableWidth} y={baseline} textAnchor="end" fontFamily={monoFont} fontSize={Math.max(trackFontSize - 4, trackTailFontFloor)} fill={dimTextColor} dominantBaseline="middle">{item.duration}</text>}
+          {noteLines.map((line, index) => <text key={`note-${index}`} x={numberColumn} y={thisY + calculatedLH * 0.7 + (titleLines.length - 1) * calculatedLH * 0.85 + index * noteFontSize * 1.2} fontSize={noteFontSize} fill={dimTextColor} dominantBaseline="hanging">{line}</text>)}
+        </g>;
+      }
 
       const noteLineLimit = selectedStrategy.noteMaxLines ?? 2;
       const hasNote = showNotesGlobal && item.showNote !== false && item.note && noteLineLimit > 0;
@@ -700,7 +727,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   };
 
   return (
-    <g>
+    <g data-back-overflow={selectedStrategy.overflowDetected}>
       {(isClassical && isCompact) ? (
         <g transform={`translate(${width}, 0) rotate(90)`} fontFamily={fontConfig?.fonts?.mono || "Courier New, monospace"}>
           {(() => {
@@ -815,7 +842,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
             {renderGroupList(displayGroupsA, 0)}
           </g>
 
-          <line x1={verticalPadding} y1={yDivider} x2={sideDividerRightX} y2={yDivider} stroke={dimTextColor} strokeWidth="1" opacity="0.28" />
+          <line x1={verticalPadding} y1={yDivider} x2={sideDividerRightX} y2={yDivider} stroke={theme.divider || dimTextColor} strokeWidth="1" opacity={publication ? 1 : 0.28} />
 
           <g transform={`translate(${verticalPadding}, ${yHeaderB})`}>
             {renderSideHeader('SIDE B', data.sideBDuration)}

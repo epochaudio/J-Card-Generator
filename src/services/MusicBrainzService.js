@@ -1,4 +1,4 @@
-import { formatDurationMs } from '../utils/formatDuration.js';
+import { formatDurationMs } from '../utils/formatDuration.mjs';
 
 const MusicBrainzService = {
   userAgent: "JCardGenesis/2.0 ( https://www.epochaudio.cn/ )",

@@ -3,7 +3,7 @@ function rgbToHex(r, g, b) {
 }
 
 const ColorExtractor = {
-  extractColor(imageSrc) {
+  extractColor(imageSrc, { representative = false } = {}) {
     return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = "Anonymous";
@@ -19,6 +19,7 @@ const ColorExtractor = {
         try {
           const data = ctx.getImageData(0, 0, 50, 50).data;
           let r = 0, g = 0, b = 0, count = 0;
+          const buckets = new Map();
           let maxSaturation = -1;
           let bestColor = { r: 0, g: 0, b: 0 };
 
@@ -30,6 +31,12 @@ const ColorExtractor = {
             let s = 0;
             if (max !== min) s = l > 0.5 ? d / (2 - 2 * l) : d / (2 * l);
 
+            if (representative && data[i + 3] > 128 && l > 0.12 && l < 0.9) {
+              const key = [tr, tg, tb].map(value => Math.floor(value / 32)).join('-');
+              const bucket = buckets.get(key) || { count: 0, r: 0, g: 0, b: 0 };
+              bucket.count += 1; bucket.r += tr; bucket.g += tg; bucket.b += tb;
+              buckets.set(key, bucket);
+            }
             if (l > 0.15 && l < 0.85 && s > 0.2) {
               if (s > maxSaturation) {
                 maxSaturation = s;
@@ -42,6 +49,11 @@ const ColorExtractor = {
             }
           }
 
+          if (representative && buckets.size) {
+            const best = [...buckets.values()].sort((a, b) => b.count - a.count)[0];
+            resolve(rgbToHex(Math.round(best.r / best.count), Math.round(best.g / best.count), Math.round(best.b / best.count)));
+            return;
+          }
           if (maxSaturation > 0.3) resolve(rgbToHex(bestColor.r, bestColor.g, bestColor.b));
           else if (count > 0) resolve(rgbToHex(Math.round(r / count), Math.round(g / count), Math.round(b / count)));
           else resolve("#cc3300");

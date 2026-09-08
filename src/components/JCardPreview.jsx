@@ -6,9 +6,13 @@ import ShortBackContent from './ShortBackContent.jsx';
 import SpineContent from './SpineContent.jsx';
 import { JCARD_DIMENSIONS } from '../constants/app.js';
 import TypographyService from '../services/TypographyService.js';
+import { resolvePalette, contrastInk, readableAccent } from '../config/design.mjs';
+import { computeFrontLayout } from '../utils/FrontLayout.js';
 
-const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingData, jCardThemeMode, dominantColor, contrastTextType, fontConfig }) => {
-  const curThemeMode = jCardThemeMode || 'dark';
+const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingData, jCardThemeMode, dominantColor, contrastTextType, fontConfig, onBackStatus }) => {
+  const publication = data.layout?.designEdition === 'publication';
+  const palette = resolvePalette(theme, jCardThemeMode, dominantColor);
+  const curThemeMode = theme.paletteId && theme.paletteId !== 'legacy' ? 'palette' : jCardThemeMode || 'dark';
   const curDominantColor = dominantColor || '#232629';
   const curContrastType = contrastTextType || 'light';
 
@@ -67,12 +71,25 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
     }
   }
 
-  const isLight = isLightModeLogic;
+  const isLight = publication || curThemeMode === 'palette' ? contrastInk(palette.background) !== '#ffffff' : isLightModeLogic;
+  if (publication || curThemeMode === 'palette') {
+    bgFill = palette.background;
+    textColor = palette.text; subTextColor = palette.secondary; dimTextColor = palette.muted;
+    spineFill = palette.accent;
+    spineTitleColor = contrastInk(spineFill); spineIdColor = spineTitleColor;
+    if (curThemeMode === 'cover') {
+      // A strong neutral mask makes local image brightness less disruptive.
+      coverMaskColor = '#000000'; coverMaskOpacity = 0.86;
+      textColor = '#ffffff'; subTextColor = '#e5e5e5'; dimTextColor = '#c9c9c9';
+    }
+  }
+  const effectiveTheme = publication ? { ...theme, accent: readableAccent(theme.accent, curThemeMode === 'cover' ? '#232629' : bgFill), divider: palette.divider } : theme;
+  const publicationLayout = useMemo(() => publication ? computeFrontLayout(data, fontConfig, theme) : null, [publication, data, fontConfig, theme]);
 
   if (isMinimalSpine) {
-    spineFill = isLight ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)";
+    spineFill = publication ? bgFill : isLight ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)";
     spineTitleColor = textColor;
-    spineIdColor = theme.accent;
+    spineIdColor = publication ? readableAccent(theme.accent, spineFill) : theme.accent;
   }
 
   const badgeLayout = useMemo(() => {
@@ -217,19 +234,19 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
       ) : (
         <rect x="0" y="0" width={width} height={height} fill={bgFill} />
       )}
-      <rect x="0" y="0" width={width} height={height} fill="transparent" filter="url(#noise)" opacity={isLight ? 0.2 : 0.4} />
+      {(!publication || data.layout?.texture) && <rect x="0" y="0" width={width} height={height} fill="transparent" filter="url(#noise)" opacity={publication ? 0.12 : isLight ? 0.2 : 0.4} />}
 
-      <rect x={xShort} y="0" width={wShort} height={height} fill="#000000" opacity="0.2" style={{ mixBlendMode: 'multiply' }} />
-      <rect x={xSpine} y="0" width={wSpine} height={height} fill="#000000" opacity="0.3" style={{ mixBlendMode: 'multiply' }} />
-      <rect x={xSpine} y="0" width={wSpine} height={height} fill={spineFill} opacity={coverImage && !isMinimalSpine ? 0.8 : 1} style={{ mixBlendMode: isMinimalSpine ? 'normal' : 'multiply' }} />
-      <rect x={xBack} y="0" width={wBack} height={height} fill="#000000" opacity="0.2" style={{ mixBlendMode: 'multiply' }} />
+      <rect x={xShort} y="0" width={wShort} height={height} fill="#000000" opacity={publication ? 0 : 0.2} style={{ mixBlendMode: 'multiply' }} />
+      <rect x={xSpine} y="0" width={wSpine} height={height} fill="#000000" opacity={publication ? 0 : 0.3} style={{ mixBlendMode: 'multiply' }} />
+      <rect x={xSpine} y="0" width={wSpine} height={height} fill={spineFill} opacity={!publication && coverImage && !isMinimalSpine ? 0.8 : 1} style={{ mixBlendMode: publication || isMinimalSpine ? 'normal' : 'multiply' }} />
+      <rect x={xBack} y="0" width={wBack} height={height} fill="#000000" opacity={publication ? 0 : 0.2} style={{ mixBlendMode: 'multiply' }} />
 
       <line x1={xSpine} y1="0" x2={xSpine} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.2" />
       <line x1={xFront} y1="0" x2={xFront} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.2" />
       <line x1={xBack} y1="0" x2={xBack} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.3" />
 
       <g clipPath="url(#panel-short-back)">
-        <ShortBackContent width={wShort} data={data} theme={theme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} fontConfig={fontConfig} />
+        <ShortBackContent width={wShort} data={data} theme={effectiveTheme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} fontConfig={fontConfig} />
       </g>
 
       <g clipPath="url(#panel-spine)">
@@ -246,11 +263,11 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
       </g>
 
       <g clipPath="url(#panel-front)">
-        <ContentFront xOffset={xFront} width={wFront} data={data} theme={theme} coverImage={coverImage} coverImageB={coverImageB} frontStyle={data.layout?.frontStyle || 'STANDARD'} isLight={isLight} textColor={textColor} subTextColor={subTextColor} titleLayout={titleLayout} titleStartY={titleStartY} badgeY={badgeY} artistY={artistY} fontConfig={fontConfig} />
+        <ContentFront xOffset={xFront} width={wFront} data={data} theme={effectiveTheme} coverImage={coverImage} coverImageB={coverImageB} frontStyle={data.layout?.frontStyle || 'STANDARD'} isLight={isLight} textColor={textColor} subTextColor={subTextColor} titleLayout={titleLayout} titleStartY={titleStartY} badgeY={badgeY} artistY={artistY} fontConfig={fontConfig} publicationLayout={publicationLayout} />
       </g>
 
       <g clipPath="url(#panel-flap)" transform={`translate(${xBack}, 0)`}>
-        <ContentBack width={wBack} data={data} theme={theme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} fontConfig={fontConfig} />
+        <ContentBack onLayoutStatus={onBackStatus} width={wBack} data={data} theme={effectiveTheme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} fontConfig={fontConfig} />
       </g>
     </svg>
   );

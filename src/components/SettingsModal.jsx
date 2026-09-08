@@ -1,60 +1,107 @@
-import React from 'react';
-import { Globe, Key, Settings, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Key, Settings, X } from 'lucide-react';
+import { PROVIDERS, PROVIDER_IDS, normalizeAISettings } from '../ai/providerConfig.mjs';
 
-const SettingsModal = ({ isOpen, apiKey, onClose, onApiKeyChange }) => {
+const inputClass = 'w-full bg-gray-900 border border-gray-600 rounded p-2.5 text-white focus:ring-2 focus:ring-orange-500 outline-none text-sm';
+const SettingsModal = ({ isOpen, aiSettings, onClose, onSave, ready, loadError, onRetry }) => {
+  const [draft, setDraft] = useState(() => normalizeAISettings());
+  const [active, setActive] = useState('aliyun');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [failed, setFailed] = useState(false);
+  const savingRef = useRef(false);
+  const dialog = useRef(null);
+  useEffect(() => {
+    if (isOpen) { setDraft(normalizeAISettings(aiSettings)); setMessage(''); setFailed(false); }
+  }, [isOpen, ready]);
+  useEffect(() => {
+    if (!isOpen) return;
+    const node = dialog.current;
+    const previous = document.activeElement;
+    node.querySelector('button')?.focus();
+    const trap = event => {
+      if (event.key === 'Escape') { if (!savingRef.current) onClose(); return; }
+      if (event.key !== 'Tab') return;
+      const controls = [...node.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], summary')];
+      const index = controls.indexOf(document.activeElement);
+      if (event.shiftKey && index <= 0) { event.preventDefault(); controls.at(-1)?.focus(); }
+      if (!event.shiftKey && index === controls.length - 1) { event.preventDefault(); controls[0]?.focus(); }
+    };
+    node.addEventListener('keydown', trap);
+    return () => { node.removeEventListener('keydown', trap); previous?.focus(); };
+  }, [isOpen]);
   if (!isOpen) return null;
-
-  return (
-    <div className="absolute inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-md border border-gray-700 text-white">
-        <div className="flex justify-between items-center p-4 border-b border-gray-700">
-          <h3 className="text-lg font-bold flex items-center gap-2"><Settings size={20} className="text-gray-400" /> 设置</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={20} /></button>
+  const meta = PROVIDERS[active];
+  const entry = draft.providers[active];
+  const updateProvider = (field, value) => {
+    setDraft(prev => ({ ...prev, providers: { ...prev.providers, [active]: { ...prev.providers[active], [field]: value } } }));
+    setMessage('有未保存的设置'); setFailed(false);
+  };
+  const save = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true; setSaving(true); setMessage(''); setFailed(false);
+    try {
+      const result = await onSave(draft);
+      setMessage(result.warning || '设置已保存；密钥是否有效、账户套餐与余额尚未验证。');
+    } catch (error) { setFailed(true); setMessage(error.message); }
+    finally { savingRef.current = false; setSaving(false); }
+  };
+  return <div className="absolute inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="ai-settings-title" className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-2xl border border-gray-700 text-white flex flex-col max-h-[92vh]">
+      <div className="flex justify-between items-center p-4 border-b border-gray-700 shrink-0">
+        <h3 id="ai-settings-title" className="text-lg font-bold flex items-center gap-2"><Settings size={20} /> AI 服务设置</h3>
+        <button aria-label="关闭设置" disabled={saving} onClick={onClose}><X size={20} /></button>
+      </div>
+      <div className="p-5 space-y-4 overflow-y-auto">
+        <p className="text-sm text-gray-300">当前接入：<strong className="text-orange-300">普通 API · 按实际调用计费</strong>。不会自动切换服务商或订阅通道。</p>
+        <div className="grid grid-cols-2 gap-4">
+          {[['textProvider', '文本服务商'], ['imageProvider', '图片服务商']].map(([field, label]) => <label key={field} className="text-sm space-y-1 block">{label}
+            <select aria-label={label} disabled={saving || !ready} value={draft[field]} onChange={event => { setDraft(prev => ({...prev,[field]:event.target.value})); setMessage('有未保存的设置'); }} className={inputClass}>
+              {PROVIDER_IDS.map(id => <option key={id} value={id}>{PROVIDERS[id].name}</option>)}
+            </select>
+          </label>)}
         </div>
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-              <Key size={16} className="text-orange-500" />
-              DashScope API Key (阿里云)
-            </label>
-            <input
-              type="password"
-              value={apiKey || ''}
-              onChange={(e) => onApiKeyChange(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white focus:ring-2 focus:ring-orange-500 outline-none font-mono text-sm"
-              placeholder="sk-..."
-            />
-            <p className="mt-2 text-xs text-gray-400">
-              <a href="https://help.aliyun.com/zh/model-studio/get-started-with-models/" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline flex items-center gap-1">
-                如何获取 API Key? <Globe size={10} />
-              </a>
-            </p>
-          </div>
-
-          <div className="pt-4 border-t border-gray-700">
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">关于 (About)</h4>
-            <div className="text-[10px] text-gray-400 leading-relaxed space-y-2">
-              <p>
-                <span className="text-gray-300 font-bold">© 2025 门耳朵 (Epoch Audio). 保留所有权利。</span>
-              </p>
-              <p>
-                本软件为开源软件，仅供个人<span className="text-gray-300">非商业目的</span>免费使用、学习与研究。
-              </p>
-              <p className="text-red-400/80">
-                🚫 禁止商业化用途：禁止售卖、会员付费下载或提供有偿代制作服务。
-              </p>
-              <p>
-                允许非商业转载，但必须完整保留本声明且不得收费。
-              </p>
-            </div>
-          </div>
+        <p className="text-xs text-gray-400">文本用于曲目解析、标题、标语及提示词；图片用于生成封面。两者可分别选择。</p>
+        <div className="flex gap-2" role="tablist" aria-label="服务商配置">
+          {PROVIDER_IDS.map(id => <button role="tab" aria-selected={active === id} key={id} disabled={saving} onClick={() => setActive(id)} className={`flex-1 py-2 text-sm rounded ${active === id ? 'bg-orange-600' : 'bg-gray-700'}`}>{PROVIDERS[id].name}</button>)}
         </div>
-        <div className="p-4 border-t border-gray-700 flex justify-end">
-          <button onClick={onClose} className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium">完成</button>
+        <fieldset disabled={saving || !ready} className="space-y-3">
+          <label className="block text-sm"><span className="flex items-center gap-2 mb-1"><Key size={15} />{meta.name} 普通 API Key</span>
+            <input aria-label={`${meta.name} API Key`} type="password" autoComplete="off" spellCheck={false} value={entry.apiKey} onChange={event => updateProvider('apiKey', event.target.value)} className={`${inputClass} font-mono`} placeholder="输入该平台的普通 API Key" />
+          </label>
+          <div className="flex justify-between text-xs text-gray-400"><span>{entry.apiKey ? '已填写（保存后生效）' : '未配置'} · 清空后保存可删除该密钥</span><a href={meta.keyUrl} target="_blank" rel="noopener noreferrer" className="text-orange-300 underline">获取 API Key</a></div>
+          <label className="block text-sm">文本模型
+            <input aria-label={`${meta.name} 文本模型`} value={entry.textModel} onChange={event => updateProvider('textModel', event.target.value)} className={inputClass} placeholder={meta.textHint} />
+          </label>
+          <p className="text-xs text-gray-400">{meta.textHint}</p>
+          <label className="block text-sm">图片模型
+            <input aria-label={`${meta.name} 图片模型`} value={entry.imageModel} onChange={event => updateProvider('imageModel', event.target.value)} className={inputClass} placeholder={meta.imageHint} />
+          </label>
+          <p className="text-xs text-gray-400">{meta.imageHint}</p>
+        </fieldset>
+        <div className="rounded border border-gray-600 bg-gray-900/60 p-3 text-xs leading-relaxed space-y-2">
+          <p className="font-semibold text-orange-200">订阅包 / Coding Plan（code 包）说明</p>
+          <p>{meta.planNote}</p>
+          <p>网页或 App 会员不自动等于开放平台 API 额度。密钥前缀不能证明账户已订阅或有余额，请在服务商控制台核对。模型与接口采用中国大陆平台配置。</p>
+          <a href={meta.planUrl} target="_blank" rel="noopener noreferrer" className="text-orange-300 underline">查看官方套餐说明</a>
+          <p className="text-gray-500">说明核对日期：2026-09-08；价格、模型权限与权益以官方当前页面为准。</p>
+        </div>
+        <p className="text-xs text-gray-400">{window.electronAPI?.secureStore ? '桌面版使用系统加密存储。' : '浏览器版保存在此浏览器的本地存储中，不具备系统加密保护。'} 密钥不写入作品文件或草稿。关闭未保存的设置会取消本次编辑。</p>
+        {loadError && <p role="alert" className="text-red-300 text-sm">{loadError}</p>}
+        {!ready && <button onClick={onRetry} className="text-orange-300 underline">重试读取设置</button>}
+        <details className="border-t border-gray-700 pt-3 text-xs text-gray-400">
+          <summary>关于与使用许可</summary>
+          <p className="mt-2">© 2025 门耳朵 (Epoch Audio). 保留所有权利。本软件仅供个人非商业目的免费使用、学习与研究。禁止商业化售卖、会员付费下载或有偿代制作。转载及修改版须保留版权声明。</p>
+        </details>
+      </div>
+      <div className="p-4 border-t border-gray-700 space-y-3 shrink-0">
+        {message && <p role={failed ? 'alert' : 'status'} className={`text-sm ${failed ? 'text-red-300' : 'text-green-300'}`}>{message}</p>}
+        <div className="flex justify-end gap-3">
+          <button disabled={saving} onClick={onClose} className="px-4 py-2 border border-gray-600 rounded">关闭</button>
+          <button disabled={saving || !ready} onClick={save} className="px-4 py-2 bg-orange-600 hover:bg-orange-500 rounded disabled:opacity-40">{saving ? '正在保存…' : '保存设置'}</button>
         </div>
       </div>
     </div>
-  );
+  </div>;
 };
-
 export default SettingsModal;

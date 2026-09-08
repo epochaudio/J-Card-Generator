@@ -54,6 +54,17 @@ export const FONT_THEMES = {
             mono: "'Noto Sans SC', 'PingFang SC', monospace",
         }
     },
+    editorial: {
+        id: 'editorial',
+        name: '编辑 (Editorial)',
+        description: '中英文衬线标题，清晰黑体正文。',
+        fonts: {
+            title: "'Noto Serif SC', serif",
+            body: "'Inter', 'Noto Sans SC', sans-serif",
+            serif: "'Noto Serif SC', serif",
+            mono: "'Share Tech Mono', 'Noto Sans SC', monospace",
+        }
+    },
     puhuiti: {
         id: 'puhuiti',
         name: '重工 (PuHuiTi)',
@@ -69,6 +80,17 @@ export const FONT_THEMES = {
 
 export const DEFAULT_FONT_THEME = 'modern';
 
-export const getFontConfig = (themeId) => {
-    return FONT_THEMES[themeId] || FONT_THEMES[DEFAULT_FONT_THEME];
+export const getFontConfig = (themeId, edition = 'legacy') => {
+    const config = FONT_THEMES[themeId] || FONT_THEMES[DEFAULT_FONT_THEME];
+    if (edition !== 'publication' || themeId === 'editorial') return config;
+    const fonts = { ...config.fonts };
+    if (themeId === 'handwritten') {
+        fonts.body = "'Inter', 'Noto Sans SC', sans-serif";
+        fonts.mono = "'Share Tech Mono', 'Noto Sans SC', monospace";
+    }
+    if (themeId === 'modern') {
+        fonts.serif = "'Inter', 'Noto Sans SC', sans-serif";
+        fonts.mono = "'Share Tech Mono', 'Noto Sans SC', monospace";
+    }
+    return { ...config, fonts };
 };
