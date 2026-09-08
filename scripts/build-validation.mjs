@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { createHash } from 'node:crypto';
 const MACH_O_64_LE = 0xfeedfacf;
 const MACH_CPU_ARM64 = 0x0100000c;
 const DOS_HEADER_BYTES = 64;
@@ -18,4 +20,14 @@ export function verifyArchitecture(buffer, architecture) {
     if (offset + 6 <= buffer.length && buffer.readUInt32LE(offset) === PE_SIGNATURE && buffer.readUInt16LE(offset + 4) === PE_MACHINE_X64) return;
   }
   throw new Error(`Application binary is not ${architecture}`);
+}
+
+
+export function verifyPackagedResources(asar, archive, version, expected) {
+  if (JSON.parse(asar.extractFile(archive, 'package.json')).version !== version) throw new Error('Packaged version mismatch');
+  for (const [name, digest] of expected) {
+    // ASAR traverses directories using the host separator, while manifest names use '/'.
+    const bytes = asar.extractFile(archive, path.normalize(name));
+    if (createHash('sha256').update(bytes).digest('hex') !== digest) throw new Error(`Packaged resource mismatch: ${name}`);
+  }
 }

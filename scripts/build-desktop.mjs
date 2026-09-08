@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, createHash } from 'node:crypto';
-import { assertVersions, verifyArchitecture } from './build-validation.mjs';
+import { assertVersions, verifyArchitecture, verifyPackagedResources } from './build-validation.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 process.chdir(root);
@@ -80,12 +80,7 @@ try {
     } else if (!entry.includes('*')) expected.set(entry, fileHash(entry));
     else throw new Error(`Unsupported package file pattern: ${entry}`);
   }
-  function verifyAsar(archive) {
-    if (JSON.parse(asar.extractFile(archive, 'package.json')).version !== pkg.version) throw new Error('Packaged version mismatch');
-    for (const [name, digest] of expected) {
-      if (hash(asar.extractFile(archive, name)) !== digest) throw new Error(`Packaged resource mismatch: ${name}`);
-    }
-  }
+  const verifyAsar = archive => verifyPackagedResources(asar, archive, pkg.version, expected);
   function artifact(file, platform, architecture, checks) {
     const name = path.basename(file);
     const sha256 = fileHash(file);

@@ -1,10 +1,11 @@
 import test from 'node:test';
+import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { assertVersions, verifyArchitecture } from '../scripts/build-validation.mjs';
+import { assertVersions, verifyArchitecture, verifyPackagedResources } from '../scripts/build-validation.mjs';
 import { validateDelivery } from '../scripts/release-validation.mjs';
 
 test('packaging rejects inconsistent package and lock versions', () => {
@@ -65,4 +66,24 @@ test('publish command refuses to run without explicit confirmation before access
   const result = spawnSync(process.execPath, ['scripts/publish-desktop.mjs'], { encoding: 'utf8', env: { ...process.env, PUBLISH_CONFIRMATION: '', GH_TOKEN: '' } });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Publishing requires an explicit PUBLISH confirmation/);
+});
+
+
+test('packaged resources use native ASAR paths and reject missing or changed nested files', async () => {
+  const asar = createRequire(import.meta.url)('@electron/asar');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jcard-asar-test-'));
+  const source = path.join(dir, 'source'), archive = path.join(dir, 'app.asar');
+  try {
+    fs.mkdirSync(path.join(source, 'dist', 'assets'), { recursive: true });
+    fs.writeFileSync(path.join(source, 'package.json'), JSON.stringify({ version: '1.6.1' }));
+    const name = 'dist/assets/font.ttf', bytes = Buffer.from('fixture font bytes');
+    fs.writeFileSync(path.join(source, name), bytes);
+    await asar.createPackage(source, archive);
+    const digest = createHash('sha256').update(bytes).digest('hex');
+    const expected = new Map([[name, digest]]);
+    assert.doesNotThrow(() => verifyPackagedResources(asar, archive, '1.6.1', expected));
+    assert.throws(() => verifyPackagedResources(asar, archive, '1.6.0', expected), /version mismatch/);
+    assert.throws(() => verifyPackagedResources(asar, archive, '1.6.1', new Map([[name, 'wrong']])) , /resource mismatch/);
+    assert.throws(() => verifyPackagedResources(asar, archive, '1.6.1', new Map([['dist/assets/missing.ttf', digest]])), /not found/);
+  } finally { asar.uncache(archive); fs.rmSync(dir, { recursive: true, force: true }); }
 });
