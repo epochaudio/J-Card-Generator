@@ -85,5 +85,9 @@ test('packaged resources use native ASAR paths and reject missing or changed nes
     assert.throws(() => verifyPackagedResources(asar, archive, '1.6.0', expected), /version mismatch/);
     assert.throws(() => verifyPackagedResources(asar, archive, '1.6.1', new Map([[name, 'wrong']])) , /resource mismatch/);
     assert.throws(() => verifyPackagedResources(asar, archive, '1.6.1', new Map([['dist/assets/missing.ttf', digest]])), /not found/);
-  } finally { asar.uncache(archive); fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    asar.uncache(archive);
+    // Let archive stream handles close before retrying Windows directory cleanup.
+    await fs.promises.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
 });
