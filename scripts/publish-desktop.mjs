@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { validateDelivery } from './release-validation.mjs';
+import { validateDelivery, githubAssetName } from './release-validation.mjs';
 
 const { RELEASE_TAG: tag, BUILD_RUN_ID: runId, PUBLISH_CONFIRMATION: confirmation, GITHUB_REPOSITORY: repo } = process.env;
 if (confirmation !== 'PUBLISH' || !/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(tag || '') || !/^\d+$/.test(runId || '') || !repo) {
@@ -55,10 +55,10 @@ try {
   gh('release', 'download', tag, '--repo', repo, '--dir', remote);
   for (const delivery of deliveries) {
     const downloadedRecord = JSON.parse(fs.readFileSync(path.join(remote, `build-record-${delivery.record.target}.json`)));
-    validateDelivery(downloadedRecord, { version: pkg.version, commit, target: delivery.record.target, productName: pkg.build.productName }, remote);
+    validateDelivery(downloadedRecord, { version: pkg.version, commit, target: delivery.record.target, productName: pkg.build.productName, github: true }, remote);
     for (const name of [delivery.artifact.name, `${delivery.artifact.name}.sha256`]) {
       const digest = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-      if (digest(path.join(remote, name)) !== digest(path.join(delivery.directory, name))) throw new Error(`Uploaded content mismatch: ${name}`);
+      if (digest(path.join(remote, githubAssetName(name))) !== digest(path.join(delivery.directory, name))) throw new Error(`Uploaded content mismatch: ${name}`);
     }
     if (JSON.stringify(downloadedRecord) !== JSON.stringify(delivery.record)) throw new Error('Uploaded manifest mismatch');
   }

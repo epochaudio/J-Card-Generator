@@ -155,12 +155,12 @@
 
 | 平台 | 安装包 |
 | --- | --- |
-| macOS Apple Silicon / ARM64 | `Tape Cover Generator-1.6.1-arm64-mac.dmg` |
-| Windows x86-64 / x64 | `Tape Cover Generator Setup 1.6.1-x64.exe` |
+| macOS Apple Silicon / ARM64 | `Tape.Cover.Generator-1.6.1-arm64-mac.dmg` |
+| Windows x86-64 / x64 | `Tape.Cover.Generator.Setup.1.6.1-x64.exe` |
 
 - macOS：打开 DMG，将应用拖入 Applications；采用本地临时签名（ad-hoc），未经 Apple 公证。
 - Windows：运行 NSIS 安装程序；应用架构为 x64，安装包未签名。
-- 每个安装包附同名 `.sha256` 校验文件及对应平台构建记录，可核对版本、来源提交与校验摘要。
+- 每个安装包附同名 `.sha256` 校验文件及对应平台构建记录，可核对版本、来源提交与校验摘要。GitHub 会将附件名称中的空格替换为点；校验文件记录打包时原名，可直接比较 SHA-256 值，或将安装包恢复为校验文件中的名称后使用文件校验命令。
 - 本版交付上述两个平台，不含 macOS Intel、Windows ARM / x86 或 Linux 安装包。构建验证不替代实机安装和实体打印测试。
 
 ## 本地验证范围

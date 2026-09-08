@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { assertVersions, verifyArchitecture, verifyPackagedResources } from '../scripts/build-validation.mjs';
-import { validateDelivery } from '../scripts/release-validation.mjs';
+import { validateDelivery, githubAssetName } from '../scripts/release-validation.mjs';
 
 test('packaging rejects inconsistent package and lock versions', () => {
   const pkg = { version: '1.6.0' };
@@ -40,8 +40,12 @@ test('release validation fails closed on wrong commit, dirty source, missing che
     for (const change of [{ dirty: true }, { commit: 'other' }, { checks: [] }, { target: 'mac-arm64' }]) assert.throws(() => validateDelivery({ ...record, ...change }, expected, dir));
     const missing = structuredClone(record); missing.artifacts[0].checks = [];
     assert.throws(() => validateDelivery(missing, expected, dir));
-    fs.writeFileSync(path.join(dir, name), 'tampered');
+    fs.renameSync(path.join(dir, name), path.join(dir, githubAssetName(name)));
+    fs.renameSync(path.join(dir, `${name}.sha256`), path.join(dir, githubAssetName(`${name}.sha256`)));
+    assert.equal(validateDelivery(record, { ...expected, github: true }, dir).name, name);
     assert.throws(() => validateDelivery(record, expected, dir));
+    fs.writeFileSync(path.join(dir, githubAssetName(name)), 'tampered');
+    assert.throws(() => validateDelivery(record, { ...expected, github: true }, dir));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
