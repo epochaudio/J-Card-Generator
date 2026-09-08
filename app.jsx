@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import brandIcon from './src/assets/branding/tapefolio-icon.png';
 import { flushSync } from 'react-dom';
-import { Sparkles, Download, Disc, Music, Type, Palette, Wand2, Settings, Image as ImageIcon, Trash2, Globe, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw, Plus, GripVertical } from 'lucide-react';
+import { Sparkles, Download, Music, Type, Palette, Wand2, Settings, Image as ImageIcon, Trash2, Globe, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw, Plus, GripVertical } from 'lucide-react';
 
 import { JCARD_DIMENSIONS, STORAGE_KEYS } from './src/constants/app.js';
 import ImportModal from './src/components/ImportModal.jsx';
@@ -850,7 +851,7 @@ export default function App() {
 
       {/* Header */}
       <header className="flex flex-wrap gap-3 items-center justify-between px-6 py-4 border-b shrink-0 bg-white border-gray-200 shadow-sm relative z-10">
-        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap"><Disc className="text-orange-500 w-6 h-6" /><h1 className="text-xl font-bold tracking-wider">磁带封面生成器 <span className="text-orange-500 text-sm">(J-CARD GENESIS)</span></h1></div>
+        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap"><img src={brandIcon} alt="" className="w-10 h-10" /><h1 className="text-xl font-bold tracking-wider">带藏 <span className="text-orange-500 text-sm">TapeFolio</span></h1></div>
         <div className="flex flex-wrap items-center gap-3 whitespace-nowrap">
 
           <button onClick={() => document.getElementById('design-panel')?.scrollIntoView({ behavior: 'smooth' })} className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-200 text-sm hover:bg-gray-50"><Palette size={16} />设计</button>

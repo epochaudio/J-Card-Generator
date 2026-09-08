@@ -35,13 +35,14 @@
   },
   "build": {
     "appId": "com.tapecover.generator",
-    "productName": "Tape Cover Generator",
+    "productName": "TapeFolio",
     "icon": "build/icon.png",
     "directories": {
       "output": "dist_electron"
     },
     "files": [
       "dist/**/*",
+      "build/icon.png",
       "electron/**/*",
       "src/project/projectFormat.mjs",
       "src/config/design.mjs",

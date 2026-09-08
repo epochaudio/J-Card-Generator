@@ -1,4 +1,8 @@
-# 磁带封面生成器 (J-Card Genesis) 📼
+# 带藏 · TapeFolio 📼
+
+为磁带收藏者设计的封面制作工具。原名“磁带封面生成器 / J-Card Genesis / Tape Cover Generator”。
+
+品牌名称与图标已更新；既有 2.0.1 Release 为更名前安装包，新品牌安装包尚未发布。
 
 当前版本：**2.0.1**。安装包与更新说明见 [v2.0.1 Release](https://github.com/epochaudio/J-Card-Generator/releases/tag/v2.0.1)。
 

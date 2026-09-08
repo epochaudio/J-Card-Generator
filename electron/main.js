@@ -1,6 +1,14 @@
 const { app, BrowserWindow, ipcMain, safeStorage, net } = require('electron');
 const path = require('path');
 
+// Keep existing settings, encrypted credentials and drafts after the display-name change.
+const legacyProductName = 'Tape Cover Generator';
+const defaultBrandedDataPath = path.join(app.getPath('appData'), 'TapeFolio');
+if (app.isPackaged && app.getPath('userData') === defaultBrandedDataPath) {
+    app.setPath('userData', path.join(app.getPath('appData'), legacyProductName));
+}
+
+
 const { createSecureStore } = require('./secureStore.cjs');
 let secureStore;
 let providerAPI;
@@ -22,6 +30,7 @@ function createWindow() {
     const win = new BrowserWindow({
         width: 1400,
         height: 900,
+        title: '带藏 · TapeFolio',
         icon: path.join(__dirname, '../build/icon.png'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
