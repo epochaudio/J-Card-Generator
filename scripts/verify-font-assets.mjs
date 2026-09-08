@@ -11,11 +11,11 @@ const VALID_SFNT_SIGNATURES = new Set([
 ]);
 
 const fontFiles = (await readdir(FONT_DIRECTORY))
-  .filter((fileName) => extname(fileName).toLowerCase() === '.ttf')
+  .filter((fileName) => ['.ttf', '.otf'].includes(extname(fileName).toLowerCase()))
   .sort();
 
 if (fontFiles.length === 0) {
-  throw new Error('No TTF font assets found.');
+  throw new Error('No TTF or OTF font assets found.');
 }
 
 const invalidFonts = [];

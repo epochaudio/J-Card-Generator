@@ -85,3 +85,38 @@
   font-weight: normal;
   font-style: normal;
 }
+
+@font-face {
+  font-family: 'Long Cang';
+  src: url('./assets/fonts/LongCang-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Glow Sans SC Condensed';
+  src: url('./assets/fonts/GlowSansSC-Condensed-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Chill G Sans';
+  src: url('./assets/fonts/ChillGSans.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Glow Sans SC Condensed';
+  src: url('./assets/fonts/GlowSansSC-Condensed-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'ZCOOL QingKe HuangYou';
+  src: url('./assets/fonts/ZCOOLQingKeHuangYou-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}

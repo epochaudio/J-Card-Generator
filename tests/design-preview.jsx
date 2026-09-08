@@ -23,7 +23,7 @@ const tracks = count => Array.from({ length: count }, (_, index) => ({ id: `trac
 const cases = [
   { name: '暖纸 · 中文居中', palette: 'paper', title: '夜色与回声', font: 'editorial' },
   { name: '暖纸 · 编辑左齐', palette: 'paper', title: '夜色与回声', font: 'editorial', front: 'EDITORIAL' },
-  { name: '暖暗 · 英文', palette: 'warm', title: 'AFTER THE RAIN', font: 'modern', image: 1 },
+  { name: '暖暗 · 现代中英混排', palette: 'warm', title: '雨后 AFTER THE RAIN', font: 'modern', image: 1 },
   { name: '冷灰 · 中英混排', palette: 'cool', title: '海岸线 Coastline', font: 'editorial' },
   { name: '长标题与艺术家', palette: 'paper', title: '在遥远的夜色中听见城市与山林的回声', artist: '林间四重奏与远方的朋友们 · Live Ensemble', font: 'editorial', front: 'EDITORIAL' },
   { name: '密集曲目', palette: 'warm', title: '私人现场录音集', font: 'modern', count: 24, image: 1 },
@@ -31,11 +31,11 @@ const cases = [
   { name: '合辑', palette: 'cool', title: '城市声音档案', font: 'sourcehan', mode: 'COMPILATION' },
   { name: '少曲目与鲜艳封面', palette: 'paper', title: 'COLOUR STUDIES', font: 'modern', count: 4, image: 2 },
   { name: '双封面', palette: 'cool', title: '双面声音', font: 'editorial', front: 'REVERSIBLE' },
-  { name: '手记与清晰正文', palette: 'paper', title: '我的录音手记', font: 'handwritten' },
+  { name: '手记与龙藏体', palette: 'paper', title: '我的录音手记', font: 'handwritten' },
   { name: '无图', palette: 'paper', title: '声音档案', font: 'editorial', image: null },
   { name: '自定义深色', palette: 'legacy', title: '夜色与回声', font: 'modern' },
-  { name: '胶片字体', palette: 'warm', title: 'ANALOG DAYS', font: 'retro', image: 1 },
-  { name: '电子字体', palette: 'cool', title: 'FUTURE SOUND', font: 'digital', image: 2 },
+  { name: '胶片字体', palette: 'warm', title: '胶片时光 ANALOG DAYS', font: 'retro', image: 1 },
+  { name: '电子字体', palette: 'cool', title: '未来声音 FUTURE SOUND', font: 'digital', image: 2 },
   { name: '普惠体中文', palette: 'paper', title: '声音与建筑', font: 'puhuiti' },
   { name: '超长内容应报警', palette: 'paper', title: '无法在正面容纳的完整长标题'.repeat(40), font: 'editorial', overflow: true },
 ];

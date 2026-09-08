@@ -4,7 +4,7 @@ export const FONT_THEMES = {
         name: '现代 (Modern)',
         description: 'Clean, geometric, professional.',
         fonts: {
-            title: "'Oswald', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Arial Black', sans-serif",
+            title: "'Oswald', 'Glow Sans SC Condensed', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Arial Black', sans-serif",
             body: "'Inter', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Arial', sans-serif",
             serif: "'Playfair Display', 'Noto Sans SC', 'Songti SC', 'SimSun', 'Georgia', serif",
             mono: "'JetBrains Mono', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Courier New', monospace",
@@ -15,7 +15,7 @@ export const FONT_THEMES = {
         name: '胶片 (Analog)',
         description: 'Mechanical, warm, tactile.',
         fonts: {
-            title: "'Bebas Neue', 'Noto Sans SC', 'Songti SC', 'SimSun', 'Arial Narrow', sans-serif",
+            title: "'Bebas Neue', 'Chill G Sans', 'Noto Sans SC', 'Songti SC', 'SimSun', 'Arial Narrow', sans-serif",
             body: "'Roboto', 'Noto Sans SC', 'Songti SC', 'SimSun', 'Helvetica', sans-serif",
             serif: "'Roboto', 'Noto Sans SC', 'Songti SC', 'SimSun', 'Times New Roman', serif",
             mono: "'Share Tech Mono', 'Noto Sans SC', 'Songti SC', 'SimSun', 'Courier New', monospace",
@@ -26,10 +26,10 @@ export const FONT_THEMES = {
         name: '手记 (Indie)',
         description: 'Personal, DIY, organic.',
         fonts: {
-            title: "'Rock Salt', 'LXGW WenKai Lite', 'Kaiti SC', 'KaiTi', cursive",
-            body: "'Shadows Into Light', 'LXGW WenKai Lite', 'Kaiti SC', 'KaiTi', cursive",
-            serif: "'Shadows Into Light', 'LXGW WenKai Lite', 'Kaiti SC', 'KaiTi', cursive",
-            mono: "'Shadows Into Light', 'LXGW WenKai Lite', 'Kaiti SC', 'KaiTi', cursive",
+            title: "'Rock Salt', 'Long Cang', 'LXGW WenKai Lite', cursive",
+            body: "'Shadows Into Light', 'Long Cang', 'LXGW WenKai Lite', cursive",
+            serif: "'Shadows Into Light', 'Long Cang', 'LXGW WenKai Lite', cursive",
+            mono: "'Shadows Into Light', 'Long Cang', 'LXGW WenKai Lite', cursive",
         }
     },
     digital: {
@@ -37,7 +37,7 @@ export const FONT_THEMES = {
         name: '骇客 (Cyber)',
         description: 'Futuristic, glitch, terminal.',
         fonts: {
-            title: "'Orbitron', 'Noto Sans SC', 'PingFang SC', 'SimHei', 'Eurostile', sans-serif",
+            title: "'Orbitron', 'ZCOOL QingKe HuangYou', 'Noto Sans SC', 'PingFang SC', 'SimHei', 'Eurostile', sans-serif",
             body: "'Share Tech Mono', 'Noto Sans SC', 'PingFang SC', 'SimHei', 'Consolas', monospace",
             serif: "'Share Tech Mono', 'Noto Sans SC', 'PingFang SC', 'SimHei', 'Consolas', monospace",
             mono: "'Share Tech Mono', 'Noto Sans SC', 'PingFang SC', 'SimHei', 'Consolas', monospace",
@@ -84,10 +84,6 @@ export const getFontConfig = (themeId) => {
     const config = FONT_THEMES[themeId] || FONT_THEMES[DEFAULT_FONT_THEME];
     if (themeId === 'editorial') return config;
     const fonts = { ...config.fonts };
-    if (themeId === 'handwritten') {
-        fonts.body = "'Inter', 'Noto Sans SC', sans-serif";
-        fonts.mono = "'Share Tech Mono', 'Noto Sans SC', monospace";
-    }
     if (themeId === 'modern') {
         fonts.serif = "'Inter', 'Noto Sans SC', sans-serif";
         fonts.mono = "'Share Tech Mono', 'Noto Sans SC', monospace";
