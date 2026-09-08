@@ -15,10 +15,10 @@ import { computeFrontLayout } from './src/utils/FrontLayout.js';
 import { PALETTES } from './src/config/design.mjs';
 import SearchModal from './src/components/SearchModal.jsx';
 import SettingsModal from './src/components/SettingsModal.jsx';
+import EquipmentPresets from './src/components/EquipmentPresets.jsx';
 import ColorExtractor from './src/services/ColorExtractor.js';
 import { createAIContentService } from './src/services/AIContentService.js';
 import useAISettings from './src/ai/useAISettings.jsx';
-import { PROVIDERS } from './src/ai/providerConfig.mjs';
 import ExportService from './src/services/ExportService.js';
 import MusicBrainzService from './src/services/MusicBrainzService.js';
 import { createImportSnapshot } from './src/musicbrainz/importProject.mjs';
@@ -205,10 +205,7 @@ export default function App() {
   const restoredCover = useRef(undefined);
   const aiSettings = useAISettings();
   const aiService = useMemo(() => createAIContentService(aiSettings.settings), [aiSettings.settings]);
-  const textProviderName = PROVIDERS[aiSettings.settings.textProvider]?.name || '请选择文本服务商';
-  const imageProviderName = PROVIDERS[aiSettings.settings.imageProvider]?.name || '请选择图片服务商';
   const textKeyConfigured = Boolean(aiSettings.settings.providers[aiSettings.settings.textProvider]?.apiKey);
-  const imageKeyConfigured = Boolean(aiSettings.settings.providers[aiSettings.settings.imageProvider]?.apiKey);
   const svgRef = useRef(null);
   const [loadingStates, setLoadingStates] = useState({
     title: false,
@@ -867,10 +864,6 @@ export default function App() {
       </header>
 
       <ProjectControls project={projectFiles} />
-      <div className="px-6 py-1 text-xs text-gray-500 bg-gray-50 border-b shrink-0">
-        文本：{textProviderName}{textKeyConfigured ? '' : '（未配置密钥）'} · 图片：{imageProviderName}{imageKeyConfigured ? '' : '（未配置密钥）'} · 普通 API 按量计费
-        {aiSettings.error && <span role="alert" className="ml-2 text-red-700">{aiSettings.error}</span>}
-      </div>
 
       {error && <div role="alert" className="px-6 py-2 text-xs text-red-800 bg-red-50 flex items-center justify-between gap-3">
         <span>{error}</span><button onClick={() => setError('')} className="underline shrink-0">关闭提示</button>
@@ -1045,6 +1038,7 @@ export default function App() {
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 pb-2">元数据</h3>
               <div>
                 <label className="block text-xs text-gray-400 mb-1">录音设备 (Recording Equipment)</label>
+                <EquipmentPresets equipment={recordingData.equipment || ''} onSelect={value => updateRecordingData('equipment', value)} />
                 <div className="relative">
                   <textarea
                     value={recordingData.equipment || ""}

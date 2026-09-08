@@ -4,7 +4,8 @@ export const STORAGE_KEYS = {
   legacyGeminiApiKey: 'gemini_api_key',
   themeMode: 'jcard_theme_mode',
   fontTheme: 'jcard_font_theme',
-  recordingData: 'jcard_recording_data'
+  recordingData: 'jcard_recording_data',
+  equipmentPresets: 'jcard_equipment_presets'
 };
 
 export const JCARD_DIMENSIONS = {
