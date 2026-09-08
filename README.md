@@ -299,16 +299,13 @@ npm run electron:build
 # 单独构建 macOS arm64 DMG
 npm run electron:build:mac-arm64:dmg
 
-# 构建 Windows x86（32 位）NSIS 安装包
-npm run electron:build:win-x86
-
 # 构建 Windows x86-64（x64）NSIS 安装包
 npm run electron:build:win-x64
 ```
 
 ### 构建说明
 
-- 打包入口统一执行：环境及版本检查 → 自动测试 → 字体检查与前端构建 → 平台打包 → 安装包验证 → 交付。
+- 三个打包入口统一执行：环境及版本检查 → 自动测试 → 字体检查与前端构建 → 平台打包 → 安装包验证 → 交付。
 - 首次准备环境使用 `npm ci`。脚本核对已安装的直接依赖与锁文件；版本不符时停止，避免使用不同依赖生成同版本安装包。
 - 新产物进入 `dist_electron_builds/<版本>-<目标>-<时间>-<唯一编号>/`，包含安装包、同名 `.sha256` 和 `build-record.json`。旧本地产物保留在原目录；公开版本以 Releases 附件为准。
 - 每次构建先写临时目录，所有检查通过后才整体移入交付目录，不覆盖旧包。失败时清理本次临时文件；若磁盘映像卸载失败，会保留现场并提示处理。

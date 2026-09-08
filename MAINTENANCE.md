@@ -785,5 +785,3 @@ README 新增 1.6.1 更新记录，区分当前源码与历史 1.6.0 安装包�
 - 作品格式更新为版本 3，不再存储 `designEdition`；仅读取当前格式，不实现旧作品迁移。此约定取代上文历史记录中的版本 2 兼容约定。
 - 字体、曲目分列、脊背空间预算和溢出导出检查使用统一规则；纸纹默认关闭。配色编号 `legacy` 仍表示自定义背景，与排版版本无关。
 - 验证：92 项自动测试、字体资源检查与生产构建通过；`tests/unified-design-browser.cjs` 覆盖入口移除、三种布局、纸纹及 17 组排版样张和 SVG → PNG 导出，`tests/project-browser.cjs` 与 `tests/smart-design-browser.cjs` 验证保存恢复及智能搭配导出一致性。
-
-- 补充 Windows x86（32 位）打包入口 `npm run electron:build:win-x86`，使用 Electron `ia32` 产物命名并校验 PE 架构；保留 x64 及 Mac ARM64 入口。此次按 2.0.1 重新生成本地安装包，不自动替换 GitHub Release 附件。
