@@ -22,19 +22,22 @@ export default function DesignPanel({ data, theme, fontTheme, mode, onLayout, on
     <fieldset>
       <legend className="text-xs text-gray-500 mb-2">完整配色</legend>
       <div className="grid grid-cols-3 gap-2">
-        {Object.entries(PALETTES).map(([id, palette]) => <button key={id} aria-pressed={theme.paletteId === id} className={buttonStyle(theme.paletteId === id)} onClick={() => onTheme({ ...theme, paletteId: id, accent: palette.accent })}>
+        {Object.entries(PALETTES).map(([id, palette]) => <button key={id} aria-pressed={theme.paletteId === id} className={buttonStyle(theme.paletteId === id)} onClick={() => onTheme({ ...theme, paletteId: id, colors: null, accent: palette.accent })}>
           <span className="flex items-center justify-between h-9 px-2 mb-2 rounded" style={{ background: palette.background, color: palette.text }}><span className="text-base">Aa</span><span className="w-3 h-3 rounded-full" style={{ background: palette.accent }} /></span>
           {palette.name}
         </button>)}
       </div>
       <div className="grid grid-cols-4 gap-1 mt-2">
-        {[['dark', '深色'], ['light', '浅色'], ['cover', '封面背景'], ['color', '图片取色']].map(([value, label]) => <button key={value} className={buttonStyle(theme.paletteId === 'legacy' && mode === value)} aria-pressed={theme.paletteId === 'legacy' && mode === value} onClick={() => { onTheme({ ...theme, paletteId: 'legacy' }); onMode(value); }}>{label}</button>)}
+        {[['dark', '深色'], ['light', '浅色'], ['cover', '封面背景'], ['color', '图片取色']].map(([value, label]) => <button key={value} className={buttonStyle(theme.paletteId === 'legacy' && mode === value)} aria-pressed={theme.paletteId === 'legacy' && mode === value} onClick={() => { onTheme({ ...theme, paletteId: 'legacy', colors: null }); onMode(value); }}>{label}</button>)}
       </div>
     </fieldset>
-    <div className="flex items-center justify-between gap-2 text-xs text-gray-500">
+    {theme.paletteId === 'custom' ? <div className="rounded bg-stone-100 p-3 text-xs text-stone-600 space-y-2">
+      <p>当前使用 AI 完整配色，各区域与文字颜色随方案保存。选择上方预设可切换配色。</p>
+      <div className="flex gap-3">{[['front', '正面'], ['back', '曲目区'], ['spine', '脊背'], ['shortBack', '折页']].map(([panel, label]) => <span key={panel} className="flex items-center gap-1"><span className="inline-block w-4 h-4 rounded border border-stone-300" style={{ background: theme.colors[panel].background }} />{label}</span>)}</div>
+    </div> : <div className="flex items-center justify-between gap-2 text-xs text-gray-500">
       <label className="flex items-center gap-2">强调色<input aria-label="强调色" type="color" value={theme.accent} onChange={event => onTheme({ ...theme, accent: event.target.value })} className="h-7 w-8 bg-transparent cursor-pointer" /></label>
       <button disabled={!hasImage} onClick={onAutoColor} className="disabled:opacity-40 hover:text-orange-800">从封面推荐</button>
-    </div>
+    </div>}
     <fieldset>
       <legend className="text-xs text-gray-500 mb-2">正面布局</legend>
       <div className="grid grid-cols-3 gap-2">

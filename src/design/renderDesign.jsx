@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import JCardPreview from '../components/JCardPreview.jsx';
 import { getFontConfig } from '../config/fonts.js';
-import { resolvePalette, contrastRatio } from '../config/design.mjs';
+import { resolvePalette, contrastRatio, resolvePanelColors, panelColorFailures, MIN_TEXT_CONTRAST } from '../config/design.mjs';
 import { JCARD_DIMENSIONS } from '../constants/app.js';
 import { computeFrontLayout } from '../utils/FrontLayout.js';
 import SpineLayoutEngine from '../utils/SpineLayoutEngine.js';
@@ -14,7 +14,6 @@ import { rasterizeSVG } from '../services/SVGRasterizer.js';
 
 const SIGNATURE_WIDTH = 240;
 const MIN_MEAN_COLOR_DIFFERENCE = 0.5; // Reject near-identical rasterizations, not an aesthetic score.
-const MIN_TEXT_CONTRAST = 4.5;
 
 export function visiblyDifferent(a, b) {
   if (a.length !== b.length) return true;
@@ -26,13 +25,15 @@ export function visiblyDifferent(a, b) {
 export async function renderDesign(snapshot, signal) {
   const fontConfig = getFontConfig(snapshot.fontTheme);
   await bounded(ExportService.ensureFonts(fontConfig), signal);
-  const dominantColor = await bounded(ColorExtractor.extractColor(snapshot.coverImage, { representative: true }), signal);
+  const needsImageColor = snapshot.theme.paletteId === 'legacy' && snapshot.jCardThemeMode === 'color';
+  const dominantColor = needsImageColor ? await bounded(ColorExtractor.extractColor(snapshot.coverImage, { representative: true }), signal) : '#232629';
   checkCancelled(signal);
   if (!dominantColor) throw new Error('无法读取封面颜色。');
   const palette = resolvePalette(snapshot.theme, snapshot.jCardThemeMode, dominantColor);
   const failures = [], warnings = [];
   if (snapshot.theme.paletteId === 'legacy' && snapshot.jCardThemeMode === 'cover') failures.push('封面背景的局部对比度尚不能可靠验证');
-  for (const role of ['text', 'secondary', 'muted']) if (contrastRatio(palette[role], palette.background) < MIN_TEXT_CONTRAST) failures.push('文字与背景对比度不足');
+  if (snapshot.theme.paletteId === 'custom') failures.push(...panelColorFailures(resolvePanelColors(snapshot.theme), snapshot.data.layout.texture));
+  else for (const role of ['text', 'secondary', 'muted']) if (contrastRatio(palette[role], palette.background) < MIN_TEXT_CONTRAST) failures.push('文字与背景对比度不足');
   const front = computeFrontLayout(snapshot.data, fontConfig, snapshot.theme);
   if (front.overflow) failures.push('正面文字超出可读空间');
   const spine = SpineLayoutEngine.compute({ data: snapshot.data, height: JCARD_DIMENSIONS.height, panelWidth: JCARD_DIMENSIONS.panels.spine, fontConfig });

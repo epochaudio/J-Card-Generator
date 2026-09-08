@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
 import SpineLayoutEngine from '../utils/SpineLayoutEngine.js';
 
-const SpineContent = ({ data, height, panelWidth, fontConfig, themeColors, inverted }) => {
-  const { titleColor, idColor } = themeColors;
+const SpineContent = ({ data, height, panelWidth, fontConfig, themeColors, exactColors, inverted }) => {
+  const titleColor = themeColors.title || themeColors.titleColor;
+  const idColor = themeColors.id || themeColors.idColor;
+  const itemColor = item => (exactColors && themeColors[item.role === 'tapeId' ? 'id' : item.role === 'artist' ? 'artist' : 'note']) || (item.fillRole === 'id' ? idColor : titleColor);
 
   const isInverted = inverted !== undefined ? inverted : true;
   const rotation = isInverted ? 90 : -90;
@@ -36,7 +38,7 @@ const SpineContent = ({ data, height, panelWidth, fontConfig, themeColors, inver
           fontFamily={spineLayout.titleFont}
           fontWeight="bold"
           fontSize={spineLayout.title.fontSize}
-          fill={titleColor}
+          data-color-role="spine.title" fill={titleColor}
           textAnchor="middle"
           dominantBaseline="middle"
           transform={`rotate(${rotation})`}
@@ -53,12 +55,12 @@ const SpineContent = ({ data, height, panelWidth, fontConfig, themeColors, inver
           fontFamily={spineLayout.bodyFont}
           fontSize={item.fontSize}
           fontWeight={item.fontOptions.fontWeight}
-          fill={item.fillRole === 'id' ? idColor : titleColor}
+          data-color-role={`spine.${item.role}`} fill={itemColor(item)}
           textAnchor={getAnchor('start')}
           dominantBaseline="middle"
           transform={`rotate(${rotation})`}
           letterSpacing={item.fontOptions.letterSpacing}
-          opacity={item.opacity}
+          opacity={exactColors ? 1 : item.opacity}
         >
           {item.text}
         </text>
@@ -72,12 +74,12 @@ const SpineContent = ({ data, height, panelWidth, fontConfig, themeColors, inver
           fontFamily={spineLayout.bodyFont}
           fontSize={item.fontSize}
           fontWeight={item.fontOptions.fontWeight}
-          fill={item.fillRole === 'id' ? idColor : titleColor}
+          data-color-role={`spine.${item.role}`} fill={itemColor(item)}
           textAnchor={getAnchor('end')}
           dominantBaseline="middle"
           transform={`rotate(${rotation})`}
           letterSpacing={item.fontOptions.letterSpacing}
-          opacity={item.opacity}
+          opacity={exactColors ? 1 : item.opacity}
         >
           {item.text}
         </text>

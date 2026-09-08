@@ -5,29 +5,23 @@ import ContentFront from './ContentFront.jsx';
 import ShortBackContent from './ShortBackContent.jsx';
 import SpineContent from './SpineContent.jsx';
 import { JCARD_DIMENSIONS } from '../constants/app.js';
-import { resolvePalette, contrastInk, readableAccent } from '../config/design.mjs';
+import { resolvePanelColors, contrastInk, PAPER_TEXTURE } from '../config/design.mjs';
 import { computeFrontLayout } from '../utils/FrontLayout.js';
 
 const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingData, jCardThemeMode, dominantColor, fontConfig, onBackStatus }) => {
   const resourcePrefix = `jcard-${useId().replace(/:/g, '')}`;
   const resourceId = name => `${resourcePrefix}-${name}`;
-  const palette = resolvePalette(theme, jCardThemeMode, dominantColor);
+  const colors = resolvePanelColors(theme, jCardThemeMode, dominantColor, !!data.layout?.minimalSpine);
+  const customColors = theme.paletteId === 'custom';
   const curThemeMode = theme.paletteId && theme.paletteId !== 'legacy' ? 'palette' : jCardThemeMode || 'dark';
   const width = JCARD_DIMENSIONS.width;
   const height = JCARD_DIMENSIONS.height;
-  const bgFill = palette.background;
+  const bgFill = colors.front.background;
   const isLight = contrastInk(bgFill) !== '#ffffff';
-  // A strong neutral mask makes local image brightness less disruptive.
   const coverMaskColor = '#000000';
   const coverMaskOpacity = 0.86;
-  const textColor = curThemeMode === 'cover' ? '#ffffff' : palette.text;
-  const subTextColor = curThemeMode === 'cover' ? '#e5e5e5' : palette.secondary;
-  const dimTextColor = curThemeMode === 'cover' ? '#c9c9c9' : palette.muted;
-  const isMinimalSpine = !!data.layout?.minimalSpine;
-  const spineFill = isMinimalSpine ? bgFill : palette.accent;
-  const spineTitleColor = isMinimalSpine ? textColor : contrastInk(spineFill);
-  const spineIdColor = isMinimalSpine ? readableAccent(theme.accent, spineFill) : spineTitleColor;
-  const effectiveTheme = { ...theme, accent: readableAccent(theme.accent, curThemeMode === 'cover' ? '#232629' : bgFill), divider: palette.divider };
+  const textColor = colors.front.title;
+  const panelTheme = panel => ({ ...theme, accent: colors[panel].accent, divider: colors[panel].divider, panelColors: customColors ? colors[panel] : undefined, exactColors: customColors });
   const frontLayout = useMemo(() => computeFrontLayout(data, fontConfig, theme), [data, fontConfig, theme]);
 
   const wShort = JCARD_DIMENSIONS.panels.shortBack;
@@ -43,7 +37,7 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
       <defs>
         <filter id={resourceId('noise')}>
           <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" />
-          <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.15 0" />
+          <feColorMatrix type="matrix" values={`0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 ${PAPER_TEXTURE.inkAlpha} 0`} />
         </filter>
         <filter id={resourceId('bg-blur')}>
           <feGaussianBlur in="SourceGraphic" stdDeviation={30} />
@@ -69,18 +63,22 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
           <rect x="0" y="0" width={width} height={height} fill={coverMaskColor} opacity={coverMaskOpacity} />
         </>
       ) : (
-        <rect x="0" y="0" width={width} height={height} fill={bgFill} />
+        <rect x="0" y="0" width={width} height={height} data-panel-background="front" fill={bgFill} />
       )}
-      {data.layout?.texture && <rect x="0" y="0" width={width} height={height} fill="transparent" filter={`url(#${resourceId('noise')})`} opacity="0.12" />}
+      {customColors && <>
+        <rect data-panel-background="shortBack" x="0" y="0" width={wShort} height={height} fill={colors.shortBack.background} />
+        <rect data-panel-background="back" x={xBack} y="0" width={wBack} height={height} fill={colors.back.background} />
+      </>}
+      {data.layout?.texture && <rect x="0" y="0" width={width} height={height} fill="transparent" filter={`url(#${resourceId('noise')})`} opacity={PAPER_TEXTURE.opacity} />}
 
-      <rect x={xSpine} y="0" width={wSpine} height={height} fill={spineFill}  />
+      <rect x={xSpine} y="0" width={wSpine} height={height} data-panel-background="spine" fill={colors.spine.background}  />
 
-      <line x1={xSpine} y1="0" x2={xSpine} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.2" />
-      <line x1={xFront} y1="0" x2={xFront} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.2" />
-      <line x1={xBack} y1="0" x2={xBack} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.3" />
+      <line x1={xSpine} y1="0" x2={xSpine} y2={height} stroke={customColors ? colors.shortBack.divider : textColor} strokeWidth="2" strokeDasharray="4,4" opacity={customColors ? 1 : 0.2} />
+      <line x1={xFront} y1="0" x2={xFront} y2={height} stroke={customColors ? colors.spine.divider : textColor} strokeWidth="2" strokeDasharray="4,4" opacity={customColors ? 1 : 0.2} />
+      <line x1={xBack} y1="0" x2={xBack} y2={height} stroke={customColors ? colors.back.divider : textColor} strokeWidth="2" strokeDasharray="4,4" opacity={customColors ? 1 : 0.3} />
 
       <g clipPath={`url(#${resourceId('panel-short-back')})`}>
-        <ShortBackContent width={wShort} data={data} theme={effectiveTheme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} fontConfig={fontConfig} />
+        <ShortBackContent width={wShort} data={data} theme={panelTheme('shortBack')} isLight={isLight} textColor={colors.shortBack.heading} subTextColor={colors.shortBack.metadata} dimTextColor={colors.shortBack.label} recordingData={recordingData} fontConfig={fontConfig} />
       </g>
 
       <g clipPath={`url(#${resourceId('panel-spine')})`}>
@@ -90,18 +88,18 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
             height={height}
             panelWidth={wSpine}
             fontConfig={fontConfig}
-            themeColors={{ titleColor: spineTitleColor, idColor: spineIdColor }}
+            themeColors={colors.spine} exactColors={customColors}
             inverted={!!data.layout?.spineInverted}
           />
         </g>
       </g>
 
       <g clipPath={`url(#${resourceId('panel-front')})`}>
-        <ContentFront resourceId={resourceId} xOffset={xFront} width={wFront} data={data} theme={effectiveTheme} coverImage={coverImage} coverImageB={coverImageB} frontStyle={data.layout?.frontStyle || 'STANDARD'} textColor={textColor} subTextColor={subTextColor} frontLayout={frontLayout} />
+        <ContentFront resourceId={resourceId} xOffset={xFront} width={wFront} data={data} theme={panelTheme('front')} coverImage={coverImage} coverImageB={coverImageB} frontStyle={data.layout?.frontStyle || 'STANDARD'} textColor={colors.front.title} subTextColor={colors.front.artist} frontLayout={frontLayout} />
       </g>
 
       <g clipPath={`url(#${resourceId('panel-flap')})`} transform={`translate(${xBack}, 0)`}>
-        <ContentBack onLayoutStatus={onBackStatus} width={wBack} data={data} theme={effectiveTheme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} fontConfig={fontConfig} />
+        <ContentBack onLayoutStatus={onBackStatus} width={wBack} data={data} theme={panelTheme('back')} isLight={isLight} textColor={colors.back.heading} subTextColor={colors.back.metadata} dimTextColor={colors.back.label} recordingData={recordingData} fontConfig={fontConfig} />
       </g>
     </svg>
   );

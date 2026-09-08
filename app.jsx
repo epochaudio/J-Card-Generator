@@ -1030,7 +1030,7 @@ export default function App() {
                   <input type="checkbox" checked={data.layout.forceCaps} onChange={(e) => setData({ ...data, layout: { ...data.layout, forceCaps: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-white border-gray-300" /> 强制大写
                 </label>
                 <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                  <input type="checkbox" checked={data.layout.minimalSpine} onChange={(e) => setData({ ...data, layout: { ...data.layout, minimalSpine: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-white border-gray-300" /> 极简脊部
+                  <input type="checkbox" disabled={theme.paletteId === 'custom'} title={theme.paletteId === 'custom' ? 'AI 完整配色已指定脊背颜色；切换预设后可使用极简脊部' : undefined} checked={data.layout.minimalSpine} onChange={(e) => setData({ ...data, layout: { ...data.layout, minimalSpine: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-white border-gray-300" /> {theme.paletteId === 'custom' ? '脊背采用 AI 配色' : '极简脊部'}
                 </label>
                 {/* [NEW] Spine Orientation Toggle */}
                 <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">

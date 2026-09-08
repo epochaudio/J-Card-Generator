@@ -9,7 +9,8 @@ const TEXT_MAX_TOKENS = 12000;
 export const VISION_MAX_IMAGES = 3;
 export const VISION_MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 export const VISION_MAX_PROMPT_LENGTH = 40000;
-const VISION_MAX_TOKENS = 3500;
+// Up to six complete four-panel color designs plus their explanations.
+const VISION_MAX_TOKENS = 8000;
 const BASE64_ENCODING_CHUNK_BYTES = 8192;
 export const MODELS_TIMEOUT_MS = 20000;
 export const MODELS_PAGE_SIZE = 100;

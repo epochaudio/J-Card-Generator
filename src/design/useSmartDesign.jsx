@@ -2,8 +2,9 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { aiTransport } from '../ai/aiTransport.mjs';
 import { resolveProvider } from '../ai/providerConfig.mjs';
 import { supportsVision } from '../ai/modelCatalog.mjs';
-import { applyDesignFields, buildDesignInput, contentStamp, designChange, designFields, designPrompt, DIRECTIONS, eligibility, parseDesignCandidates, selectDesignCandidates } from './smartDesign.mjs';
+import { buildDesignInput, contentStamp, designChange, designFields, designPrompt, DIRECTIONS, eligibility } from './smartDesign.mjs';
 import { checkCancelled, prepareDesignImages } from './designMaterials.js';
+import { generateDesigns } from './generateDesigns.mjs';
 import { renderDesign, visiblyDifferent } from './renderDesign.jsx';
 
 export default function useSmartDesign({ snapshot, settings, projectIdentity, onApply, ready }) {
@@ -40,7 +41,7 @@ export default function useSmartDesign({ snapshot, settings, projectIdentity, on
       if (differentProject || old.stamp !== stamp || manualDesign || old.configuration !== configuration || old.locks !== next.locks || old.intent !== intent) {
         invalidate('素材或设置已变化，请重新生成搭配。');
       }
-      if (differentProject || (manualDesign && undoRef.current && Object.keys(undoRef.current.after).some(key => designFields(snapshot)[key] !== undoRef.current.after[key]))) setUndo(null);
+      if (differentProject || (manualDesign && undoRef.current && Object.keys(undoRef.current.after).some(key => JSON.stringify(designFields(snapshot)[key]) !== JSON.stringify(undoRef.current.after[key])))) setUndo(null);
       if (differentProject) { setLocks({ font: false, palette: false }); setIntent(''); setMessage(''); }
     }
     managedDesign.current = null;
@@ -63,21 +64,10 @@ export default function useSmartDesign({ snapshot, settings, projectIdentity, on
     try {
       const input = buildDesignInput(current.snapshot, current.locks, current.intent);
       const images = await prepareDesignImages(current.snapshot, controller.signal); active();
-      setStatus('视觉模型正在根据素材设计…');
-      const result = await aiTransport.vision(current.settings, designPrompt(input), images, controller.signal); active();
-      const parsed = parseDesignCandidates(result, current.snapshot, current.locks);
-      const measured = [], rejected = [...parsed.rejected];
-      for (const [index, candidate] of parsed.candidates.entries()) {
-        active(); setStatus(`检查排版 ${index + 1} / ${parsed.candidates.length}…`);
-        const candidateSnapshot = applyDesignFields(current.snapshot, candidate.fields);
-        try {
-          const rendered = await renderDesign(candidateSnapshot, controller.signal); active();
-          if (rendered.failures.length) { rejected.push(`${DIRECTIONS[candidate.direction]}：${rendered.failures.join('；')}`); continue; }
-          measured.push({ ...candidate, ...rendered });
-        } catch (error) { active(); rejected.push(`${DIRECTIONS[candidate.direction]}：${error.message}`); }
-      }
-      const selected = selectDesignCandidates(measured, (a, b) => visiblyDifferent(a.signature, b.signature));
-      for (const direction of Object.keys(DIRECTIONS)) if (!selected.some(candidate => candidate.direction === direction) && measured.some(candidate => candidate.direction === direction)) rejected.push(`${DIRECTIONS[direction]}：实际效果与其他方案过于接近`);
+      const generated = await generateDesigns({ snapshot: current.snapshot, locks: current.locks,
+        prompt: designPrompt(input), request: prompt => aiTransport.vision(current.settings, prompt, images, controller.signal),
+        render: candidate => renderDesign(candidate, controller.signal), different: visiblyDifferent, active, status: setStatus });
+      const { candidates: selected, rejected } = generated;
       active();
       if (!selected.length) { setMessage(`没有通过检查的方案。${rejected.join('；') || '模型没有提供可用组合。'}`); return; }
       setStatus('准备当前作品对照（仅在本地）…');
@@ -93,7 +83,7 @@ export default function useSmartDesign({ snapshot, settings, projectIdentity, on
     const current = latest.current;
     // Layout-effect invalidation normally handles these; verify again at the write boundary.
     if (previous.current?.stamp !== contentStamp(current.snapshot) || previous.current?.design !== JSON.stringify(designFields(current.snapshot))) { invalidate('作品已变化，请重新生成。'); return; }
-    if ((locks.font && candidate.fields.fontTheme !== current.snapshot.fontTheme) || (locks.palette && (candidate.fields.paletteId !== current.snapshot.theme.paletteId || candidate.fields.accent !== current.snapshot.theme.accent))) { invalidate('锁定设置已变化，请重新生成。'); return; }
+    if ((locks.font && candidate.fields.fontTheme !== current.snapshot.fontTheme) || (locks.palette && (candidate.fields.paletteId !== current.snapshot.theme.paletteId || candidate.fields.accent !== current.snapshot.theme.accent || JSON.stringify(candidate.fields.colors) !== JSON.stringify(current.snapshot.theme.colors || null)))) { invalidate('锁定设置已变化，请重新生成。'); return; }
     const before = designFields(current.snapshot);
     const patch = designChange(before, candidate.fields);
     if (!Object.keys(patch).length) { setMessage('当前作品已使用这套搭配。'); return; }
@@ -105,7 +95,7 @@ export default function useSmartDesign({ snapshot, settings, projectIdentity, on
     const record = undoRef.current; if (!record || !ready) return;
     const current = latest.current;
     const fields = designFields(current.snapshot);
-    if (Object.entries(record.after).some(([key, value]) => fields[key] !== value)) { setUndo(null); setMessage('设计已手动修改，撤销记录已结束。'); return; }
+    if (Object.entries(record.after).some(([key, value]) => JSON.stringify(fields[key]) !== JSON.stringify(value))) { setUndo(null); setMessage('设计已手动修改，撤销记录已结束。'); return; }
     managedDesign.current = JSON.stringify({ ...fields, ...record.before });
     current.onApply(record.before); setUndo(null); setMessage('已撤销本次搭配，其他内容编辑保留。');
   };

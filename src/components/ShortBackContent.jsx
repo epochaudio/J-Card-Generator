@@ -17,6 +17,7 @@ const ShortBackContent = ({
   recordingData,
   fontConfig
 }) => {
+  const colors = theme.panelColors || {};
   const bodyFont = fontConfig?.fonts?.body || 'Arial, sans-serif';
   const titleFont = fontConfig?.fonts?.title || 'Arial, sans-serif';
   const monoFont = fontConfig?.fonts?.mono || 'Courier New, monospace';
@@ -158,7 +159,7 @@ const ShortBackContent = ({
             <text x="0" y={meta.release.labelY} fontSize={meta.release.labelFontSize} fill={dimTextColor} letterSpacing="4" textAnchor="end" dominantBaseline="hanging">
               {meta.release.label}
             </text>
-            <text x="0" y={meta.release.valueY} fontSize={meta.release.valueFontSize} fill={textColor} fontWeight="bold" letterSpacing="1" textAnchor="end" dominantBaseline="hanging">
+            <text x="0" y={meta.release.valueY} fontSize={meta.release.valueFontSize} data-color-role="shortBack.metadata" fill={colors.metadata || textColor} fontWeight="bold" letterSpacing="1" textAnchor="end" dominantBaseline="hanging">
               {meta.release.value}
             </text>
           </g>
@@ -167,7 +168,7 @@ const ShortBackContent = ({
             <text x="0" y={meta.recorded.labelY} fontSize={meta.recorded.labelFontSize} fill={dimTextColor} letterSpacing="4" textAnchor="end" dominantBaseline="hanging">
               {meta.recorded.label}
             </text>
-            <text x="0" y={meta.recorded.valueY} fontSize={meta.recorded.valueFontSize} fill={theme.accent} fontWeight="bold" letterSpacing="1" textAnchor="end" dominantBaseline="hanging">
+            <text x="0" y={meta.recorded.valueY} fontSize={meta.recorded.valueFontSize} fill={colors.metadata || theme.accent} fontWeight="bold" letterSpacing="1" textAnchor="end" dominantBaseline="hanging">
               {meta.recorded.value}
             </text>
           </g>
@@ -183,8 +184,8 @@ const ShortBackContent = ({
         {compactTrackLayout.map((side) => (
           <g key={side.key} transform={`translate(${SHORT_BACK_PADDING_X}, ${side.startY})`}>
             <circle cx="18" cy="0" r="18" fill={theme.accent} />
-            <text x="18" y="1" fontFamily={monoFont} fontWeight="bold" fontSize="20" fill={contrastInk(theme.accent)} textAnchor="middle" dominantBaseline="middle">{side.key}</text>
-            <text x={width - SHORT_BACK_PADDING_X * 2} y="1" fontFamily={monoFont} fontSize="14" fontWeight="bold" fill={subTextColor} textAnchor="end" dominantBaseline="middle">
+            <text x="18" y="1" fontFamily={monoFont} fontWeight="bold" fontSize="20" data-color-role="shortBack.badgeText" fill={colors.badgeText || contrastInk(theme.accent)} textAnchor="middle" dominantBaseline="middle">{side.key}</text>
+            <text x={width - SHORT_BACK_PADDING_X * 2} y="1" fontFamily={monoFont} fontSize="14" fontWeight="bold" data-color-role="shortBack.duration" fill={colors.duration || subTextColor} textAnchor="end" dominantBaseline="middle">
               {side.duration}
             </text>
 
@@ -195,11 +196,11 @@ const ShortBackContent = ({
                 y={track.y - 12}
                 fontFamily={bodyFont}
                 fontSize={side.trackFontSize}
-                fill={subTextColor}
+                data-color-role="shortBack.track" fill={colors.track || subTextColor}
                 dominantBaseline="hanging"
               >
                 <tspan x="0" dy="0">
-                  <tspan fontFamily={monoFont} fontSize={side.numberFontSize} fill={dimTextColor}>
+                  <tspan fontFamily={monoFont} fontSize={side.numberFontSize} fill={colors.number || dimTextColor}>
                     {String(index + 1).padStart(2, '0')}
                   </tspan>
                   <tspan dx="8" fontWeight="bold">

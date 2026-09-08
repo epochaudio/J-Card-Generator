@@ -1,10 +1,11 @@
+import { designCandidate, panelColors } from './fixtures/panelColors.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeSnapshot, parseProject, serializeProject } from '../src/project/projectFormat.mjs';
 import { applyDesignFields, buildDesignInput, contentStamp, designChange, designFields, eligibility, parseDesignCandidates, selectDesignCandidates } from '../src/design/smartDesign.mjs';
 
 const album = () => normalizeSnapshot({ data: { title: '夜色与回声', artist: '林间 Quartet', sideA: [{ id: 'a', title: '回声 Echo', duration: '3:25' }], sideB: [] }, theme: { paletteId: 'paper' }, fontTheme: 'modern' });
-const candidate = patch => ({ direction: 'harmony', fontTheme: 'editorial', paletteId: 'warm', frontStyle: 'EDITORIAL', titleSize: 'balanced', reason: '暖色呼应画面，衬线标题强调作品气质。', ...patch });
+const candidate = designCandidate;
 
 test('unlocked source input does not contain or depend on current design, image prompt, API settings or current rendering', () => {
   const a = album(), b = applyDesignFields(a, { fontTheme: 'handwritten', paletteId: 'cool', accent: '#abcdef', frontStyle: 'EDITORIAL', titleSize: 'expressive' });
@@ -17,7 +18,7 @@ test('unlocked source input does not contain or depend on current design, image 
 test('only explicitly locked values enter constraints and matching candidates retain the exact accent', () => {
   const a = album(); a.theme.accent = '#b45122';
   assert.deepEqual(buildDesignInput(a, { font: true }).locked, { fontTheme: a.fontTheme });
-  const output = parseDesignCandidates({ candidates: [candidate(), candidate({ fontTheme: a.fontTheme, paletteId: a.theme.paletteId })] }, a, { font: true, palette: true });
+  const output = parseDesignCandidates({ candidates: [candidate(), candidate({ fontTheme: a.fontTheme, paletteId: a.theme.paletteId, colors: null })] }, a, { font: true, palette: true });
   assert.equal(output.candidates.length, 1); assert.equal(output.candidates[0].fields.accent, '#b45122'); assert.equal(output.rejected.length, 1);
 });
 test('invalid, duplicate, unknown or content-changing candidates are rejected without changing source', () => {

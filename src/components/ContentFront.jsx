@@ -1,8 +1,16 @@
 import React from 'react';
+import { splitWrappedLine } from '../utils/splitWrappedLine.mjs';
 
 import { JCARD_DIMENSIONS } from '../constants/app.js';
 
 const ContentFront = ({ resourceId, xOffset, width, data, theme, coverImage, coverImageB, frontStyle, textColor, subTextColor, frontLayout }) => {
+  const colors = theme.panelColors;
+  const blockText = (block, index) => {
+    const line = block.lines[index];
+    if (!theme.exactColors || block.role !== 'artist' || !theme.mood_description) return line;
+    const [artist, subtitle] = splitWrappedLine(block.text, block.lines, index, String(data.artist || '').length);
+    return <>{artist}<tspan data-color-role="front.subtitle" fill={colors.subtitle}>{subtitle}</tspan></>;
+  };
   const panelHeight = JCARD_DIMENSIONS.height;
 
   if (frontStyle === 'REVERSIBLE') {
@@ -54,12 +62,14 @@ const ContentFront = ({ resourceId, xOffset, width, data, theme, coverImage, cov
           <circle cx={width / 2} cy={image.y + image.size / 2} r={image.size * 0.025} strokeWidth="2" />
         </g>
       )}
+      {theme.exactColors && <rect data-color-role="front.border" x={image.x} y={image.y} width={image.size} height={image.size} fill="none" stroke={colors.border} />}
       {blocks.map(block => {
         const badgeLeft = block.role === 'badge' && data.layout?.coverBadgeAlign === 'left';
         return <g key={block.role} data-front-role={block.role}>
+          {theme.exactColors && block.role === 'badge' && <rect data-color-role="front.badgeBackground" x={margin} y={block.y - block.ascent} width={width - margin * 2} height={block.lines.length * block.lineHeight} fill={colors.badgeBackground} />}
           {block.lines.map((line, index) => <text key={index} x={badgeLeft ? margin : x} y={block.y + index * block.lineHeight}
             textAnchor={badgeLeft ? 'start' : anchor} fontFamily={block.font} fontWeight={block.weight} fontSize={block.size}
-            letterSpacing={block.tracking} fill={block.role === 'title' ? textColor : subTextColor}>{line}</text>)}
+            letterSpacing={block.tracking} data-color-role={`front.${block.role}`} fill={colors?.[block.role] || (block.role === 'title' ? textColor : subTextColor)}>{blockText(block, index)}</text>)}
         </g>;
       })}
     </g>

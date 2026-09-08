@@ -9,7 +9,7 @@ const button = 'rounded border border-stone-300 px-3 py-1.5 text-xs hover:bg-sto
 const titleSizes = { compact: '克制', balanced: '均衡', expressive: '醒目' };
 function CandidateDetails({ candidate }) {
   return <>
-    <p className="text-xs text-stone-600">{FONT_THEMES[candidate.fields.fontTheme].name} · {PALETTES[candidate.fields.paletteId]?.name || '锁定配色'} · {candidate.fields.frontStyle === 'EDITORIAL' ? '编辑左齐' : '经典居中'} · 标题{titleSizes[candidate.fields.titleSize]}</p>
+    <p className="text-xs text-stone-600">{FONT_THEMES[candidate.fields.fontTheme].name} · {candidate.fields.paletteId === 'custom' ? 'AI 完整配色' : PALETTES[candidate.fields.paletteId]?.name || '锁定配色'} · {candidate.fields.frontStyle === 'EDITORIAL' ? '编辑左齐' : '经典居中'} · 标题{titleSizes[candidate.fields.titleSize]}</p>
     <p className="text-sm leading-relaxed text-stone-700">{candidate.reason}</p>
     <p className="text-xs text-stone-500">实测标题 {candidate.metrics.titleLines} 行 · {candidate.metrics.backFolded ? '背面紧凑显示' : '背面未启用信息折叠'}</p>
     {candidate.warnings.map(warning => <p key={warning} className="text-xs text-amber-800">{warning}</p>)}
@@ -61,7 +61,7 @@ export default function SmartDesignPanel(props) {
       {design.undo && <button className={button} onClick={design.revert} disabled={!props.ready}>撤销本次搭配</button>}
       <button className={button} onClick={props.onSettings}>视觉模型设置</button>
     </div>
-    <p className="text-[11px] text-stone-500">每次生成最多一次视觉请求；预览、应用与撤销不调用 AI。</p>
+    <p className="text-[11px] text-stone-500">AI 自主决定各区域和文字颜色；检查未通过时最多自动修订一次。预览、应用与撤销不调用 AI。</p>
     {design.unavailable && <p className="text-xs text-amber-800">{design.unavailable}</p>}
     <p role="status" aria-live="polite" className="text-xs text-stone-700">{design.busy ? design.status : design.message}</p>
     {design.batch && <div className="space-y-3">

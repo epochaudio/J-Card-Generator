@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
+import { splitWrappedLine } from '../utils/splitWrappedLine.mjs';
 
 import { JCARD_DIMENSIONS } from '../constants/app.js';
 import { formatDurationMs, parseDurationToMs } from '../utils/formatDuration.mjs';
@@ -212,6 +213,7 @@ const buildDisplayGroups = (groups, strategy, isClassical) => {
 
 
 const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTextColor, dimTextColor, recordingData, fontConfig, onLayoutStatus }) => {
+  const colors = theme.panelColors || {};
   const columns = !isCompact && data.layout?.mode !== 'CLASSICAL';
   const contentHeight = JCARD_DIMENSIONS.height;
   const marginY = isCompact ? 60 : 80;
@@ -537,6 +539,12 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   // 字体配置（渲染时用）
   // (已提升至全局作用域)
 
+  const colorTrackLine = (line, lineIndex, lines, item) => {
+    if (!theme.exactColors || !columns || !item.showArtist || !item.artist) return line;
+    const [title, artist] = splitWrappedLine(displayTitle(item), lines, lineIndex, String(item.displayTitle || '').length);
+    return <>{title}<tspan data-color-role="back.artist" fill={colors.artist || dimTextColor}>{artist}</tspan></>;
+  };
+
   const renderSideHeader = (sideLabel, duration) => (
     <g>
       <text
@@ -557,7 +565,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         fontFamily={monoFont}
         fontSize={sideHeaderDurationFontSize}
         fontWeight="bold"
-        fill={subTextColor}
+        data-color-role="back.duration" fill={colors.duration || subTextColor}
         letterSpacing="1.2"
         textAnchor="end"
         dominantBaseline="hanging"
@@ -608,7 +616,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
             selectedStrategy.maxContentLines
           );
           contentNode = contentLines.map((line, lIdx) => (
-            <text key={`c-${i}-${lIdx}`} x="0" y={yCursor + calculatedLH * 0.5 + (lIdx * calculatedLH * 0.85)} fill={dimTextColor} fontSize={trackFontSize - 1} dominantBaseline="middle">
+            <text key={`c-${i}-${lIdx}`} x="0" y={yCursor + calculatedLH * 0.5 + (lIdx * calculatedLH * 0.85)} fill={colors.track || dimTextColor} fontSize={trackFontSize - 1} dominantBaseline="middle">
               {line}
             </text>
           ));
@@ -625,7 +633,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
             selectedStrategy.maxContentLines
           );
           contentNode = contentLines.map((line, lIdx) => (
-            <text key={`s-${i}-${lIdx}`} x="0" y={yCursor + calculatedLH * 0.48 + (lIdx * calculatedLH * 0.8)} fill={dimTextColor} fontSize={summaryFontSize} fontFamily={monoFont} letterSpacing="0.5" dominantBaseline="middle">
+            <text key={`s-${i}-${lIdx}`} x="0" y={yCursor + calculatedLH * 0.48 + (lIdx * calculatedLH * 0.8)} fill={colors.duration || dimTextColor} fontSize={summaryFontSize} fontFamily={monoFont} letterSpacing="0.5" dominantBaseline="middle">
               {line}
             </text>
           ));
@@ -640,8 +648,8 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
             yCursor += calculatedLH;
             localIdx++;
             return (
-              <text key={`st-${i}-${tidx}`} x="15" y={thisY + calculatedLH * 0.5} fill={subTextColor} fontSize={trackFontSize} dominantBaseline="middle">
-                <tspan fill={dimTextColor}>•</tspan> <tspan dx={5}>{t.displayTitle}</tspan>
+              <text key={`st-${i}-${tidx}`} x="15" y={thisY + calculatedLH * 0.5} fill={colors.track || subTextColor} fontSize={trackFontSize} dominantBaseline="middle">
+                <tspan fill={colors.number || dimTextColor}>•</tspan> <tspan dx={5}>{t.displayTitle}</tspan>
               </text>
             );
           });
@@ -661,10 +669,10 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         const baseline = thisY + calculatedLH * (noteLines.length ? 0.35 : 0.5);
         yCursor += calculatedLH + (titleLines.length - 1) * calculatedLH * 0.85 + noteLines.length * noteFontSize * 1.2;
         return <g key={`track-${i}`} data-track-row="columns">
-          <text x="0" y={baseline} fontFamily={monoFont} fontSize={Math.max(trackFontSize - 2, trackNumberFontFloor)} fill={dimTextColor} dominantBaseline="middle">{String(localIdx).padStart(2, '0')}</text>
-          {titleLines.map((line, index) => <text key={index} x={numberColumn} y={baseline + index * calculatedLH * 0.85} fontFamily={bodyFont} fontSize={trackFontSize} fontWeight="bold" fill={textColor} dominantBaseline="middle">{line}</text>)}
-          {item.showDuration && <text x={usableWidth} y={baseline} textAnchor="end" fontFamily={monoFont} fontSize={Math.max(trackFontSize - 4, trackTailFontFloor)} fill={dimTextColor} dominantBaseline="middle">{item.duration}</text>}
-          {noteLines.map((line, index) => <text key={`note-${index}`} x={numberColumn} y={thisY + calculatedLH * 0.7 + (titleLines.length - 1) * calculatedLH * 0.85 + index * noteFontSize * 1.2} fontSize={noteFontSize} fill={dimTextColor} dominantBaseline="hanging">{line}</text>)}
+          <text x="0" y={baseline} fontFamily={monoFont} fontSize={Math.max(trackFontSize - 2, trackNumberFontFloor)} data-color-role="back.number" fill={colors.number || dimTextColor} dominantBaseline="middle">{String(localIdx).padStart(2, '0')}</text>
+          {titleLines.map((line, index) => <text key={index} x={numberColumn} y={baseline + index * calculatedLH * 0.85} fontFamily={bodyFont} fontSize={trackFontSize} fontWeight="bold" data-color-role="back.track" fill={colors.track || textColor} dominantBaseline="middle">{colorTrackLine(line, index, titleLines, item)}</text>)}
+          {item.showDuration && <text x={usableWidth} y={baseline} textAnchor="end" fontFamily={monoFont} fontSize={Math.max(trackFontSize - 4, trackTailFontFloor)} data-color-role="back.duration" fill={colors.duration || dimTextColor} dominantBaseline="middle">{item.duration}</text>}
+          {noteLines.map((line, index) => <text key={`note-${index}`} x={numberColumn} y={thisY + calculatedLH * 0.7 + (titleLines.length - 1) * calculatedLH * 0.85 + index * noteFontSize * 1.2} fontSize={noteFontSize} data-color-role="back.note" fill={colors.note || dimTextColor} dominantBaseline="hanging">{line}</text>)}
         </g>;
       }
 
@@ -701,11 +709,11 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
         const isFirstLine = lineIdx === 0;
         const numSize = Math.max(trackFontSize - 2, trackNumberFontFloor);
         return (
-          <text key={`t-${i}-${lineIdx}`} x="0" y={thisY + calculatedLH * (hasNote ? 0.35 : 0.5) + (lineIdx * calculatedLH * 0.85)} fill={subTextColor} fontSize={trackFontSize} dominantBaseline="middle">
-            {isFirstLine && !isClassical && <tspan fontWeight="normal" fontFamily={monoFont} fontSize={numSize} fill={dimTextColor}>{String(localIdx).padStart(2, '0')}</tspan>}
+          <text key={`t-${i}-${lineIdx}`} x="0" y={thisY + calculatedLH * (hasNote ? 0.35 : 0.5) + (lineIdx * calculatedLH * 0.85)} fill={colors.track || subTextColor} fontSize={trackFontSize} dominantBaseline="middle">
+            {isFirstLine && !isClassical && <tspan fontWeight="normal" fontFamily={monoFont} fontSize={numSize} fill={colors.number || dimTextColor}>{String(localIdx).padStart(2, '0')}</tspan>}
             <tspan fontWeight="bold" dx={isFirstLine ? 12 : 32}>{line}</tspan>
-            {isFirstLine && item.showArtist && !isCompact && <tspan fill={dimTextColor}> - {item.artist}</tspan>}
-            {isFirstLine && item.showDuration && !isCompact && !isClassical && <tspan fontSize={Math.max(trackFontSize - 4, trackTailFontFloor)} fontFamily={monoFont} fill={dimTextColor}>  {item.duration}</tspan>}
+            {isFirstLine && item.showArtist && !isCompact && <tspan fill={colors.artist || dimTextColor}> - {item.artist}</tspan>}
+            {isFirstLine && item.showDuration && !isCompact && !isClassical && <tspan fontSize={Math.max(trackFontSize - 4, trackTailFontFloor)} fontFamily={monoFont} fill={colors.duration || dimTextColor}>  {item.duration}</tspan>}
           </text>
         );
       });
@@ -716,7 +724,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
       }
 
       const noteNode = hasNote && noteLines.slice(0, 2).map((line, lineIdx) => (
-        <text key={`n-${i}-${lineIdx}`} x="25" y={thisY + calculatedLH * 0.7 + (titleLines.length - 1) * calculatedLH * 0.85 + (lineIdx * noteFontSize * 1.2)} fontSize={noteFontSize} fill={dimTextColor} dominantBaseline="hanging" opacity="0.8">
+        <text key={`n-${i}-${lineIdx}`} x="25" y={thisY + calculatedLH * 0.7 + (titleLines.length - 1) * calculatedLH * 0.85 + (lineIdx * noteFontSize * 1.2)} fontSize={noteFontSize} data-color-role="back.note" fill={colors.note || dimTextColor} dominantBaseline="hanging" opacity={theme.exactColors ? 1 : 0.8}>
           {line}
         </text>
       ));
@@ -818,14 +826,14 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
           <g transform={`translate(${contentHeight - 50}, 40)`}>
             <g>
               <text x="0" y="0" fontSize="12" fill={dimTextColor} letterSpacing="4" textAnchor="end">RELEASED</text>
-              <text x="0" y="32" fontSize="32" fill={textColor} fontWeight="bold" letterSpacing="1" textAnchor="end">
+              <text x="0" y="32" fontSize="32" fill={colors.metadata || textColor} fontWeight="bold" letterSpacing="1" textAnchor="end">
                 {(data.releaseDate || "").split(/[-.]/)[0]}
               </text>
             </g>
 
             <g transform={`translate(0, 96)`}>
               <text x="0" y="0" fontSize="12" fill={dimTextColor} letterSpacing="4" textAnchor="end">RECORDED</text>
-              <text x="0" y="32" fontSize="32" fill={theme.accent} fontWeight="bold" letterSpacing="1" textAnchor="end">
+              <text x="0" y="32" fontSize="32" fill={colors.metadata || theme.accent} fontWeight="bold" letterSpacing="1" textAnchor="end">
                 {recordingData?.recDate || ""}
               </text>
             </g>
