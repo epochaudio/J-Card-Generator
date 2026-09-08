@@ -68,6 +68,10 @@ const SettingsModal = ({ isOpen, aiSettings, onClose, onSave, ready, loadError, 
     if (savingRef.current) return;
     savingRef.current = true; setSaving(true); setMessage(''); setFailed(false);
     try {
+      if (draft.visionProvider && !draft.providers[draft.visionProvider].visionModel.trim()) {
+        const name = PROVIDERS[draft.visionProvider].name;
+        throw new Error(`尚未填写${name}的视觉模型 ID。请填写“${name} 视觉模型（保存值）”；列表筛选文字不会保存。`);
+      }
       const result = await onSave(draft);
       setMessage(result.warning || '设置已保存；密钥是否有效、账户套餐与余额尚未验证。');
     } catch (error) { setFailed(true); setMessage(error.message); }
@@ -82,14 +86,14 @@ const SettingsModal = ({ isOpen, aiSettings, onClose, onSave, ready, loadError, 
       <div className="p-5 space-y-4 overflow-y-auto">
         <p className="text-sm text-gray-300">当前接入：<strong className="text-orange-300">普通 API · 按实际调用计费</strong>。不会自动切换服务商或订阅通道。</p>
         <div className="grid grid-cols-2 gap-4">
-          {[['textProvider', '文本服务商'], ['imageProvider', '图片服务商']].map(([field, label]) => <label key={field} className="text-sm space-y-1 block">{label}
+          {[['textProvider', '文本服务商'], ['imageProvider', '图片服务商'], ['visionProvider', '视觉分析服务商']].map(([field, label]) => <label key={field} className="text-sm space-y-1 block">{label}
             <select aria-label={label} disabled={saving || !ready} value={draft[field]} onChange={event => { setDraft(prev => ({...prev,[field]:event.target.value})); setMessage('有未保存的设置'); }} className={inputClass}>
               <option value="">请选择服务商</option>
-              {providersFor(field === 'imageProvider' ? 'image' : 'text').map(id => <option key={id} value={id}>{PROVIDERS[id].name}</option>)}
+              {providersFor(field.replace('Provider', '')).map(id => <option key={id} value={id}>{PROVIDERS[id].name}</option>)}
             </select>
           </label>)}
         </div>
-        <p className="text-xs text-gray-400">文本用于曲目解析、标题、标语及提示词；图片用于生成封面。两者可分别选择。</p>
+        <p className="text-xs text-gray-400">文本用于曲目和文案；图片用于生成封面；视觉分析用于智能搭配。三项分别选择，未配置视觉分析不影响原有功能。</p>
         {(!draft.textProvider || !draft.imageProvider) && <p role="status" className="text-sm text-orange-200">有服务商尚未选择。旧版 MiniMax 已移除，请重新选择对应服务；不会自动改用其他家的额度。</p>}
         <div className="flex gap-2" role="tablist" aria-label="服务商配置">
           {PROVIDER_IDS.map(id => <button role="tab" aria-selected={active === id} key={id} disabled={saving} onClick={() => { requestGeneration.current++; setModelStatus({}); setActive(id); }} className={`flex-1 py-2 px-1 text-sm rounded ${active === id ? 'bg-orange-600' : 'bg-gray-700'}`}>{PROVIDERS[id].name}</button>)}
@@ -109,9 +113,10 @@ const SettingsModal = ({ isOpen, aiSettings, onClose, onSave, ready, loadError, 
             {modelStatus[active] && <p role={modelStatus[active].failed ? 'alert' : 'status'} className={`text-xs ${modelStatus[active].failed ? 'text-red-300' : 'text-gray-300'}`}>{modelStatus[active].text}</p>}
           </div>
           <ModelPicker key={`${active}-text`} label={`${meta.name} 文本模型`} value={entry.textModel} onChange={value => updateProvider('textModel', value)} models={(catalogs[active]?.models || []).filter(model => model.kinds.includes('text'))} hint={meta.textHint} disabled={saving || !ready} allowDefault={active === 'aliyun'} />
+          {meta.capabilities.includes('vision') && <ModelPicker key={`${active}-vision`} label={`${meta.name} 视觉模型`} value={entry.visionModel} onChange={value => updateProvider('visionModel', value)} models={(catalogs[active]?.models || []).filter(model => model.kinds.includes('vision'))} hint={active === 'deepseek' ? '内测：手动填写 deepseek-v4.1-flash-expires-on-0910；可用期限以服务方为准，不自动切换模型' : active === 'aliyun' ? '支持 qwen3-vl-plus / qwen3-vl-flash 及日期版本' : '支持 doubao-seed-1-6-250615 / doubao-seed-1-6-flash-250615；不推断 ep 接入点能力'} disabled={saving || !ready} />}
           {meta.capabilities.includes('image')
             ? <ModelPicker key={`${active}-image`} label={`${meta.name} 图片模型`} value={entry.imageModel} onChange={value => updateProvider('imageModel', value)} models={(catalogs[active]?.models || []).filter(model => model.kinds.includes('image'))} hint={meta.imageHint} disabled={saving || !ready} />
-            : <p className="text-xs text-orange-200">DeepSeek 用于文本和封面提示词；封面图片请在上方选择阿里云或火山方舟。</p>}
+            : <p className="text-xs text-orange-200">DeepSeek 支持文本和指定内测模型的图片理解；封面图片生成请在上方选择阿里云或火山方舟。</p>}
         </fieldset>
         <div className="rounded border border-gray-600 bg-gray-900/60 p-3 text-xs leading-relaxed space-y-2">
           <p className="font-semibold text-orange-200">订阅包 / Coding Plan（code 包）说明</p>

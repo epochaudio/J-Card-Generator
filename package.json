@@ -3,7 +3,7 @@
   "description": "A desktop application designed for cassette collectors and DIY enthusiasts to generate professional J-Card covers.",
   "author": "epochaudio",
   "private": true,
-  "version": "1.6.1",
+  "version": "2.0.1",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",

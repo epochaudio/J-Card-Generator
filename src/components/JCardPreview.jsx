@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useId } from 'react';
 
 import ContentBack from './ContentBack.jsx';
 import ContentFront from './ContentFront.jsx';
@@ -10,6 +10,8 @@ import { resolvePalette, contrastInk, readableAccent } from '../config/design.mj
 import { computeFrontLayout } from '../utils/FrontLayout.js';
 
 const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingData, jCardThemeMode, dominantColor, contrastTextType, fontConfig, onBackStatus }) => {
+  const resourcePrefix = `jcard-${useId().replace(/:/g, '')}`;
+  const resourceId = name => `${resourcePrefix}-${name}`;
   const publication = data.layout?.designEdition === 'publication';
   const palette = resolvePalette(theme, jCardThemeMode, dominantColor);
   const curThemeMode = theme.paletteId && theme.paletteId !== 'legacy' ? 'palette' : jCardThemeMode || 'dark';
@@ -204,11 +206,11 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
   return (
     <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" viewBox={`0 0 ${width} ${height}`} className="w-full h-auto shadow-2xl rounded-sm transition-all duration-500" style={{ aspectRatio: `${width}/${height}` }}>
       <defs>
-        <filter id="noise">
+        <filter id={resourceId('noise')}>
           <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" />
           <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.15 0" />
         </filter>
-        <filter id="bg-blur">
+        <filter id={resourceId('bg-blur')}>
           <feGaussianBlur in="SourceGraphic" stdDeviation={30} />
           <feColorMatrix type="saturate" values={isLight ? "1.5" : "1.2"} />
           {isLight && <feComponentTransfer>
@@ -217,24 +219,24 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
             <feFuncB type="linear" slope="1.2" intercept="0.1" />
           </feComponentTransfer>}
         </filter>
-        <clipPath id="panel-short-back"><rect x="0" y="0" width={wShort} height={height} /></clipPath>
-        <clipPath id="panel-spine"><rect x={xSpine} y="0" width={wSpine} height={height} /></clipPath>
-        <clipPath id="panel-front"><rect x={xFront} y="0" width={wFront} height={height} /></clipPath>
-        <clipPath id="panel-flap"><rect x="0" y="0" width={wBack} height={height} /></clipPath>
-        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+        <clipPath id={resourceId('panel-short-back')}><rect x="0" y="0" width={wShort} height={height} /></clipPath>
+        <clipPath id={resourceId('panel-spine')}><rect x={xSpine} y="0" width={wSpine} height={height} /></clipPath>
+        <clipPath id={resourceId('panel-front')}><rect x={xFront} y="0" width={wFront} height={height} /></clipPath>
+        <clipPath id={resourceId('panel-flap')}><rect x="0" y="0" width={wBack} height={height} /></clipPath>
+        <pattern id={resourceId('grid')} width="40" height="40" patternUnits="userSpaceOnUse">
           <path d="M 40 0 L 0 0 0 40" fill="none" stroke={isLight ? "#000" : "#333"} strokeWidth="1" opacity="0.1" />
         </pattern>
       </defs>
 
       {curThemeMode === 'cover' && coverImage ? (
         <>
-          <image href={coverImage} x="-10%" y="-10%" width="120%" height="120%" preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" />
+          <image href={coverImage} x="-10%" y="-10%" width="120%" height="120%" preserveAspectRatio="xMidYMid slice" filter={`url(#${resourceId('bg-blur')})`} />
           <rect x="0" y="0" width={width} height={height} fill={coverMaskColor} opacity={coverMaskOpacity} />
         </>
       ) : (
         <rect x="0" y="0" width={width} height={height} fill={bgFill} />
       )}
-      {(!publication || data.layout?.texture) && <rect x="0" y="0" width={width} height={height} fill="transparent" filter="url(#noise)" opacity={publication ? 0.12 : isLight ? 0.2 : 0.4} />}
+      {(!publication || data.layout?.texture) && <rect x="0" y="0" width={width} height={height} fill="transparent" filter={`url(#${resourceId('noise')})`} opacity={publication ? 0.12 : isLight ? 0.2 : 0.4} />}
 
       <rect x={xShort} y="0" width={wShort} height={height} fill="#000000" opacity={publication ? 0 : 0.2} style={{ mixBlendMode: 'multiply' }} />
       <rect x={xSpine} y="0" width={wSpine} height={height} fill="#000000" opacity={publication ? 0 : 0.3} style={{ mixBlendMode: 'multiply' }} />
@@ -245,11 +247,11 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
       <line x1={xFront} y1="0" x2={xFront} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.2" />
       <line x1={xBack} y1="0" x2={xBack} y2={height} stroke={textColor} strokeWidth="2" strokeDasharray="4,4" opacity="0.3" />
 
-      <g clipPath="url(#panel-short-back)">
+      <g clipPath={`url(#${resourceId('panel-short-back')})`}>
         <ShortBackContent width={wShort} data={data} theme={effectiveTheme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} fontConfig={fontConfig} />
       </g>
 
-      <g clipPath="url(#panel-spine)">
+      <g clipPath={`url(#${resourceId('panel-spine')})`}>
         <g transform={`translate(${xSpine + wSpine / 2}, ${height / 2})`}>
           <SpineContent
             data={data}
@@ -262,11 +264,11 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
         </g>
       </g>
 
-      <g clipPath="url(#panel-front)">
-        <ContentFront xOffset={xFront} width={wFront} data={data} theme={effectiveTheme} coverImage={coverImage} coverImageB={coverImageB} frontStyle={data.layout?.frontStyle || 'STANDARD'} isLight={isLight} textColor={textColor} subTextColor={subTextColor} titleLayout={titleLayout} titleStartY={titleStartY} badgeY={badgeY} artistY={artistY} fontConfig={fontConfig} publicationLayout={publicationLayout} />
+      <g clipPath={`url(#${resourceId('panel-front')})`}>
+        <ContentFront resourceId={resourceId} xOffset={xFront} width={wFront} data={data} theme={effectiveTheme} coverImage={coverImage} coverImageB={coverImageB} frontStyle={data.layout?.frontStyle || 'STANDARD'} isLight={isLight} textColor={textColor} subTextColor={subTextColor} titleLayout={titleLayout} titleStartY={titleStartY} badgeY={badgeY} artistY={artistY} fontConfig={fontConfig} publicationLayout={publicationLayout} />
       </g>
 
-      <g clipPath="url(#panel-flap)" transform={`translate(${xBack}, 0)`}>
+      <g clipPath={`url(#${resourceId('panel-flap')})`} transform={`translate(${xBack}, 0)`}>
         <ContentBack onLayoutStatus={onBackStatus} width={wBack} data={data} theme={effectiveTheme} isLight={isLight} textColor={textColor} subTextColor={subTextColor} dimTextColor={dimTextColor} recordingData={recordingData} fontConfig={fontConfig} />
       </g>
     </svg>

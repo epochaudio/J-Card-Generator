@@ -3,7 +3,7 @@ import React from 'react';
 import { JCARD_DIMENSIONS } from '../constants/app.js';
 import TypographyService from '../services/TypographyService.js';
 
-const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, frontStyle, isLight, textColor, subTextColor, titleLayout, titleStartY, badgeY, artistY, fontConfig, publicationLayout }) => {
+const ContentFront = ({ resourceId, xOffset, width, data, theme, coverImage, coverImageB, frontStyle, isLight, textColor, subTextColor, titleLayout, titleStartY, badgeY, artistY, fontConfig, publicationLayout }) => {
   const badgeText = data.coverBadge || "";
   const badgeAlign = data.layout?.coverBadgeAlign === 'left' ? 'left' : 'center';
   // 标语折行参数需与 JCardPreview.jsx 中的 previewLayout 一致
@@ -28,13 +28,13 @@ const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, fr
 
     return (
       <g transform={`translate(${xOffset}, 0)`}>
-        <rect x="0" y="0" width={width} height={panelHeight} fill="url(#grid)" opacity="0.2" />
+        <rect x="0" y="0" width={width} height={panelHeight} fill={`url(#${resourceId('grid')})`} opacity="0.2" />
 
         {coverImage && (
-          <image href={coverImage} x="-50%" y="-20%" width="200%" height={midPoint + 200} preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" opacity="0.4" />
+          <image href={coverImage} x="-50%" y="-20%" width="200%" height={midPoint + 200} preserveAspectRatio="xMidYMid slice" filter={`url(#${resourceId('bg-blur')})`} opacity="0.4" />
         )}
         {coverImageB && (
-          <image href={coverImageB} x="-50%" y={midPoint - 100} width="200%" height={midPoint + 200} preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" opacity="0.4" />
+          <image href={coverImageB} x="-50%" y={midPoint - 100} width="200%" height={midPoint + 200} preserveAspectRatio="xMidYMid slice" filter={`url(#${resourceId('bg-blur')})`} opacity="0.4" />
         )}
 
         <line x1="80" y1={midPoint} x2={width - 80} y2={midPoint} stroke={textColor} strokeWidth="1.2" opacity="0.38" />
@@ -85,11 +85,11 @@ const ContentFront = ({ xOffset, width, data, theme, coverImage, coverImageB, fr
 
   return (
     <g transform={`translate(${xOffset}, 0)`}>
-      <rect x="0" y="0" width={width} height={panelHeight} fill="url(#grid)" opacity="0.2" />
+      <rect x="0" y="0" width={width} height={panelHeight} fill={`url(#${resourceId('grid')})`} opacity="0.2" />
       {coverImage ? (
         <>
           <svg x="0" y="0" width={width} height={width} viewBox={`0 0 ${JCARD_DIMENSIONS.front.standardCoverViewBox} ${JCARD_DIMENSIONS.front.standardCoverViewBox}`} preserveAspectRatio="xMidYMid slice">
-            <image href={coverImage} width={JCARD_DIMENSIONS.front.standardCoverViewBox} height={JCARD_DIMENSIONS.front.standardCoverViewBox} preserveAspectRatio="xMidYMid slice" filter="url(#bg-blur)" transform="scale(1.1)" transform-origin="center" />
+            <image href={coverImage} width={JCARD_DIMENSIONS.front.standardCoverViewBox} height={JCARD_DIMENSIONS.front.standardCoverViewBox} preserveAspectRatio="xMidYMid slice" filter={`url(#${resourceId('bg-blur')})`} transform="scale(1.1)" transform-origin="center" />
             <image href={coverImage} width={JCARD_DIMENSIONS.front.standardCoverViewBox} height={JCARD_DIMENSIONS.front.standardCoverViewBox} preserveAspectRatio="xMidYMid meet" transform="scale(1)" transform-origin="center" />
           </svg>
         </>

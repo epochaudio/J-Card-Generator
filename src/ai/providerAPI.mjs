@@ -1,11 +1,15 @@
 import { PROVIDERS, validateProviderKey, validateWorkspaceId } from './providerConfig.mjs';
-import { buildModelCatalog } from './modelCatalog.mjs';
+import { buildModelCatalog, supportsVision } from './modelCatalog.mjs';
 
 export const TEXT_TIMEOUT_MS = 120000;
 export const IMAGE_TIMEOUT_MS = 180000;
 export const IMAGE_POLL_INTERVAL_MS = 2000;
 export const MAX_RESPONSE_BYTES = 48 * 1024 * 1024;
 const TEXT_MAX_TOKENS = 12000;
+export const VISION_MAX_IMAGES = 3;
+export const VISION_MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+export const VISION_MAX_PROMPT_LENGTH = 40000;
+const VISION_MAX_TOKENS = 3500;
 const BASE64_ENCODING_CHUNK_BYTES = 8192;
 export const MODELS_TIMEOUT_MS = 20000;
 export const MODELS_PAGE_SIZE = 100;
@@ -154,6 +158,36 @@ export async function generateText(input, { fetchImpl = globalThis.fetch, timeou
     if (response.choices?.[0]?.finish_reason === 'length') throw new Error('文本输出被截断，当前作品未改变。请减少输入或调整模型。');
     return parseJSONContent(response.choices?.[0]?.message?.content);
   } finally { clearTimeout(timer); }
+}
+
+export async function analyzeImages(input, { fetchImpl = globalThis.fetch, timeoutMs = TEXT_TIMEOUT_MS, signal } = {}) {
+  const { meta, id, apiKey, model, prompt } = checkedRequest(input);
+  if (!supportsVision(id, model)) throw new Error('该视觉模型尚未适配，请选择设置中注明的视觉模型。');
+  if (prompt.length > VISION_MAX_PROMPT_LENGTH) throw new Error('设计资料过长，请精简内容后重试。');
+  if (!Array.isArray(input.images) || !input.images.length || input.images.length > VISION_MAX_IMAGES) throw new Error('视觉分析图片数量无效。');
+  const images = input.images.map(source => {
+    if (typeof source !== 'string' || source.length > VISION_MAX_IMAGE_BYTES * 4 / 3 + 64) throw new Error('视觉分析图片过大。');
+    const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(source);
+    if (!match || imageDataURL(match[2]) !== source) throw new Error('视觉分析只接受已准备好的内嵌图片。');
+    return { type: 'image_url', image_url: { url: source } };
+  });
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  signal?.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(abort, timeoutMs);
+  try {
+    if (signal?.aborted) { abort(); throw new Error('已取消智能搭配。'); }
+    const body = { model, messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, ...images] }],
+      stream: false, max_tokens: VISION_MAX_TOKENS,
+      ...(id === 'aliyun' ? { enable_thinking: false, response_format: { type: 'json_object' } } : { thinking: { type: 'disabled' }, ...(id === 'deepseek' ? { response_format: { type: 'json_object' } } : {}) }) };
+    const result = await jsonRequest(fetchImpl, meta.textUrl, apiKey, body, controller.signal, meta.name);
+    if (controller.signal.aborted) throw new Error('视觉分析已结束，请重新生成。');
+    if (result.choices?.[0]?.finish_reason === 'length') throw new Error('设计方案被截断，请重新生成。');
+    return parseJSONContent(result.choices?.[0]?.message?.content);
+  } catch (error) {
+    if (signal?.aborted) throw new Error('已取消智能搭配。');
+    throw error;
+  } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
 }
 
 export async function generateImage(input, { fetchImpl = globalThis.fetch, timeoutMs = IMAGE_TIMEOUT_MS, wait = delay } = {}) {

@@ -12,8 +12,18 @@ const NON_CHAT_MODELS = /(?:embedding|rerank|realtime|audio|tts|asr|omni|image|s
 // The existing Ark image request uses the 2K size preset of Seedream 4.x.
 const ARK_IMAGE_FAMILY = /^doubao-seedream-4[.-][05](?:-|$)/i;
 
+// Supported request protocols; this does not imply account access.
+export const DEEPSEEK_VISION_BETA = 'deepseek-v4.1-flash-expires-on-0910';
+
+export function supportsVision(provider, id) {
+  if (provider === 'deepseek') return id === DEEPSEEK_VISION_BETA;
+  if (provider === 'aliyun') return /^qwen3-vl-(?:plus|flash)(?:-\d{4}-\d{2}-\d{2})?$/.test(id);
+  return provider === 'volcengine' && ['doubao-seed-1-6-250615', 'doubao-seed-1-6-flash-250615'].includes(id);
+}
+
 export function modelKinds(provider, model) {
   const id = model.id;
+  if (supportsVision(provider, id)) return ['text', 'vision'];
   if (provider === 'deepseek') {
     return /^deepseek-(?:v4-(?:flash|pro)(?:-|$)|chat$|reasoner$)/i.test(id) ? ['text'] : [];
   }

@@ -2,6 +2,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
     ai: {
+        vision: request => ipcRenderer.invoke('ai:vision', request),
+        cancelVision: requestId => ipcRenderer.invoke('ai:vision-cancel', requestId),
         models: request => ipcRenderer.invoke('ai:models', request),
         text: request => ipcRenderer.invoke('ai:text', request),
         image: request => ipcRenderer.invoke('ai:image', request)

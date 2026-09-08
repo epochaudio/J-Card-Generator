@@ -727,7 +727,7 @@ const ContentBack = ({ width, data, theme, isCompact, isLight, textColor, subTex
   };
 
   return (
-    <g data-back-overflow={selectedStrategy.overflowDetected}>
+    <g data-back-overflow={selectedStrategy.overflowDetected} data-back-folded={selectedStrategy.isAutoFolded} data-back-font-size={trackFontSize} data-back-strategy={selectedStrategy.id}>
       {(isClassical && isCompact) ? (
         <g transform={`translate(${width}, 0) rotate(90)`} fontFamily={fontConfig?.fonts?.mono || "Courier New, monospace"}>
           {(() => {

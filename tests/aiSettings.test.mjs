@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AI_SETTINGS_KEY, normalizeAISettings, resolveProvider } from '../src/ai/providerConfig.mjs';
+import { AI_CONFIG_VERSION, AI_SETTINGS_KEY, normalizeAISettings, resolveProvider } from '../src/ai/providerConfig.mjs';
 import { createSettingsStorage } from '../src/ai/settingsStorage.mjs';
 import { serializeProject } from '../src/project/projectFormat.mjs';
 const memory = entries => {
@@ -12,7 +12,7 @@ const settings = () => {
  const config = normalizeAISettings();
  config.textProvider = 'volcengine'; config.imageProvider = 'aliyun';
  config.providers.aliyun.apiKey='ali-test-secret';
- config.providers.volcengine={apiKey:'volc-test-secret',textModel:'ep-text',imageModel:'ep-image'};
+ config.providers.volcengine={...config.providers.volcengine,apiKey:'volc-test-secret',textModel:'ep-text',imageModel:'ep-image'};
  config.providers.deepseek.apiKey='deepseek-test-secret';
  return config;
 };
@@ -78,7 +78,7 @@ for (const desktop of [false, true]) test(`MiniMax migration is atomic and never
   const secureStore = desktop ? secure(memory({ [AI_SETTINGS_KEY]: original })) : undefined;
   const store = createSettingsStorage({ localStore, secureStore });
   const result = await store.load();
-  assert.equal(result.settings.version, 2);
+  assert.equal(result.settings.version, AI_CONFIG_VERSION);
   assert.equal(result.settings.textProvider, '');
   assert.equal(result.settings.imageProvider, '');
   assert.equal(result.settings.providers.deepseek.apiKey, '');

@@ -231,10 +231,10 @@ const ShortBackContent = ({
   };
 
   if (resolvedMode === 'META_ARCHIVE') {
-    return renderArchiveMode();
+    return <g data-shortback-status={JSON.stringify({ mode: resolvedMode, level: archiveLayout?.level, truncated: JSON.stringify(archiveLayout).includes('"isTruncated":true') })}>{renderArchiveMode()}</g>;
   }
 
-  return renderTracksCompactMode();
+  return <g data-shortback-status={JSON.stringify({ mode: resolvedMode, sides: compactTrackLayout.map(side => ({ side: side.key, hidden: side.hiddenCount, truncated: side.visibleTracks.filter(track => track.titleWasTruncated).length })) })}>{renderTracksCompactMode()}</g>;
 };
 
 export default ShortBackContent;

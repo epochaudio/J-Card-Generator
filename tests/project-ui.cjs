@@ -43,7 +43,6 @@ const path = require('node:path');
    await page.getByText(/^已获取 2 个已适配模型/).waitFor();
    if (id==='deepseek') await page.getByLabel('DeepSeek 文本模型 选择',{exact:true}).selectOption('deepseek-v4-pro');
    if (id==='volcengine') {
-     for (const summary of await page.getByText('手动填写模型 ID',{exact:true}).all()) await summary.click();
      await page.getByLabel(`${name} 文本模型`,{exact:true}).fill('ep-test-text');
      await page.getByLabel(`${name} 图片模型`,{exact:true}).fill('ep-test-image');
    }
@@ -53,6 +52,25 @@ const path = require('node:path');
  assert.equal(modelRequests.length,3);
  assert.ok(modelRequests.every(request=>request.method==='GET'));
  assert.deepEqual(modelRequests.map(request=>request.key),providers.map(([,id])=>`Bearer test-${id}-secret`));
+ // The vision protocol crosses the real preload/IPC boundary with dummy credentials.
+ await app.evaluate(({net}) => {
+   globalThis.visionTestRequests = [];
+   net.fetch = async (url, options) => {
+     globalThis.visionTestRequests.push({ url, body: JSON.parse(options.body) });
+     if (globalThis.holdVisionTest) return new Promise((resolve, reject) => options.signal.addEventListener('abort', () => reject(new Error('aborted')), {once:true}));
+     return new Response(JSON.stringify({choices:[{message:{content:'{"candidates":[]}'},finish_reason:'stop'}]}), {status:200});
+   };
+ });
+ const visionRequest = { id:'aliyun', apiKey:'test-vision-key', model:'qwen3-vl-plus', prompt:'test', images:['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='], requestId:'vision-test-1' };
+ assert.deepEqual(await page.evaluate(request => window.electronAPI.ai.vision(request), visionRequest), {candidates:[]});
+ assert.equal((await app.evaluate(() => globalThis.visionTestRequests)).length, 1);
+ await app.evaluate(() => { globalThis.holdVisionTest = true; });
+ await page.evaluate(request => { window.visionTestPending = window.electronAPI.ai.vision(request).then(() => 'unexpected', error => error.message); }, {...visionRequest,requestId:'vision-test-cancel'});
+ await page.waitForTimeout(100);
+ await page.evaluate(() => window.electronAPI.ai.cancelVision('vision-test-cancel'));
+ assert.match(await page.evaluate(() => window.visionTestPending), /取消/);
+ await app.evaluate(({net}) => { net.fetch = globalThis.originalModelTestFetch; });
+ console.log('PASS desktop vision preload/IPC, single mock request and cancellation');
  await page.getByLabel('文本服务商',{exact:true}).selectOption('volcengine');
  await page.getByLabel('图片服务商',{exact:true}).selectOption('aliyun');
  await page.getByRole('button',{name:'保存设置',exact:true}).click();
@@ -76,6 +94,13 @@ const path = require('node:path');
  assert.equal(await page.getByLabel('DeepSeek API Key',{exact:true}).inputValue(),'test-deepseek-secret');
  await page.getByRole('button',{name:'关闭设置',exact:true}).click();
  console.log('PASS provider settings, encrypted persistence, reload, selectors, cancelled edit, plan explanation');
+ await app.evaluate(({session}, output) => { globalThis.pngTestCompletion = new Promise(resolve => session.defaultSession.once('will-download', (event, item) => { item.setSavePath(output); item.once('done', (event, state) => resolve(state)); })); }, path.join(dir,'desktop-export.png'));
+ await page.getByRole('button',{name:'导出 PNG',exact:true}).click();
+ assert.equal(await app.evaluate(() => globalThis.pngTestCompletion), 'completed');
+ const exportedPNG = await fs.readFile(path.join(dir,'desktop-export.png'));
+ assert.equal(exportedPNG.readUInt32BE(16),1748); assert.equal(exportedPNG.readUInt32BE(20),1181);
+ console.log('PASS desktop PNG rasterization with embedded-font paint checks');
+
  console.log('initial', (await page.locator('body').innerText()).slice(0,350));
  page.setDefaultTimeout(15000);
  const title = page.locator('input[type=text]').first();

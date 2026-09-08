@@ -6,6 +6,10 @@ import { JCARD_DIMENSIONS, STORAGE_KEYS } from './src/constants/app.js';
 import ImportModal from './src/components/ImportModal.jsx';
 import JCardPreview from './src/components/JCardPreview.jsx';
 import DesignPanel from './src/components/DesignPanel.jsx';
+import { rasterizeSVG } from './src/services/SVGRasterizer.js';
+import CoverInfoPanel from './src/enrichment/CoverInfoPanel.jsx';
+import SmartDesignPanel from './src/design/SmartDesignPanel.jsx';
+import { applyDesignFields } from './src/design/smartDesign.mjs';
 import { computeFrontLayout } from './src/utils/FrontLayout.js';
 import { PALETTES } from './src/config/design.mjs';
 import SearchModal from './src/components/SearchModal.jsx';
@@ -328,6 +332,14 @@ export default function App() {
   });
   const projectFiles = useProjectFiles(projectSnapshot, applyProject, newProject);
 
+  const applySmartDesign = patch => {
+    const next = applyDesignFields(projectSnapshot, patch);
+    flushSync(() => {
+      setData(next.data); setPreviewData(next.data);
+      setTheme(next.theme); setFontTheme(next.fontTheme);
+    });
+  };
+
   useEffect(() => {
     if (!projectFiles.ready) return;
     try {
@@ -592,45 +604,20 @@ export default function App() {
 
   const downloadPNG = async () => {
     if (!svgRef.current) return;
+    setError('');
     let svgData;
     try {
       await syncPreviewNow();
       svgData = await ExportService.serializeSVG(svgRef.current, currentFontConfig);
     } catch (error) { setError(error.message); return; }
 
-    const canvas = document.createElement("canvas");
-    canvas.width = JCARD_DIMENSIONS.width;
-    canvas.height = JCARD_DIMENSIONS.height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      setError("PNG 导出失败：无法创建画布上下文。");
-      return;
-    }
-
-    const img = new Image();
-    const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(svgBlob);
-
-    img.onload = () => {
-      // Small delay to ensure immediate render stability
-      setTimeout(() => {
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-
-        const pngUrl = canvas.toDataURL("image/png");
-        const link = document.createElement("a");
-        link.href = pngUrl;
-        link.download = `${data.title.replace(/\s+/g, '_')}_JCard.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }, 100);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      setError("PNG 导出失败，请重试。");
-    };
-    img.src = url;
+    try {
+      const canvas = await rasterizeSVG(svgData, svgRef.current);
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `${data.title.replace(/\s+/g, '_')}_JCard.png`;
+      link.click();
+    } catch (error) { setError(error.message); }
   };
 
   const updateTrack = (side, index, field, value) => {
@@ -889,6 +876,10 @@ export default function App() {
         {aiSettings.error && <span role="alert" className="ml-2 text-red-700">{aiSettings.error}</span>}
       </div>
 
+      {error && <div role="alert" className="px-6 py-2 text-xs text-red-800 bg-red-50 flex items-center justify-between gap-3">
+        <span>{error}</span><button onClick={() => setError('')} className="underline shrink-0">关闭提示</button>
+      </div>}
+
       <main className="flex flex-1 overflow-hidden">
         <div className="flex flex-col lg:flex-row gap-8 w-full h-full">
           {/* Left Column: Preview */}
@@ -930,6 +921,8 @@ export default function App() {
 
           {/* Right Column: Controls */}
           <div className="w-full lg:w-1/3 min-w-[350px] overflow-y-auto border-l border-gray-200 bg-white p-6 space-y-8 custom-scrollbar">
+            <SmartDesignPanel snapshot={projectSnapshot} settings={aiSettings.settings} projectIdentity={projectEpoch.current}
+              ready={projectFiles.ready && !projectFiles.busy && aiSettings.ready} onApply={applySmartDesign} onSettings={() => setShowSettings(true)} />
             <DesignPanel data={data} theme={theme} fontTheme={fontTheme} mode={jCardThemeMode}
               onLayout={patch => setData(prev => ({ ...prev, layout: { ...prev.layout, ...patch } }))}
               onTheme={setTheme} onFont={setFontTheme} onMode={setJCardThemeMode} onAutoColor={handleAutoColor} hasImage={!!coverImage} />
@@ -1140,6 +1133,8 @@ export default function App() {
                     <button onClick={handleGenerateCover} disabled={loadingStates.image} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700">{loadingStates.image ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingStates.image ? '生成中...' : 'AI 生成'}</button>
                     {coverImage && (<button onClick={() => setCoverImage(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
                   </div>
+                  <CoverInfoPanel snapshot={projectSnapshot} settings={aiSettings.settings} projectIdentity={projectEpoch.current}
+                    ready={projectFiles.ready && !projectFiles.busy && aiSettings.ready} onApply={applyProject} onSettings={() => setShowSettings(true)} />
                 </div>
 
                 {/* Cover B (Conditional) */}

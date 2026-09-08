@@ -16,13 +16,13 @@ export function createMusicBrainzService(client = createClient()) {
       if (!Array.isArray(data['release-groups'])) throw new Error('搜索响应缺少候选列表。');
       const items = rankGroups(data['release-groups'], album, artist);
       const total = data.count ?? data['release-group-count'] ?? items.length;
-      return { items, total, nextOffset: items.length && offset + items.length < total ? offset + items.length : null };
+      return { items, total, totalKnown: Number.isSafeInteger(data.count ?? data['release-group-count']), nextOffset: items.length && offset + items.length < total ? offset + items.length : null };
     },
     async getReleases(groupId, { offset = 0, signal } = {}) {
       const data = await requestMB('release', { 'release-group': id(groupId), inc: 'media+labels+artist-credits', limit: PAGE_SIZE, offset }, { signal });
       if (!Array.isArray(data.releases)) throw new Error('发行版本响应缺少列表。');
       const total = data['release-count'] ?? data.releases.length;
-      return { items: sortReleases(data.releases), total, nextOffset: data.releases.length && offset + data.releases.length < total ? offset + data.releases.length : null };
+      return { items: sortReleases(data.releases), total, totalKnown: Number.isSafeInteger(data['release-count']), nextOffset: data.releases.length && offset + data.releases.length < total ? offset + data.releases.length : null };
     },
     async getReleaseDetails(releaseId, { signal, onProgress = () => {} } = {}) {
       const data = validateRelease(await requestMB(`release/${id(releaseId)}`, { inc: 'recordings+artist-credits+labels+release-groups+recording-level-rels+work-rels+work-level-rels+artist-rels+tags' }, { signal }), releaseId);

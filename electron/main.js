@@ -55,6 +55,22 @@ for (const [channel, method] of [['get', 'getItem'], ['set', 'setItem'], ['remov
         return secureStore[method](...args);
     });
 }
+const visionRequests = new Map();
+ipcMain.handle('ai:vision', async (event, request) => {
+    assertMainWindow(event);
+    const id = request?.requestId;
+    if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(id) || visionRequests.has(id)) throw new Error('视觉请求标识无效。');
+    if (visionRequests.size) throw new Error('已有视觉分析正在进行，请先取消或等待完成。');
+    const controller = new AbortController();
+    visionRequests.set(id, controller);
+    try { return await providerAPI.analyzeImages(request, { fetchImpl: (url, options) => net.fetch(url, options), signal: controller.signal }); }
+    finally { visionRequests.delete(id); }
+});
+ipcMain.handle('ai:vision-cancel', (event, id) => {
+    assertMainWindow(event);
+    visionRequests.get(id)?.abort();
+});
+
 for (const [kind, method] of [['text', 'generateText'], ['image', 'generateImage'], ['models', 'listModels']]) {
     ipcMain.handle(`ai:${kind}`, (event, request) => {
         assertMainWindow(event);
