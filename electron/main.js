@@ -55,7 +55,7 @@ for (const [channel, method] of [['get', 'getItem'], ['set', 'setItem'], ['remov
         return secureStore[method](...args);
     });
 }
-for (const [kind, method] of [['text', 'generateText'], ['image', 'generateImage']]) {
+for (const [kind, method] of [['text', 'generateText'], ['image', 'generateImage'], ['models', 'listModels']]) {
     ipcMain.handle(`ai:${kind}`, (event, request) => {
         assertMainWindow(event);
         // Endpoints are selected inside providerAPI; renderer cannot supply a target URL.

@@ -1,4 +1,5 @@
-import { PROVIDERS } from './providerConfig.mjs';
+import { PROVIDERS, validateProviderKey, validateWorkspaceId } from './providerConfig.mjs';
+import { buildModelCatalog } from './modelCatalog.mjs';
 
 export const TEXT_TIMEOUT_MS = 120000;
 export const IMAGE_TIMEOUT_MS = 180000;
@@ -6,6 +7,9 @@ export const IMAGE_POLL_INTERVAL_MS = 2000;
 export const MAX_RESPONSE_BYTES = 48 * 1024 * 1024;
 const TEXT_MAX_TOKENS = 12000;
 const BASE64_ENCODING_CHUNK_BYTES = 8192;
+export const MODELS_TIMEOUT_MS = 20000;
+export const MODELS_PAGE_SIZE = 100;
+export const MAX_MODEL_PAGES = 50;
 
 function checkedRequest(input) {
   if (!input || !Object.hasOwn(PROVIDERS, input.id)) throw new Error('无效的 AI 服务商。');
@@ -13,6 +17,7 @@ function checkedRequest(input) {
     if (typeof input[field] !== 'string' || !input[field].trim()) throw new Error('请先配置密钥、模型并填写生成内容。');
   }
   if (input.systemPrompt != null && typeof input.systemPrompt !== 'string') throw new Error('提示词格式无效。');
+  validateProviderKey(input.id, input.apiKey);
   return { ...input, meta: PROVIDERS[input.id] };
 }
 
@@ -70,7 +75,7 @@ async function jsonRequest(fetchImpl, url, apiKey, body, signal, name) {
     throw new Error(`${name}返回了无法读取的响应。`);
   }
   if (!data || typeof data !== 'object') throw new Error(`${name}返回了无效响应。`);
-  if (data.error || data.code || (data.base_resp?.status_code != null && Number(data.base_resp.status_code) !== 0)) {
+  if (data.error || data.code || data.success === false) {
     throw providerError(name, 0);
   }
   return data;
@@ -142,9 +147,9 @@ export async function generateText(input, { fetchImpl = globalThis.fetch, timeou
       { role: 'system', content: `${systemPrompt}\n仅返回符合用户要求的 JSON 对象，不要输出解释或 Markdown。` },
       { role: 'user', content: prompt }
     ], stream: false, max_tokens: TEXT_MAX_TOKENS };
-    // JSON mode and thinking controls differ by vendor; do not send Ali-only options to MiniMax.
-    if (id === 'aliyun') body.response_format = { type: 'json_object' };
-    if (id === 'minimax') body.reasoning_split = true;
+    if (id === 'aliyun' || id === 'deepseek') body.response_format = { type: 'json_object' };
+    // These short structured tasks do not need a separate reasoning response.
+    if (id === 'deepseek') body.thinking = { type: 'disabled' };
     const response = await jsonRequest(fetchImpl, meta.textUrl, apiKey, body, controller.signal, meta.name);
     if (response.choices?.[0]?.finish_reason === 'length') throw new Error('文本输出被截断，当前作品未改变。请减少输入或调整模型。');
     return parseJSONContent(response.choices?.[0]?.message?.content);
@@ -153,17 +158,13 @@ export async function generateText(input, { fetchImpl = globalThis.fetch, timeou
 
 export async function generateImage(input, { fetchImpl = globalThis.fetch, timeoutMs = IMAGE_TIMEOUT_MS, wait = delay } = {}) {
   const { meta, id, apiKey, model, prompt } = checkedRequest(input);
+  if (!meta.capabilities.includes('image')) throw new Error(`${meta.name}未接入封面图片生成，请选择阿里云或火山方舟。`);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     if (id === 'volcengine') {
       const response = await jsonRequest(fetchImpl, meta.imageUrl, apiKey, { model, prompt, size: '2K', response_format: 'b64_json', watermark: true }, controller.signal, meta.name);
       return imageDataURL(response.data?.[0]?.b64_json);
-    }
-    if (id === 'minimax') {
-      if (prompt.length > 1500) throw new Error('MiniMax 图片提示词最多 1500 个字符，请缩短后重试。');
-      const response = await jsonRequest(fetchImpl, meta.imageUrl, apiKey, { model, prompt, aspect_ratio: '1:1', response_format: 'base64', n: 1 }, controller.signal, meta.name);
-      return imageDataURL(response.data?.image_base64?.[0]);
     }
     // Wanx needs one async submission header; the common request helper remains unchanged.
     const submitFetch = (url, options) => fetchImpl(url, { ...options, headers: { ...options.headers, 'X-DashScope-Async': 'enable' } });
@@ -183,5 +184,42 @@ export async function generateImage(input, { fetchImpl = globalThis.fetch, timeo
     // All application-created errors are sanitized; transport errors must not expose signed URLs.
     if (error instanceof TypeError) throw new Error('图片服务连接或下载失败，请重试。');
     throw error;
+  } finally { clearTimeout(timer); }
+}
+
+export async function listModels(input, { fetchImpl = globalThis.fetch, timeoutMs = MODELS_TIMEOUT_MS } = {}) {
+  const { id, apiKey, workspaceId } = input || {};
+  validateProviderKey(id, apiKey);
+  const meta = PROVIDERS[id];
+  const baseUrl = id === 'aliyun'
+    ? `https://${validateWorkspaceId(workspaceId)}.cn-beijing.maas.aliyuncs.com/api/v1/models`
+    : meta.modelsUrl;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    if (id !== 'aliyun') {
+      const data = await jsonRequest(fetchImpl, baseUrl, apiKey, null, controller.signal, meta.name);
+      // Do not silently label an incomplete response as a complete catalog.
+      if (data.has_more || data.next_page) throw new Error('模型列表需要额外分页，暂无法完整读取。原有选择未改变，可手动填写模型 ID。');
+      return buildModelCatalog(id, data.data);
+    }
+    const entries = [];
+    for (let page = 1; page <= MAX_MODEL_PAGES; page++) {
+      const url = new URL(baseUrl);
+      url.searchParams.set('page_no', String(page));
+      url.searchParams.set('page_size', String(MODELS_PAGE_SIZE));
+      url.searchParams.set('language', 'zh-CN');
+      url.searchParams.set('service_site', 'asia-pacific-china');
+      url.searchParams.append('inference_providers', 'aliyun-bailian');
+      const data = await jsonRequest(fetchImpl, url.href, apiKey, null, controller.signal, meta.name);
+      const output = data.output;
+      if (!Array.isArray(output?.models) || !Number.isSafeInteger(output.total) || output.total < 0 || (output.page_no != null && output.page_no !== page)) {
+        throw new Error('阿里云未返回有效的分页模型列表，原有选择未改变。');
+      }
+      entries.push(...output.models);
+      if (entries.length >= output.total) return buildModelCatalog(id, entries);
+      if (!output.models.length) throw new Error('阿里云模型列表返回不完整，原有选择未改变。');
+    }
+    throw new Error('模型列表超过读取上限，原有选择未改变。请手动填写模型 ID。');
   } finally { clearTimeout(timer); }
 }

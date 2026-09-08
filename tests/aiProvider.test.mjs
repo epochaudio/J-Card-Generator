@@ -10,17 +10,17 @@ for(const id of Object.keys(PROVIDERS))test(`${id} text uses only chosen endpoin
  const result=await generateText({...req(id),meta:{textUrl:'https://evil.example'}},{fetchImpl:async(url,options)=>{
   count++;assert.equal(url,PROVIDERS[id].textUrl);assert.equal(options.headers.Authorization,`Bearer test-${id}-key`);
   const body=JSON.parse(options.body);assert.equal(body.model,'test-model');assert.equal(body.stream,false);
-  if(id==='minimax'){assert.equal(body.reasoning_split,true);assert.equal(body.response_format,undefined);}
+  if(id==='deepseek'){assert.deepEqual(body.thinking,{type:'disabled'});assert.equal(body.response_format.type,'json_object');assert.equal(body.reasoning_split,undefined);}
   if(id==='aliyun')assert.equal(body.response_format.type,'json_object');
   return json({choices:[{message:{content:'<think>reason</think>\n```json\n{"slogan":"测试"}\n```'}}]});
  }});
  assert.equal(result.slogan,'测试');assert.equal(count,1);
 });
-for(const id of ['volcengine','minimax'])test(`${id} image returns portable base64 with correct schema`,async()=>{
+for(const id of ['volcengine'])test(`${id} image returns portable base64 with correct schema`,async()=>{
  const result=await generateImage(req(id),{fetchImpl:async(url,options)=>{
   assert.equal(url,PROVIDERS[id].imageUrl);const body=JSON.parse(options.body);
-  assert.equal(body.response_format,id==='volcengine'?'b64_json':'base64');
-  return json(id==='volcengine'?{data:[{b64_json:png}]}:{data:{image_base64:[png]},base_resp:{status_code:0}});
+  assert.equal(body.response_format,'b64_json');
+  return json({data:[{b64_json:png}]});
  }});
  assert.equal(result,`data:image/png;base64,${png}`);
 });
@@ -38,11 +38,11 @@ test('terminal Wanx failure stops immediately, instead of polling until timeout'
  let count=0;await assert.rejects(generateImage(req('aliyun'),{wait:async()=>{},fetchImpl:async()=>json(++count===1?{output:{task_id:'t'}}:{output:{task_status:'FAILED'}})}),/任务失败/);assert.equal(count,2);
 });
 test('auth failure never switches provider or includes response content/key',async()=>{
- let count=0;await assert.rejects(generateText(req('minimax'),{fetchImpl:async()=>{count++;return json({message:'test-minimax-key'},401);}}),error=>error.message.includes('401')&&!error.message.includes('test-minimax-key'));
+ let count=0;await assert.rejects(generateText(req('deepseek'),{fetchImpl:async()=>{count++;return json({message:'test-deepseek-key'},401);}}),error=>error.message.includes('401')&&!error.message.includes('test-deepseek-key'));
  assert.equal(count,1);
 });
 test('HTTP 200 business errors, bad JSON, truncated JSON and timeout are explicit failures',async()=>{
- await assert.rejects(generateImage(req('minimax'),{fetchImpl:async()=>json({base_resp:{status_code:1004,status_msg:'secret'}})}),/请求失败/);
+ await assert.rejects(generateText(req('deepseek'),{fetchImpl:async()=>json({error:{message:'secret'}})}),/请求失败/);
  assert.throws(()=>parseJSONContent('not json'),/结构化/);assert.throws(()=>parseJSONContent('[]'),/结构/);
  await assert.rejects(generateText(req('aliyun'),{fetchImpl:async()=>json({choices:[{finish_reason:'length',message:{content:'{}'}}]})}),/截断/);
  await assert.rejects(generateText(req('aliyun'),{timeoutMs:1,fetchImpl:async(url,{signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('abort'))))}),/超时/);

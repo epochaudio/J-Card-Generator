@@ -48,6 +48,7 @@
       "src/assets/fonts/NotoSerifSC-OFL.txt",
       "src/ai/providerConfig.mjs",
       "src/ai/providerAPI.mjs",
+      "src/ai/modelCatalog.mjs",
       "src/utils/formatDuration.mjs",
       "src/musicbrainz/projectMetadata.mjs"
     ],

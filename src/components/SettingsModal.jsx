@@ -1,6 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Key, Settings, X } from 'lucide-react';
-import { PROVIDERS, PROVIDER_IDS, normalizeAISettings } from '../ai/providerConfig.mjs';
+import { PROVIDERS, PROVIDER_IDS, providersFor, normalizeAISettings } from '../ai/providerConfig.mjs';
+import { aiTransport } from '../ai/aiTransport.mjs';
+import ModelPicker from './ModelPicker.jsx';
 
 const inputClass = 'w-full bg-gray-900 border border-gray-600 rounded p-2.5 text-white focus:ring-2 focus:ring-orange-500 outline-none text-sm';
 const SettingsModal = ({ isOpen, aiSettings, onClose, onSave, ready, loadError, onRetry }) => {
@@ -10,9 +12,15 @@ const SettingsModal = ({ isOpen, aiSettings, onClose, onSave, ready, loadError, 
   const [message, setMessage] = useState('');
   const [failed, setFailed] = useState(false);
   const savingRef = useRef(false);
+  const [catalogs, setCatalogs] = useState({});
+  const [modelStatus, setModelStatus] = useState({});
+  const requestGeneration = useRef(0);
   const dialog = useRef(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
+    requestGeneration.current++;
+    setCatalogs({}); setModelStatus({});
     if (isOpen) { setDraft(normalizeAISettings(aiSettings)); setMessage(''); setFailed(false); }
+    return () => { requestGeneration.current++; };
   }, [isOpen, ready]);
   useEffect(() => {
     if (!isOpen) return;
@@ -22,7 +30,7 @@ const SettingsModal = ({ isOpen, aiSettings, onClose, onSave, ready, loadError, 
     const trap = event => {
       if (event.key === 'Escape') { if (!savingRef.current) onClose(); return; }
       if (event.key !== 'Tab') return;
-      const controls = [...node.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], summary')];
+      const controls = [...node.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], summary')].filter(control => control.getClientRects().length);
       const index = controls.indexOf(document.activeElement);
       if (event.shiftKey && index <= 0) { event.preventDefault(); controls.at(-1)?.focus(); }
       if (!event.shiftKey && index === controls.length - 1) { event.preventDefault(); controls[0]?.focus(); }
@@ -34,8 +42,27 @@ const SettingsModal = ({ isOpen, aiSettings, onClose, onSave, ready, loadError, 
   const meta = PROVIDERS[active];
   const entry = draft.providers[active];
   const updateProvider = (field, value) => {
+    if (field === 'apiKey' || field === 'workspaceId') {
+      requestGeneration.current++;
+      setCatalogs(prev => ({ ...prev, [active]: undefined }));
+      setModelStatus({});
+    }
     setDraft(prev => ({ ...prev, providers: { ...prev.providers, [active]: { ...prev.providers[active], [field]: value } } }));
     setMessage('有未保存的设置'); setFailed(false);
+  };
+  const fetchModels = async () => {
+    const generation = ++requestGeneration.current;
+    const id = active;
+    setModelStatus({ [id]: { loading: true, text: '正在获取模型…' } });
+    try {
+      const result = await aiTransport.models(id, entry);
+      if (generation !== requestGeneration.current) return;
+      setCatalogs(prev => ({ ...prev, [id]: result }));
+      setModelStatus({ [id]: { text: `已获取 ${result.models.length} 个已适配模型${result.skipped ? `，另有 ${result.skipped} 项未适配或能力不明确，未列入选项` : ''}。列表不代表余额或实际调用已验证。` } });
+    } catch (error) {
+      if (generation !== requestGeneration.current) return;
+      setModelStatus({ [id]: { failed: true, text: `${error.message} 原有选择保留，可重试或手动填写模型 ID。` } });
+    }
   };
   const save = async () => {
     if (savingRef.current) return;
@@ -57,27 +84,34 @@ const SettingsModal = ({ isOpen, aiSettings, onClose, onSave, ready, loadError, 
         <div className="grid grid-cols-2 gap-4">
           {[['textProvider', '文本服务商'], ['imageProvider', '图片服务商']].map(([field, label]) => <label key={field} className="text-sm space-y-1 block">{label}
             <select aria-label={label} disabled={saving || !ready} value={draft[field]} onChange={event => { setDraft(prev => ({...prev,[field]:event.target.value})); setMessage('有未保存的设置'); }} className={inputClass}>
-              {PROVIDER_IDS.map(id => <option key={id} value={id}>{PROVIDERS[id].name}</option>)}
+              <option value="">请选择服务商</option>
+              {providersFor(field === 'imageProvider' ? 'image' : 'text').map(id => <option key={id} value={id}>{PROVIDERS[id].name}</option>)}
             </select>
           </label>)}
         </div>
         <p className="text-xs text-gray-400">文本用于曲目解析、标题、标语及提示词；图片用于生成封面。两者可分别选择。</p>
+        {(!draft.textProvider || !draft.imageProvider) && <p role="status" className="text-sm text-orange-200">有服务商尚未选择。旧版 MiniMax 已移除，请重新选择对应服务；不会自动改用其他家的额度。</p>}
         <div className="flex gap-2" role="tablist" aria-label="服务商配置">
-          {PROVIDER_IDS.map(id => <button role="tab" aria-selected={active === id} key={id} disabled={saving} onClick={() => setActive(id)} className={`flex-1 py-2 text-sm rounded ${active === id ? 'bg-orange-600' : 'bg-gray-700'}`}>{PROVIDERS[id].name}</button>)}
+          {PROVIDER_IDS.map(id => <button role="tab" aria-selected={active === id} key={id} disabled={saving} onClick={() => { requestGeneration.current++; setModelStatus({}); setActive(id); }} className={`flex-1 py-2 px-1 text-sm rounded ${active === id ? 'bg-orange-600' : 'bg-gray-700'}`}>{PROVIDERS[id].name}</button>)}
         </div>
         <fieldset disabled={saving || !ready} className="space-y-3">
           <label className="block text-sm"><span className="flex items-center gap-2 mb-1"><Key size={15} />{meta.name} 普通 API Key</span>
             <input aria-label={`${meta.name} API Key`} type="password" autoComplete="off" spellCheck={false} value={entry.apiKey} onChange={event => updateProvider('apiKey', event.target.value)} className={`${inputClass} font-mono`} placeholder="输入该平台的普通 API Key" />
           </label>
           <div className="flex justify-between text-xs text-gray-400"><span>{entry.apiKey ? '已填写（保存后生效）' : '未配置'} · 清空后保存可删除该密钥</span><a href={meta.keyUrl} target="_blank" rel="noopener noreferrer" className="text-orange-300 underline">获取 API Key</a></div>
-          <label className="block text-sm">文本模型
-            <input aria-label={`${meta.name} 文本模型`} value={entry.textModel} onChange={event => updateProvider('textModel', event.target.value)} className={inputClass} placeholder={meta.textHint} />
-          </label>
-          <p className="text-xs text-gray-400">{meta.textHint}</p>
-          <label className="block text-sm">图片模型
-            <input aria-label={`${meta.name} 图片模型`} value={entry.imageModel} onChange={event => updateProvider('imageModel', event.target.value)} className={inputClass} placeholder={meta.imageHint} />
-          </label>
-          <p className="text-xs text-gray-400">{meta.imageHint}</p>
+          {active === 'aliyun' && <label className="block text-sm">业务空间 ID（获取模型时需要）
+            <input aria-label="阿里云业务空间 ID" value={entry.workspaceId} onChange={event => updateProvider('workspaceId', event.target.value)} className={`${inputClass} mt-1`} placeholder="在百炼控制台查看北京地域的业务空间 ID" />
+          </label>}
+          <div className="space-y-2">
+            <button disabled={saving || !ready || modelStatus[active]?.loading || !entry.apiKey.trim()} onClick={fetchModels} className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm disabled:opacity-40">{modelStatus[active]?.loading ? '正在获取…' : catalogs[active] ? '刷新模型' : '获取模型'}</button>
+            <p className="text-xs text-gray-400">使用当前填写的密钥读取列表；获取不会保存设置或发起生成。列表只显示本应用已适配的模型。</p>
+            {active === 'volcengine' && <p className="text-xs text-gray-400">若账户接口不提供模型列表，可手动填写 Model ID 或 ep-… 接入点；接入点未必包含在列表中。</p>}
+            {modelStatus[active] && <p role={modelStatus[active].failed ? 'alert' : 'status'} className={`text-xs ${modelStatus[active].failed ? 'text-red-300' : 'text-gray-300'}`}>{modelStatus[active].text}</p>}
+          </div>
+          <ModelPicker key={`${active}-text`} label={`${meta.name} 文本模型`} value={entry.textModel} onChange={value => updateProvider('textModel', value)} models={(catalogs[active]?.models || []).filter(model => model.kinds.includes('text'))} hint={meta.textHint} disabled={saving || !ready} allowDefault={active === 'aliyun'} />
+          {meta.capabilities.includes('image')
+            ? <ModelPicker key={`${active}-image`} label={`${meta.name} 图片模型`} value={entry.imageModel} onChange={value => updateProvider('imageModel', value)} models={(catalogs[active]?.models || []).filter(model => model.kinds.includes('image'))} hint={meta.imageHint} disabled={saving || !ready} />
+            : <p className="text-xs text-orange-200">DeepSeek 用于文本和封面提示词；封面图片请在上方选择阿里云或火山方舟。</p>}
         </fieldset>
         <div className="rounded border border-gray-600 bg-gray-900/60 p-3 text-xs leading-relaxed space-y-2">
           <p className="font-semibold text-orange-200">订阅包 / Coding Plan（code 包）说明</p>

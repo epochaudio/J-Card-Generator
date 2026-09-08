@@ -10,10 +10,10 @@ const memory = entries => {
 const secure = (values = memory()) => ({ ...values, setItem: async (key,value) => { values.setItem(key,value); return true; }, removeItem: async key => { values.removeItem(key); return true; } });
 const settings = () => {
  const config = normalizeAISettings();
- config.textProvider = 'volcengine'; config.imageProvider = 'minimax';
+ config.textProvider = 'volcengine'; config.imageProvider = 'aliyun';
  config.providers.aliyun.apiKey='ali-test-secret';
  config.providers.volcengine={apiKey:'volc-test-secret',textModel:'ep-text',imageModel:'ep-image'};
- config.providers.minimax.apiKey='mini-test-secret';
+ config.providers.deepseek.apiKey='deepseek-test-secret';
  return config;
 };
 test('independent credentials, models and selections survive save and restart',async()=>{
@@ -22,9 +22,9 @@ test('independent credentials, models and selections survive save and restart',a
  await store.save(settings());
  assert.deepEqual((await store.load()).settings,settings());
  assert.equal(localStore.getItem(AI_SETTINGS_KEY),null);
- const changed=settings();changed.providers.minimax.apiKey='';await store.save(changed);
+ const changed=settings();changed.providers.deepseek.apiKey='';await store.save(changed);
  const loaded=(await store.load()).settings;
- assert.equal(loaded.providers.aliyun.apiKey,'ali-test-secret');assert.equal(loaded.providers.minimax.apiKey,'');
+ assert.equal(loaded.providers.aliyun.apiKey,'ali-test-secret');assert.equal(loaded.providers.deepseek.apiKey,'');
 });
 test('legacy Ali migration commits before deleting aliases',async()=>{
  const localStore=memory({dashscope_api_key:'ali-legacy'}),secureStore=secure();
@@ -55,13 +55,63 @@ test('browser storage reports failure and does not pretend to be encrypted',asyn
 test('ordinary channel rejects known subscription keys and missing model, preserves Ali defaults',()=>{
  const config=settings();
  assert.equal(resolveProvider(config,'text').apiKey,'volc-test-secret');
- assert.equal(resolveProvider(config,'image').id,'minimax');
+ assert.equal(resolveProvider(config,'image').id,'aliyun');
  config.textProvider='aliyun';assert.equal(resolveProvider(config,'text','qwen-plus').model,'qwen-plus');
  config.providers.aliyun.apiKey='sk-sp-plan';assert.throws(()=>resolveProvider(config,'text'),/订阅/);
- config.imageProvider='minimax';config.providers.minimax.apiKey='sk-cp-plan';assert.throws(()=>resolveProvider(config,'image'),/订阅/);
+ config.imageProvider='deepseek';assert.throws(()=>resolveProvider(config,'image'),/图片/);config.imageProvider='aliyun';
  config.textProvider='volcengine';config.providers.volcengine.textModel='';assert.throws(()=>resolveProvider(config,'text'),/模型 ID/);
 });
 test('all provider secrets are excluded from project and draft serialization',()=>{
  const content=serializeProject({data:{sideA:[],sideB:[]},aiSettings:settings(),providers:settings().providers});
  assert.equal(content.includes('test-secret'),false);
+});
+
+const oldMiniMax = () => ({ version: 1, textProvider: 'minimax', imageProvider: 'minimax', providers: {
+  aliyun: { apiKey: 'keep-ali', textModel: 'qwen-plus', imageModel: 'wan2.5-t2i-preview' },
+  volcengine: { apiKey: 'keep-ark', textModel: 'ep-text', imageModel: 'ep-image' },
+  minimax: { apiKey: 'remove-minimax-secret', textModel: 'MiniMax-M2.7', imageModel: 'image-01' }
+} });
+
+for (const desktop of [false, true]) test(`MiniMax migration is atomic and never redirects billing (${desktop ? 'desktop' : 'browser'})`, async () => {
+  const original = JSON.stringify(oldMiniMax());
+  const localStore = memory(desktop ? {} : { [AI_SETTINGS_KEY]: original });
+  const secureStore = desktop ? secure(memory({ [AI_SETTINGS_KEY]: original })) : undefined;
+  const store = createSettingsStorage({ localStore, secureStore });
+  const result = await store.load();
+  assert.equal(result.settings.version, 2);
+  assert.equal(result.settings.textProvider, '');
+  assert.equal(result.settings.imageProvider, '');
+  assert.equal(result.settings.providers.deepseek.apiKey, '');
+  assert.equal(result.settings.providers.deepseek.textModel, 'deepseek-v4-flash');
+  assert.equal(result.settings.providers.aliyun.apiKey, 'keep-ali');
+  assert.equal(result.settings.providers.volcengine.imageModel, 'ep-image');
+  assert.match(result.warning, /MiniMax 已移除/);
+  assert.throws(() => resolveProvider(result.settings, 'text'), /重新选择/);
+  assert.throws(() => resolveProvider(result.settings, 'image'), /重新选择/);
+  const saved = (secureStore || localStore).getItem(AI_SETTINGS_KEY);
+  assert.equal(saved.includes('minimax'), false);
+  assert.equal(saved.includes('remove-minimax-secret'), false);
+  assert.deepEqual((await store.load()).settings, result.settings);
+});
+
+test('failed MiniMax migration preserves the complete old configuration', async () => {
+  const original = JSON.stringify(oldMiniMax());
+  const localStore = memory({ [AI_SETTINGS_KEY]: original });
+  const secureStore = secure(); secureStore.setItem = async () => false;
+  await assert.rejects(createSettingsStorage({ localStore, secureStore }).load(), /未保存/);
+  assert.equal(localStore.getItem(AI_SETTINGS_KEY), original);
+  assert.equal(secureStore.getItem(AI_SETTINGS_KEY), null);
+});
+
+test('version 1 migration preserves existing non-MiniMax selections and workspace ID roundtrips', async () => {
+  const old = oldMiniMax(); old.textProvider = 'volcengine'; old.imageProvider = 'aliyun';
+  const localStore = memory({ [AI_SETTINGS_KEY]: JSON.stringify(old) });
+  const store = createSettingsStorage({ localStore });
+  const { settings: config } = await store.load();
+  assert.equal(config.textProvider, 'volcengine'); assert.equal(config.imageProvider, 'aliyun');
+  config.providers.aliyun.workspaceId = 'workspace-123';
+  await store.save(config);
+  assert.equal((await store.load()).settings.providers.aliyun.workspaceId, 'workspace-123');
+  config.providers.aliyun.workspaceId = 'attacker.test/path';
+  await assert.rejects(store.save(config), /业务空间 ID/);
 });

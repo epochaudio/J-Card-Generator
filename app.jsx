@@ -200,10 +200,10 @@ export default function App() {
   const restoredCover = useRef(undefined);
   const aiSettings = useAISettings();
   const aiService = useMemo(() => createAIContentService(aiSettings.settings), [aiSettings.settings]);
-  const textProviderName = PROVIDERS[aiSettings.settings.textProvider].name;
-  const imageProviderName = PROVIDERS[aiSettings.settings.imageProvider].name;
-  const textKeyConfigured = Boolean(aiSettings.settings.providers[aiSettings.settings.textProvider].apiKey);
-  const imageKeyConfigured = Boolean(aiSettings.settings.providers[aiSettings.settings.imageProvider].apiKey);
+  const textProviderName = PROVIDERS[aiSettings.settings.textProvider]?.name || '请选择文本服务商';
+  const imageProviderName = PROVIDERS[aiSettings.settings.imageProvider]?.name || '请选择图片服务商';
+  const textKeyConfigured = Boolean(aiSettings.settings.providers[aiSettings.settings.textProvider]?.apiKey);
+  const imageKeyConfigured = Boolean(aiSettings.settings.providers[aiSettings.settings.imageProvider]?.apiKey);
   const svgRef = useRef(null);
   const [loadingStates, setLoadingStates] = useState({
     enhance: false,

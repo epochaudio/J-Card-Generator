@@ -1,4 +1,4 @@
-import { AI_SETTINGS_KEY, LEGACY_ALI_KEYS, normalizeAISettings } from './providerConfig.mjs';
+import { AI_CONFIG_VERSION, AI_SETTINGS_KEY, LEGACY_ALI_KEYS, normalizeAISettings } from './providerConfig.mjs';
 
 export function createSettingsStorage({ secureStore, localStore }) {
   const removeLegacy = async () => {
@@ -23,13 +23,28 @@ export function createSettingsStorage({ secureStore, localStore }) {
     try { await removeLegacy(); } catch { warning = '新设置已保存，旧版密钥副本清理失败，请检查本地存储权限。'; }
     return { settings: normalized, warning };
   };
+  const loadPayload = async (payload, fromLocal) => {
+    const input = JSON.parse(payload);
+    const settings = normalizeAISettings(input);
+    const removedMiniMax = Object.hasOwn(input.providers || {}, 'minimax') || input.textProvider === 'minimax' || input.imageProvider === 'minimax';
+    if (input.version !== AI_CONFIG_VERSION || removedMiniMax || (fromLocal && secureStore)) {
+      const result = await save(settings);
+      if (removedMiniMax) {
+        result.warning = [
+          'MiniMax 已移除，旧密钥已从当前配置中删除。DeepSeek 需填写独立密钥；原选中 MiniMax 的服务请重新选择并保存。',
+          result.warning
+        ].filter(Boolean).join(' ');
+      }
+      return result;
+    }
+    return { settings, warning: '' };
+  };
   const load = async () => {
     const encrypted = secureStore ? await secureStore.getItem(AI_SETTINGS_KEY) : null;
-    if (encrypted) return { settings: normalizeAISettings(JSON.parse(encrypted)), warning: '' };
+    if (encrypted) return loadPayload(encrypted, false);
     const local = localStore?.getItem(AI_SETTINGS_KEY);
     if (local) {
-      const settings = normalizeAISettings(JSON.parse(local));
-      return secureStore ? save(settings) : { settings, warning: '' };
+      return loadPayload(local, true);
     }
     // Prefer the existing canonical key, then the two historical aliases.
     let legacyKey = '';

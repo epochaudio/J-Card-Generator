@@ -20,20 +20,41 @@ const path = require('node:path');
  const errors = []; page.on('pageerror', e => errors.push(e.message));
  await page.getByRole('button',{name:'保存作品',exact:true}).waitFor();
  await page.waitForFunction(() => !document.body.innerText.includes('正在检查草稿'));
+ // Exercise the actual preload -> main-process -> providerAPI model-list path.
+ await app.evaluate(({net}) => {
+   globalThis.originalModelTestFetch = net.fetch;
+   globalThis.modelTestRequests = [];
+   net.fetch = async (url, options) => {
+     globalThis.modelTestRequests.push({url,method:options.method,key:options.headers.Authorization});
+     const body = url.includes('maas.aliyuncs.com')
+       ? {output:{total:2,page_no:1,models:[{model:'qwen3-max',capabilities:['TG']},{model:'wan2.5-t2i-preview',capabilities:['IG']}]}}
+       : {data:url.includes('deepseek.com') ? [{id:'deepseek-v4-flash'},{id:'deepseek-v4-pro'}] : [{id:'doubao-seed-1-6-250615'},{id:'doubao-seedream-4-0-250828'}]};
+     return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
+   };
+ });
  // Exercise all provider settings with isolated dummy credentials (no network calls).
  await page.getByRole('button',{name:'AI 服务设置',exact:true}).click();
- const providers = [['阿里云百炼','aliyun'],['火山引擎（火山方舟）','volcengine'],['MiniMax','minimax']];
+ const providers = [['阿里云百炼','aliyun'],['火山引擎（火山方舟）','volcengine'],['DeepSeek','deepseek']];
  for (const [name,id] of providers) {
    await page.getByRole('tab',{name,exact:true}).click();
    await page.getByLabel(`${name} API Key`,{exact:true}).fill(`test-${id}-secret`);
+   if (id==='aliyun') await page.getByLabel('阿里云业务空间 ID').fill('workspace-test');
+   await page.getByRole('button',{name:'获取模型',exact:true}).click();
+   await page.getByText(/^已获取 2 个已适配模型/).waitFor();
+   if (id==='deepseek') await page.getByLabel('DeepSeek 文本模型 选择',{exact:true}).selectOption('deepseek-v4-pro');
    if (id==='volcengine') {
+     for (const summary of await page.getByText('手动填写模型 ID',{exact:true}).all()) await summary.click();
      await page.getByLabel(`${name} 文本模型`,{exact:true}).fill('ep-test-text');
      await page.getByLabel(`${name} 图片模型`,{exact:true}).fill('ep-test-image');
    }
    assert.match(await page.getByRole('dialog').innerText(), /订阅包.*Coding Plan/);
  }
+ const modelRequests = await app.evaluate(({net}) => { net.fetch=globalThis.originalModelTestFetch; return globalThis.modelTestRequests; });
+ assert.equal(modelRequests.length,3);
+ assert.ok(modelRequests.every(request=>request.method==='GET'));
+ assert.deepEqual(modelRequests.map(request=>request.key),providers.map(([,id])=>`Bearer test-${id}-secret`));
  await page.getByLabel('文本服务商',{exact:true}).selectOption('volcengine');
- await page.getByLabel('图片服务商',{exact:true}).selectOption('minimax');
+ await page.getByLabel('图片服务商',{exact:true}).selectOption('aliyun');
  await page.getByRole('button',{name:'保存设置',exact:true}).click();
  await page.getByText('设置已保存；密钥是否有效、账户套餐与余额尚未验证。',{exact:true}).waitFor();
  const encrypted = await fs.readFile(path.join(dir,'secure-store.json'),'utf8');
@@ -43,15 +64,16 @@ const path = require('node:path');
  await page.reload();
  await page.getByRole('button',{name:'AI 服务设置',exact:true}).click();
  assert.equal(await page.getByLabel('文本服务商',{exact:true}).inputValue(),'volcengine');
- assert.equal(await page.getByLabel('图片服务商',{exact:true}).inputValue(),'minimax');
+ assert.equal(await page.getByLabel('图片服务商',{exact:true}).inputValue(),'aliyun');
  for (const [name,id] of providers) {
    await page.getByRole('tab',{name,exact:true}).click();
    assert.equal(await page.getByLabel(`${name} API Key`,{exact:true}).inputValue(),`test-${id}-secret`);
  }
- await page.getByLabel('MiniMax API Key',{exact:true}).fill('discard-me');
+ await page.getByLabel('DeepSeek API Key',{exact:true}).fill('discard-me');
+ assert.equal(await page.getByLabel('DeepSeek 文本模型 选择',{exact:true}).inputValue(),'deepseek-v4-pro');
  await page.getByRole('button',{name:'关闭设置',exact:true}).click();
  await page.getByRole('button',{name:'AI 服务设置',exact:true}).click();
- assert.equal(await page.getByLabel('MiniMax API Key',{exact:true}).inputValue(),'test-minimax-secret');
+ assert.equal(await page.getByLabel('DeepSeek API Key',{exact:true}).inputValue(),'test-deepseek-secret');
  await page.getByRole('button',{name:'关闭设置',exact:true}).click();
  console.log('PASS provider settings, encrypted persistence, reload, selectors, cancelled edit, plan explanation');
  console.log('initial', (await page.locator('body').innerText()).slice(0,350));
