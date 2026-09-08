@@ -11,7 +11,7 @@ export function computeFrontLayout(data, fontConfig, theme = {}) {
   const rules = FRONT_RULES;
   const width = JCARD_DIMENSIONS.panels.front;
   const editorial = data.layout?.frontStyle === 'EDITORIAL';
-  const image = { x: editorial ? rules.margin : 0, y: editorial ? rules.margin : 0, size: editorial ? width - rules.margin * 2 : width };
+  const image = { x: 0, y: 0, size: width };
   const top = image.y + image.size + rules.imageGap;
   const maxHeight = JCARD_DIMENSIONS.height - rules.bottom - top;
   const maxWidth = width - rules.margin * 2;
