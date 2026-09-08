@@ -1,37 +1,6 @@
+import { suggestMode } from '../musicbrainz/model.mjs';
 const LayoutEngine = {
-  detectMode: (releaseData, tracks) => {
-    if (releaseData.works && releaseData.works.length > 0) return 'CLASSICAL';
-
-    const secondaryTypes = releaseData['release-group']?.['secondary-types'] || [];
-    const albumArtist = releaseData['artist-credit']?.[0]?.name;
-
-    if (albumArtist === 'Various Artists' || secondaryTypes.includes('Compilation')) {
-      return 'COMPILATION';
-    }
-
-    let classicalScore = 0;
-    const classicalKeywords = [/Op\./, /No\./, /Major/, /Minor/, /Sonata/, /Concerto/, /Symphony/, /BWV/, /HWV/, /KV/];
-    const trackTitles = tracks.map(t => t.title);
-    trackTitles.forEach(title => {
-      if (classicalKeywords.some(regex => regex.test(title))) {
-        classicalScore += 1;
-      }
-    });
-
-    let groupingCount = 0;
-    for (let i = 0; i < trackTitles.length - 1; i++) {
-      const prefix = LayoutEngine.getCommonPrefix(trackTitles[i], trackTitles[i + 1]);
-      if (prefix.length > 15) {
-        groupingCount++;
-        i++;
-      }
-    }
-
-    if ((classicalScore / tracks.length > 0.3) || groupingCount >= 2) {
-      return 'CLASSICAL';
-    }
-    return 'STANDARD';
-  },
+  detectMode: suggestMode,
 
   getCommonPrefix: (s1, s2) => {
     if (!s1 || !s2) return "";
@@ -58,8 +27,10 @@ const LayoutEngine = {
             : current._workTitle;
 
           const subTracks = tracks.slice(i, j).map(t => {
-            let suffix = t.title.replace(groupTitle, '').trim();
-            suffix = suffix.replace(/^[:\-,\s]+/, '').replace(/^I+\.\s+/, '');
+            let suffix = t.title;
+            if (suffix.startsWith(groupTitle)) suffix = suffix.slice(groupTitle.length);
+            else if (current._workTitle && suffix.startsWith(current._workTitle)) suffix = suffix.slice(current._workTitle.length);
+            suffix = suffix.replace(/^[:\-,\s]+/, '');
             if (!suffix) suffix = t.title;
             return { ...t, displayTitle: suffix };
           });
@@ -73,6 +44,9 @@ const LayoutEngine = {
       }
       return result;
     }
+
+    // Imported tracks require explicit work relationships, even when none were supplied.
+    if (tracks.some(t => t.musicbrainz)) return tracks.map(t => ({ type: 'track', ...t, displayTitle: t.title }));
 
     const result = [];
     let i = 0;

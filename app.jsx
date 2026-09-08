@@ -16,6 +16,7 @@ import useAISettings from './src/ai/useAISettings.jsx';
 import { PROVIDERS } from './src/ai/providerConfig.mjs';
 import ExportService from './src/services/ExportService.js';
 import MusicBrainzService from './src/services/MusicBrainzService.js';
+import { createImportSnapshot } from './src/musicbrainz/importProject.mjs';
 import { getFontConfig, FONT_THEMES } from './src/config/fonts.js';
 import { parseDurationToMs } from './src/utils/formatDuration.mjs';
 import { urlToBase64 } from './src/utils/imageUtils.js';
@@ -269,8 +270,6 @@ export default function App() {
   }, [coverImage, data.layout?.designEdition]);
 
   const [imagePrompt, setImagePrompt] = useState("");
-  const [searchQuery, setSearchQuery] = useState({ album: '', artist: '' });
-  const [searchResults, setSearchResults] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -320,7 +319,7 @@ export default function App() {
       setCoverImage(next.coverImage); setCoverImageB(next.coverImageB);
       setTheme(next.theme); setFontTheme(next.fontTheme); setJCardThemeMode(next.jCardThemeMode);
       setImagePrompt(next.imagePrompt);
-      setLoadingStates({}); setError(''); setSearchResults([]); setSearchQuery({ album: '', artist: '' });
+      setLoadingStates({}); setError('');
       setImportText(''); setDragState(null); setShowImport(false); setShowSearch(false);
     });
   };
@@ -401,86 +400,9 @@ export default function App() {
   // Set default prompt when data changes
   // Removed automatic prompt generation useEffect per user request
 
-  const handleSearch = async () => {
-    const epoch = projectEpoch.current;
-    if (!searchQuery.album.trim() && !searchQuery.artist.trim()) return;
-
-    setLoadingState('search', true);
-    setSearchResults([]);
-    setError('');
-    try {
-      const results = await MusicBrainzService.searchReleaseGroup(searchQuery.album, searchQuery.artist);
-      if (epoch !== projectEpoch.current) return;
-      setSearchResults(results);
-    } catch (e) { if (epoch !== projectEpoch.current) return; setError(e.message || "Search failed"); } finally { if (epoch === projectEpoch.current) setLoadingState('search', false); }
-  };
-
-  const handleSelectReleaseGroup = async (rg) => {
-    const epoch = projectEpoch.current;
-    setLoadingState('search', true);
-    setError('');
-    try {
-      const bestReleaseId = await MusicBrainzService.getBestReleaseId(rg.id);
-      if (epoch !== projectEpoch.current) return;
-      if (!bestReleaseId) throw new Error("No valid release found for this album.");
-      const releaseData = await MusicBrainzService.getReleaseDetails(bestReleaseId);
-      if (epoch !== projectEpoch.current) return;
-      const coverUrlOriginal = await MusicBrainzService.getCoverArt(rg.id);
-      if (epoch !== projectEpoch.current) return;
-      const coverUrl = await urlToBase64(coverUrlOriginal);
-      if (epoch !== projectEpoch.current) return;
-
-      const labelInfo = releaseData['label-info']?.[0];
-      const catalogNumber = labelInfo?.['catalog-number'];
-      const labelName = labelInfo?.label?.name;
-      const date = releaseData.date;
-
-      // Update Recording Data with Extended Credits
-      if (releaseData.credits) {
-        setRecordingData(prev => ({
-          ...prev,
-          credits: releaseData.credits
-        }));
-      }
-
-      const rawTracks = (releaseData.media || []).flatMap(m => m.tracks || []).map(t => createTrack({
-        title: t.title,
-        artist: t['artist-credit']?.[0]?.name || rg['artist-credit']?.[0]?.name || "Unknown",
-        duration: MusicBrainzService.formatDuration(t.length),
-        note: "",
-        _workId: t._workId, // Persist internal ID for grouping
-        _workTitle: t._workTitle,
-        _workComposer: t._workComposer
-      }));
-
-      // Calculate Sides with updated logic
-      const half = Math.ceil(rawTracks.length / 2);
-      const sideA = rawTracks.slice(0, half);
-      const sideB = rawTracks.slice(half);
-
-      setData(normalizeProjectData({
-        title: rg.title,
-        spineTitle: "",
-        artist: rg['artist-credit']?.[0]?.name,
-        releaseDate: date || "", // Set decoupled Release Date
-        tapeSubtitle: (labelName && catalogNumber) ? `${labelName} ${catalogNumber}` : (labelName || catalogNumber || ""),
-        coverBadge: "",
-        sideA: sideA,
-        sideB: sideB,
-        sideADuration: calculateTotalDuration(sideA),
-        sideBDuration: calculateTotalDuration(sideB),
-        layout: {
-          ...data.layout,
-          mode: LayoutEngine.detectMode(releaseData, rawTracks),
-          noteUpper: "STEREO",
-          noteLower: "",
-          forceCaps: false,
-          worksData: releaseData.works // Store Works hierarchy
-        }
-      }));
-      if (coverUrl) setCoverImage(coverUrl);
-      setShowSearch(false);
-    } catch (e) { if (epoch !== projectEpoch.current) return; setError("Import failed: " + e.message); } finally { if (epoch === projectEpoch.current) setLoadingState('search', false); }
+  const handleMusicBrainzImport = selection => {
+    const next = createImportSnapshot(projectSnapshot, selection);
+    applyProject(next);
   };
 
   const handleSmartImport = async () => {
@@ -964,14 +886,10 @@ export default function App() {
 
       <SearchModal
         isOpen={showSearch}
-        error={error}
-        isLoading={loadingStates.search}
-        searchQuery={searchQuery}
-        searchResults={searchResults}
         onClose={() => setShowSearch(false)}
-        onSearch={handleSearch}
-        onSearchQueryChange={setSearchQuery}
-        onSelectResult={handleSelectReleaseGroup}
+        onImport={handleMusicBrainzImport}
+        hasCover={!!coverImage}
+        hasSecondCover={!!coverImageB}
       />
 
       {/* Header */}

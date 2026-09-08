@@ -1,0 +1,2336 @@
+{
+  "recordedAt": "2026-09-08",
+  "source": "Public MusicBrainz API audit; selected fields retained for offline regression.",
+  "groups": {
+    "solo": {
+      "id": "578e3f6a-89f7-4d00-b3a2-5c5bfd24cadd",
+      "title": "Solo",
+      "first-release-date": "2023",
+      "artist-credit": [
+        {
+          "name": "Nicola Matteis, Jr",
+          "joinphrase": ", ",
+          "artist": {
+            "id": "52f19bc1-3944-4351-9bf0-7a477c67e59d",
+            "name": "Nicola Matteis, Jr"
+          }
+        },
+        {
+          "name": "Nicola Matteis",
+          "joinphrase": ", ",
+          "artist": {
+            "id": "0f7835c8-67b9-4545-94df-553f99478a01",
+            "name": "Nicola Matteis"
+          }
+        },
+        {
+          "name": "Johann Georg Pisendel",
+          "joinphrase": ", ",
+          "artist": {
+            "id": "28c25bb3-b017-4167-ab49-e1f49383076b",
+            "name": "Johann Georg Pisendel"
+          }
+        },
+        {
+          "name": "Louis-Gabriel Guillemain",
+          "joinphrase": ", ",
+          "artist": {
+            "id": "24508117-0034-4da7-ad79-4227e69d0278",
+            "name": "Louis-Gabriel Guillemain"
+          }
+        },
+        {
+          "name": "Johann Joseph Vilsmaÿr",
+          "joinphrase": ", ",
+          "artist": {
+            "id": "ba6091c6-a7c1-4416-be43-b54db2f3666e",
+            "name": "Johann Joseph Vilsmayr"
+          }
+        },
+        {
+          "name": "Heinrich Ignaz Franz von Biber",
+          "joinphrase": "; ",
+          "artist": {
+            "id": "66197dbc-c16b-4c95-9e1b-cc617783cb8c",
+            "name": "Heinrich Ignaz Franz von Biber"
+          }
+        },
+        {
+          "name": "Isabelle Faust",
+          "joinphrase": "",
+          "artist": {
+            "id": "b12b238a-c19b-4160-8b06-17c7b1fc3be6",
+            "name": "Isabelle Faust"
+          }
+        }
+      ]
+    },
+    "sun": {
+      "id": "15c7b543-68e6-3e03-a07d-b5e94752327e",
+      "title": "我要的幸福",
+      "first-release-date": "2000-12-09",
+      "artist-credit": [
+        {
+          "name": "孫燕姿",
+          "joinphrase": "",
+          "artist": {
+            "id": "ff0ecbbe-34b0-49c7-a36d-81a47700ac13",
+            "name": "孙燕姿"
+          }
+        }
+      ]
+    },
+    "bright": {
+      "id": "abac8d3d-f25a-386f-a819-5063c8df56a4",
+      "title": "Bright Size Life",
+      "first-release-date": "1976",
+      "artist-credit": [
+        {
+          "name": "Pat Metheny",
+          "joinphrase": "",
+          "artist": {
+            "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+            "name": "Pat Metheny"
+          }
+        }
+      ]
+    }
+  },
+  "brightRelease": {
+    "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+    "disambiguation": "SHM CD",
+    "packaging": "Jewel Case",
+    "relations": [],
+    "barcode": "4988031178041",
+    "label-info": [
+      {
+        "catalog-number": "UCCU-5717",
+        "label": {
+          "disambiguation": "Edition of Contemporary Music",
+          "label-code": 2516,
+          "name": "ECM Records",
+          "type": "Original Production",
+          "id": "1edf842b-d727-4d27-8db6-f31882443f89",
+          "type-id": "7aaa37fe-2def-3476-b359-80245850062d",
+          "sort-name": "ECM Records"
+        }
+      }
+    ],
+    "text-representation": {
+      "language": "eng",
+      "script": "Latn"
+    },
+    "quality": "normal",
+    "date": "2016-10-26",
+    "status": "Official",
+    "id": "20aec3ab-e0a3-4565-a490-4cf64a5057b5",
+    "media": [
+      {
+        "format-id": "4856b1c6-674d-3f68-a1dd-8ae517e8b566",
+        "format": "SHM-CD",
+        "position": 1,
+        "track-count": 8,
+        "id": "fa4d28f8-5bf9-3e19-a3e1-e6c02d871df1",
+        "track-offset": 0,
+        "title": "",
+        "tracks": [
+          {
+            "recording": {
+              "title": "Bright Size Life",
+              "disambiguation": "",
+              "video": false,
+              "first-release-date": "1976",
+              "id": "6cbda46a-4db9-4575-865d-5be479e30b84",
+              "artist-credit": [
+                {
+                  "joinphrase": "",
+                  "artist": {
+                    "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": "US",
+                    "sort-name": "Metheny, Pat",
+                    "disambiguation": "",
+                    "name": "Pat Metheny",
+                    "type": "Person"
+                  },
+                  "name": "Pat Metheny"
+                }
+              ],
+              "length": 285933,
+              "relations": [
+                {
+                  "begin": null,
+                  "type-id": "5dcc52af-7064-4051-8d62-7d80f4c3c907",
+                  "attribute-ids": {},
+                  "artist": {
+                    "sort-name": "Wieland, Martin",
+                    "country": null,
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "9b378a6e-0995-4d08-9264-ba7c4e91694e",
+                    "type": "Person",
+                    "name": "Martin Wieland",
+                    "disambiguation": "recording engineer from Tonstudio Bauer"
+                  },
+                  "end": null,
+                  "ended": false,
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "engineer",
+                  "direction": "backward",
+                  "attributes": [],
+                  "target-type": "artist",
+                  "source-credit": ""
+                },
+                {
+                  "attributes": [
+                    "drums (drum set)"
+                  ],
+                  "target-type": "artist",
+                  "source-credit": "",
+                  "attribute-ids": {
+                    "drums (drum set)": "12092505-6ee1-46af-a15a-b5b468b6b155"
+                  },
+                  "begin": "1975-12",
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "ended": true,
+                  "artist": {
+                    "disambiguation": "jazz drummer/composer",
+                    "name": "Bob Moses",
+                    "type": "Person",
+                    "id": "2a047ec5-84a2-4616-ae24-bd28f66a9960",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": "US",
+                    "sort-name": "Moses, Bob"
+                  },
+                  "end": "1975-12",
+                  "type": "instrument",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "attribute-credits": {},
+                  "direction": "backward"
+                },
+                {
+                  "attributes": [
+                    "bass guitar"
+                  ],
+                  "target-type": "artist",
+                  "source-credit": "",
+                  "artist": {
+                    "name": "Jaco Pastorius",
+                    "type": "Person",
+                    "disambiguation": "",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "sort-name": "Pastorius, Jaco",
+                    "country": "US",
+                    "id": "46a6fac0-2e14-4214-b08e-3bdb1cffa5aa"
+                  },
+                  "end": "1975-12",
+                  "ended": true,
+                  "begin": "1975-12",
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "attribute-ids": {
+                    "bass guitar": "17f9f065-2312-4a24-8309-6f6dd63e2e33"
+                  },
+                  "direction": "backward",
+                  "attribute-credits": {},
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "instrument"
+                },
+                {
+                  "begin": null,
+                  "type-id": "5c0ceac3-feb4-41f0-868d-dc06f6e27fc0",
+                  "attribute-ids": {},
+                  "end": null,
+                  "artist": {
+                    "type": "Person",
+                    "name": "Manfred Eicher",
+                    "disambiguation": "",
+                    "country": "DE",
+                    "sort-name": "Eicher, Manfred",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "5990bfa9-aba4-4b4e-87aa-2d752218d8f1"
+                  },
+                  "ended": false,
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "producer",
+                  "direction": "backward",
+                  "attributes": [],
+                  "target-type": "artist",
+                  "source-credit": ""
+                },
+                {
+                  "target-type": "work",
+                  "attributes": [],
+                  "source-credit": "",
+                  "work": {
+                    "id": "3586dc3b-2bc8-3bf6-b78b-016a45ae7d1b",
+                    "attributes": [],
+                    "relations": [
+                      {
+                        "end": "1974-01",
+                        "artist": {
+                          "disambiguation": "",
+                          "name": "Pat Metheny",
+                          "type": "Person",
+                          "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                          "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                          "country": "US",
+                          "sort-name": "Metheny, Pat"
+                        },
+                        "ended": true,
+                        "begin": "1974-01",
+                        "type-id": "d59d99ea-23d4-4a80-b066-edca32ee158f",
+                        "attribute-ids": {},
+                        "direction": "backward",
+                        "attribute-values": {},
+                        "target-credit": "",
+                        "type": "composer",
+                        "attributes": [],
+                        "target-type": "artist",
+                        "source-credit": ""
+                      }
+                    ],
+                    "type-id": "f061270a-2fd6-32f1-a641-f0f8676d14e6",
+                    "iswcs": [
+                      "T-700.003.830-4"
+                    ],
+                    "languages": [
+                      "zxx"
+                    ],
+                    "title": "Bright Size Life",
+                    "disambiguation": "",
+                    "type": "Song",
+                    "language": "zxx"
+                  },
+                  "attribute-ids": {},
+                  "type-id": "a3005666-a872-32c3-ad06-98af558e99b0",
+                  "begin": "1975-12",
+                  "ended": true,
+                  "end": "1975-12",
+                  "type": "performance",
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "direction": "forward"
+                }
+              ]
+            },
+            "title": "Bright Size Life",
+            "number": "1",
+            "position": 1,
+            "artist-credit": [
+              {
+                "joinphrase": "",
+                "artist": {
+                  "name": "Pat Metheny",
+                  "type": "Person",
+                  "disambiguation": "",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "country": "US",
+                  "sort-name": "Metheny, Pat",
+                  "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25"
+                },
+                "name": "Pat Metheny"
+              }
+            ],
+            "id": "e358f376-b63c-4840-adc5-90ef88cb50b6",
+            "length": 285933
+          },
+          {
+            "recording": {
+              "video": false,
+              "title": "Sirabhorn",
+              "disambiguation": "",
+              "length": 329666,
+              "relations": [
+                {
+                  "ended": false,
+                  "end": null,
+                  "artist": {
+                    "id": "9b378a6e-0995-4d08-9264-ba7c4e91694e",
+                    "sort-name": "Wieland, Martin",
+                    "country": null,
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "disambiguation": "recording engineer from Tonstudio Bauer",
+                    "type": "Person",
+                    "name": "Martin Wieland"
+                  },
+                  "attribute-ids": {},
+                  "begin": null,
+                  "type-id": "5dcc52af-7064-4051-8d62-7d80f4c3c907",
+                  "direction": "backward",
+                  "type": "engineer",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "attributes": [],
+                  "target-type": "artist",
+                  "source-credit": ""
+                },
+                {
+                  "type": "instrument",
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "attribute-credits": {},
+                  "direction": "backward",
+                  "attribute-ids": {
+                    "drums (drum set)": "12092505-6ee1-46af-a15a-b5b468b6b155"
+                  },
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "begin": "1975-12",
+                  "ended": true,
+                  "artist": {
+                    "country": "US",
+                    "sort-name": "Moses, Bob",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "2a047ec5-84a2-4616-ae24-bd28f66a9960",
+                    "type": "Person",
+                    "name": "Bob Moses",
+                    "disambiguation": "jazz drummer/composer"
+                  },
+                  "end": "1975-12",
+                  "source-credit": "",
+                  "target-type": "artist",
+                  "attributes": [
+                    "drums (drum set)"
+                  ]
+                },
+                {
+                  "direction": "backward",
+                  "attribute-credits": {},
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "instrument",
+                  "artist": {
+                    "disambiguation": "",
+                    "type": "Person",
+                    "name": "Jaco Pastorius",
+                    "id": "46a6fac0-2e14-4214-b08e-3bdb1cffa5aa",
+                    "sort-name": "Pastorius, Jaco",
+                    "country": "US",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df"
+                  },
+                  "end": "1975-12",
+                  "ended": true,
+                  "begin": "1975-12",
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "attribute-ids": {
+                    "bass guitar": "17f9f065-2312-4a24-8309-6f6dd63e2e33"
+                  },
+                  "source-credit": "",
+                  "attributes": [
+                    "bass guitar"
+                  ],
+                  "target-type": "artist"
+                },
+                {
+                  "attributes": [],
+                  "target-type": "artist",
+                  "source-credit": "",
+                  "ended": false,
+                  "artist": {
+                    "disambiguation": "",
+                    "name": "Manfred Eicher",
+                    "type": "Person",
+                    "id": "5990bfa9-aba4-4b4e-87aa-2d752218d8f1",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": "DE",
+                    "sort-name": "Eicher, Manfred"
+                  },
+                  "end": null,
+                  "attribute-ids": {},
+                  "begin": null,
+                  "type-id": "5c0ceac3-feb4-41f0-868d-dc06f6e27fc0",
+                  "direction": "backward",
+                  "type": "producer",
+                  "attribute-values": {},
+                  "target-credit": ""
+                },
+                {
+                  "work": {
+                    "languages": [
+                      "zxx"
+                    ],
+                    "title": "Sirabhorn",
+                    "iswcs": [
+                      "T-700.063.572-5"
+                    ],
+                    "disambiguation": "",
+                    "type": "Song",
+                    "language": "zxx",
+                    "attributes": [],
+                    "id": "5b254749-1c52-3f68-b464-24700384777f",
+                    "relations": [
+                      {
+                        "attributes": [],
+                        "target-type": "artist",
+                        "source-credit": "",
+                        "attribute-ids": {},
+                        "begin": "1975",
+                        "type-id": "d59d99ea-23d4-4a80-b066-edca32ee158f",
+                        "ended": true,
+                        "artist": {
+                          "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                          "sort-name": "Metheny, Pat",
+                          "country": "US",
+                          "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                          "name": "Pat Metheny",
+                          "type": "Person",
+                          "disambiguation": ""
+                        },
+                        "end": "1975",
+                        "type": "composer",
+                        "attribute-values": {},
+                        "target-credit": "",
+                        "direction": "backward"
+                      },
+                      {
+                        "type": "dedication",
+                        "attribute-values": {},
+                        "target-credit": "",
+                        "direction": "backward",
+                        "attribute-ids": {},
+                        "begin": null,
+                        "type-id": "26131498-00e8-4136-b937-22a4be01a63d",
+                        "ended": false,
+                        "artist": {
+                          "id": "72a2ac3f-afbf-4d4b-9d97-d7bd985bbecc",
+                          "country": "US",
+                          "sort-name": "Muntarbhorn, Sirabhorn",
+                          "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                          "disambiguation": "",
+                          "type": "Person",
+                          "name": "Sirabhorn Muntarbhorn"
+                        },
+                        "end": null,
+                        "source-credit": "",
+                        "attributes": [],
+                        "target-type": "artist"
+                      }
+                    ],
+                    "type-id": "f061270a-2fd6-32f1-a641-f0f8676d14e6"
+                  },
+                  "source-credit": "",
+                  "target-type": "work",
+                  "attributes": [],
+                  "direction": "forward",
+                  "type": "performance",
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "ended": true,
+                  "end": "1975-12",
+                  "attribute-ids": {},
+                  "type-id": "a3005666-a872-32c3-ad06-98af558e99b0",
+                  "begin": "1975-12"
+                }
+              ],
+              "first-release-date": "1976",
+              "id": "40b0cd34-d1ff-418b-8f35-0fe599ef39f9",
+              "artist-credit": [
+                {
+                  "name": "Pat Metheny",
+                  "artist": {
+                    "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                    "country": "US",
+                    "sort-name": "Metheny, Pat",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "disambiguation": "",
+                    "type": "Person",
+                    "name": "Pat Metheny"
+                  },
+                  "joinphrase": ""
+                }
+              ]
+            },
+            "title": "Sirabhorn",
+            "number": "2",
+            "position": 2,
+            "artist-credit": [
+              {
+                "name": "Pat Metheny",
+                "artist": {
+                  "type": "Person",
+                  "name": "Pat Metheny",
+                  "disambiguation": "",
+                  "country": "US",
+                  "sort-name": "Metheny, Pat",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25"
+                },
+                "joinphrase": ""
+              }
+            ],
+            "id": "d1140657-056e-4773-85ba-0db769d64f89",
+            "length": 329666
+          },
+          {
+            "length": 220226,
+            "position": 3,
+            "artist-credit": [
+              {
+                "joinphrase": "",
+                "artist": {
+                  "type": "Person",
+                  "name": "Pat Metheny",
+                  "disambiguation": "",
+                  "sort-name": "Metheny, Pat",
+                  "country": "US",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25"
+                },
+                "name": "Pat Metheny"
+              }
+            ],
+            "id": "394a8fbb-cb03-4721-b83e-06f4d99afb62",
+            "number": "3",
+            "recording": {
+              "title": "Unity Village",
+              "disambiguation": "",
+              "video": false,
+              "first-release-date": "1976",
+              "id": "ea10c672-ed5b-46e6-b032-4884042a879f",
+              "artist-credit": [
+                {
+                  "name": "Pat Metheny",
+                  "joinphrase": "",
+                  "artist": {
+                    "name": "Pat Metheny",
+                    "type": "Person",
+                    "disambiguation": "",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": "US",
+                    "sort-name": "Metheny, Pat",
+                    "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25"
+                  }
+                }
+              ],
+              "relations": [
+                {
+                  "end": null,
+                  "artist": {
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": null,
+                    "sort-name": "Wieland, Martin",
+                    "id": "9b378a6e-0995-4d08-9264-ba7c4e91694e",
+                    "name": "Martin Wieland",
+                    "type": "Person",
+                    "disambiguation": "recording engineer from Tonstudio Bauer"
+                  },
+                  "ended": false,
+                  "begin": null,
+                  "type-id": "5dcc52af-7064-4051-8d62-7d80f4c3c907",
+                  "attribute-ids": {},
+                  "direction": "backward",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "engineer",
+                  "attributes": [],
+                  "target-type": "artist",
+                  "source-credit": ""
+                },
+                {
+                  "attributes": [
+                    "drums (drum set)"
+                  ],
+                  "target-type": "artist",
+                  "source-credit": "",
+                  "end": "1975-12",
+                  "artist": {
+                    "id": "2a047ec5-84a2-4616-ae24-bd28f66a9960",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "sort-name": "Moses, Bob",
+                    "country": "US",
+                    "disambiguation": "jazz drummer/composer",
+                    "name": "Bob Moses",
+                    "type": "Person"
+                  },
+                  "ended": true,
+                  "begin": "1975-12",
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "attribute-ids": {
+                    "drums (drum set)": "12092505-6ee1-46af-a15a-b5b468b6b155"
+                  },
+                  "direction": "backward",
+                  "attribute-credits": {},
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "instrument"
+                },
+                {
+                  "source-credit": "",
+                  "attributes": [
+                    "bass guitar"
+                  ],
+                  "target-type": "artist",
+                  "direction": "backward",
+                  "attribute-credits": {},
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "instrument",
+                  "artist": {
+                    "name": "Jaco Pastorius",
+                    "type": "Person",
+                    "disambiguation": "",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": "US",
+                    "sort-name": "Pastorius, Jaco",
+                    "id": "46a6fac0-2e14-4214-b08e-3bdb1cffa5aa"
+                  },
+                  "end": "1975-12",
+                  "ended": true,
+                  "begin": "1975-12",
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "attribute-ids": {
+                    "bass guitar": "17f9f065-2312-4a24-8309-6f6dd63e2e33"
+                  }
+                },
+                {
+                  "source-credit": "",
+                  "attributes": [],
+                  "target-type": "artist",
+                  "direction": "backward",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "producer",
+                  "end": null,
+                  "artist": {
+                    "country": "DE",
+                    "sort-name": "Eicher, Manfred",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "5990bfa9-aba4-4b4e-87aa-2d752218d8f1",
+                    "type": "Person",
+                    "name": "Manfred Eicher",
+                    "disambiguation": ""
+                  },
+                  "ended": false,
+                  "begin": null,
+                  "type-id": "5c0ceac3-feb4-41f0-868d-dc06f6e27fc0",
+                  "attribute-ids": {}
+                },
+                {
+                  "attribute-ids": {},
+                  "begin": "1975-12",
+                  "type-id": "a3005666-a872-32c3-ad06-98af558e99b0",
+                  "ended": true,
+                  "end": "1975-12",
+                  "type": "performance",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "direction": "forward",
+                  "attributes": [],
+                  "target-type": "work",
+                  "source-credit": "",
+                  "work": {
+                    "disambiguation": "",
+                    "iswcs": [
+                      "T-700.075.700-8"
+                    ],
+                    "languages": [
+                      "zxx"
+                    ],
+                    "title": "Unity Village",
+                    "language": "zxx",
+                    "type": "Song",
+                    "id": "8ed28e7b-e45d-3f51-bb7f-686ff4893474",
+                    "attributes": [],
+                    "type-id": "f061270a-2fd6-32f1-a641-f0f8676d14e6",
+                    "relations": [
+                      {
+                        "target-type": "artist",
+                        "attributes": [],
+                        "source-credit": "",
+                        "type-id": "d59d99ea-23d4-4a80-b066-edca32ee158f",
+                        "begin": "1974-01",
+                        "attribute-ids": {},
+                        "artist": {
+                          "name": "Pat Metheny",
+                          "type": "Person",
+                          "disambiguation": "",
+                          "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                          "sort-name": "Metheny, Pat",
+                          "country": "US",
+                          "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25"
+                        },
+                        "end": "1974-01",
+                        "ended": true,
+                        "target-credit": "",
+                        "attribute-values": {},
+                        "type": "composer",
+                        "direction": "backward"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "length": 220226
+            },
+            "title": "Unity Village"
+          },
+          {
+            "number": "4",
+            "recording": {
+              "title": "Missouri Uncompromised",
+              "disambiguation": "",
+              "video": false,
+              "artist-credit": [
+                {
+                  "name": "Pat Metheny",
+                  "joinphrase": "",
+                  "artist": {
+                    "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                    "sort-name": "Metheny, Pat",
+                    "country": "US",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "disambiguation": "",
+                    "type": "Person",
+                    "name": "Pat Metheny"
+                  }
+                }
+              ],
+              "first-release-date": "1976",
+              "id": "6ef65d8d-076e-4890-8a26-ff9f8717abf8",
+              "relations": [
+                {
+                  "source-credit": "",
+                  "target-type": "artist",
+                  "attributes": [],
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "type": "engineer",
+                  "direction": "backward",
+                  "type-id": "5dcc52af-7064-4051-8d62-7d80f4c3c907",
+                  "begin": null,
+                  "attribute-ids": {},
+                  "artist": {
+                    "sort-name": "Wieland, Martin",
+                    "country": null,
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "9b378a6e-0995-4d08-9264-ba7c4e91694e",
+                    "type": "Person",
+                    "name": "Martin Wieland",
+                    "disambiguation": "recording engineer from Tonstudio Bauer"
+                  },
+                  "end": null,
+                  "ended": false
+                },
+                {
+                  "source-credit": "",
+                  "target-type": "artist",
+                  "attributes": [
+                    "drums (drum set)"
+                  ],
+                  "attribute-credits": {},
+                  "direction": "backward",
+                  "type": "instrument",
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "ended": true,
+                  "end": "1975-12",
+                  "artist": {
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "sort-name": "Moses, Bob",
+                    "country": "US",
+                    "id": "2a047ec5-84a2-4616-ae24-bd28f66a9960",
+                    "name": "Bob Moses",
+                    "type": "Person",
+                    "disambiguation": "jazz drummer/composer"
+                  },
+                  "attribute-ids": {
+                    "drums (drum set)": "12092505-6ee1-46af-a15a-b5b468b6b155"
+                  },
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "begin": "1975-12"
+                },
+                {
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "instrument",
+                  "direction": "backward",
+                  "attribute-credits": {},
+                  "begin": "1975-12",
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "attribute-ids": {
+                    "bass guitar": "17f9f065-2312-4a24-8309-6f6dd63e2e33"
+                  },
+                  "artist": {
+                    "name": "Jaco Pastorius",
+                    "type": "Person",
+                    "disambiguation": "",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": "US",
+                    "sort-name": "Pastorius, Jaco",
+                    "id": "46a6fac0-2e14-4214-b08e-3bdb1cffa5aa"
+                  },
+                  "end": "1975-12",
+                  "ended": true,
+                  "source-credit": "",
+                  "attributes": [
+                    "bass guitar"
+                  ],
+                  "target-type": "artist"
+                },
+                {
+                  "source-credit": "",
+                  "attributes": [],
+                  "target-type": "artist",
+                  "direction": "backward",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "producer",
+                  "artist": {
+                    "id": "5990bfa9-aba4-4b4e-87aa-2d752218d8f1",
+                    "country": "DE",
+                    "sort-name": "Eicher, Manfred",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "disambiguation": "",
+                    "type": "Person",
+                    "name": "Manfred Eicher"
+                  },
+                  "end": null,
+                  "ended": false,
+                  "begin": null,
+                  "type-id": "5c0ceac3-feb4-41f0-868d-dc06f6e27fc0",
+                  "attribute-ids": {}
+                },
+                {
+                  "work": {
+                    "type": "Song",
+                    "language": "zxx",
+                    "disambiguation": "",
+                    "languages": [
+                      "zxx"
+                    ],
+                    "iswcs": [
+                      "T-700.044.310-9"
+                    ],
+                    "title": "Missouri Uncompromised",
+                    "relations": [
+                      {
+                        "direction": "backward",
+                        "type": "composer",
+                        "target-credit": "",
+                        "attribute-values": {},
+                        "ended": true,
+                        "end": "1974",
+                        "artist": {
+                          "sort-name": "Metheny, Pat",
+                          "country": "US",
+                          "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                          "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                          "type": "Person",
+                          "name": "Pat Metheny",
+                          "disambiguation": ""
+                        },
+                        "attribute-ids": {},
+                        "type-id": "d59d99ea-23d4-4a80-b066-edca32ee158f",
+                        "begin": "1974",
+                        "source-credit": "",
+                        "target-type": "artist",
+                        "attributes": []
+                      },
+                      {
+                        "attribute-ids": {},
+                        "begin": null,
+                        "type-id": "35d45ac2-74ba-4908-804f-21d138fb3d78",
+                        "ended": false,
+                        "end": null,
+                        "type": "included works",
+                        "attribute-values": {},
+                        "target-credit": "",
+                        "direction": "backward",
+                        "attributes": [],
+                        "target-type": "work",
+                        "source-credit": "",
+                        "work": {
+                          "id": "014dee7e-20f1-4545-a650-e6b0ab0856ff",
+                          "attributes": [],
+                          "type-id": null,
+                          "languages": [],
+                          "title": "The Real Book",
+                          "iswcs": [],
+                          "disambiguation": "compilation of jazz standards, volume I",
+                          "type": null,
+                          "language": null
+                        }
+                      }
+                    ],
+                    "type-id": "f061270a-2fd6-32f1-a641-f0f8676d14e6",
+                    "id": "107e53a4-a88f-3c08-8616-4c37ed838752",
+                    "attributes": []
+                  },
+                  "source-credit": "",
+                  "attributes": [],
+                  "target-type": "work",
+                  "direction": "forward",
+                  "type": "performance",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "ended": true,
+                  "end": "1975-12",
+                  "attribute-ids": {},
+                  "begin": "1975-12",
+                  "type-id": "a3005666-a872-32c3-ad06-98af558e99b0"
+                }
+              ],
+              "length": 261800
+            },
+            "title": "Missouri Uncompromised",
+            "length": 261800,
+            "position": 4,
+            "artist-credit": [
+              {
+                "artist": {
+                  "disambiguation": "",
+                  "name": "Pat Metheny",
+                  "type": "Person",
+                  "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "sort-name": "Metheny, Pat",
+                  "country": "US"
+                },
+                "joinphrase": "",
+                "name": "Pat Metheny"
+              }
+            ],
+            "id": "1f0da388-ca9a-48b1-aba3-3b34dafd8a08"
+          },
+          {
+            "number": "5",
+            "recording": {
+              "artist-credit": [
+                {
+                  "name": "Pat Metheny",
+                  "artist": {
+                    "disambiguation": "",
+                    "type": "Person",
+                    "name": "Pat Metheny",
+                    "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                    "country": "US",
+                    "sort-name": "Metheny, Pat",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df"
+                  },
+                  "joinphrase": ""
+                }
+              ],
+              "id": "7777ba91-96e7-44c2-b89f-294c25085bda",
+              "first-release-date": "1976",
+              "relations": [
+                {
+                  "source-credit": "",
+                  "attributes": [],
+                  "target-type": "artist",
+                  "direction": "backward",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "engineer",
+                  "end": null,
+                  "artist": {
+                    "disambiguation": "recording engineer from Tonstudio Bauer",
+                    "type": "Person",
+                    "name": "Martin Wieland",
+                    "id": "9b378a6e-0995-4d08-9264-ba7c4e91694e",
+                    "country": null,
+                    "sort-name": "Wieland, Martin",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df"
+                  },
+                  "ended": false,
+                  "begin": null,
+                  "type-id": "5dcc52af-7064-4051-8d62-7d80f4c3c907",
+                  "attribute-ids": {}
+                },
+                {
+                  "attributes": [
+                    "drums (drum set)"
+                  ],
+                  "target-type": "artist",
+                  "source-credit": "",
+                  "begin": "1975-12",
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "attribute-ids": {
+                    "drums (drum set)": "12092505-6ee1-46af-a15a-b5b468b6b155"
+                  },
+                  "end": "1975-12",
+                  "artist": {
+                    "name": "Bob Moses",
+                    "type": "Person",
+                    "disambiguation": "jazz drummer/composer",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": "US",
+                    "sort-name": "Moses, Bob",
+                    "id": "2a047ec5-84a2-4616-ae24-bd28f66a9960"
+                  },
+                  "ended": true,
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "instrument",
+                  "direction": "backward",
+                  "attribute-credits": {}
+                },
+                {
+                  "source-credit": "",
+                  "target-type": "artist",
+                  "attributes": [
+                    "bass guitar"
+                  ],
+                  "direction": "backward",
+                  "attribute-credits": {},
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "type": "instrument",
+                  "end": "1975-12",
+                  "artist": {
+                    "type": "Person",
+                    "name": "Jaco Pastorius",
+                    "disambiguation": "",
+                    "country": "US",
+                    "sort-name": "Pastorius, Jaco",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "46a6fac0-2e14-4214-b08e-3bdb1cffa5aa"
+                  },
+                  "ended": true,
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "begin": "1975-12",
+                  "attribute-ids": {
+                    "bass guitar": "17f9f065-2312-4a24-8309-6f6dd63e2e33"
+                  }
+                },
+                {
+                  "attribute-ids": {},
+                  "type-id": "5c0ceac3-feb4-41f0-868d-dc06f6e27fc0",
+                  "begin": null,
+                  "ended": false,
+                  "end": null,
+                  "artist": {
+                    "disambiguation": "",
+                    "name": "Manfred Eicher",
+                    "type": "Person",
+                    "id": "5990bfa9-aba4-4b4e-87aa-2d752218d8f1",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": "DE",
+                    "sort-name": "Eicher, Manfred"
+                  },
+                  "type": "producer",
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "direction": "backward",
+                  "target-type": "artist",
+                  "attributes": [],
+                  "source-credit": ""
+                },
+                {
+                  "work": {
+                    "language": "zxx",
+                    "type": "Song",
+                    "languages": [
+                      "zxx"
+                    ],
+                    "iswcs": [
+                      "T-700.043.800-8"
+                    ],
+                    "title": "Midwestern Nights Dream",
+                    "disambiguation": "",
+                    "type-id": "f061270a-2fd6-32f1-a641-f0f8676d14e6",
+                    "relations": [
+                      {
+                        "source-credit": "",
+                        "attributes": [],
+                        "target-type": "artist",
+                        "direction": "backward",
+                        "attribute-values": {},
+                        "target-credit": "",
+                        "type": "composer",
+                        "artist": {
+                          "type": "Person",
+                          "name": "Pat Metheny",
+                          "disambiguation": "",
+                          "country": "US",
+                          "sort-name": "Metheny, Pat",
+                          "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                          "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25"
+                        },
+                        "end": "1974",
+                        "ended": true,
+                        "begin": "1974",
+                        "type-id": "d59d99ea-23d4-4a80-b066-edca32ee158f",
+                        "attribute-ids": {}
+                      },
+                      {
+                        "target-type": "work",
+                        "attributes": [],
+                        "work": {
+                          "type-id": null,
+                          "id": "014dee7e-20f1-4545-a650-e6b0ab0856ff",
+                          "attributes": [],
+                          "type": null,
+                          "language": null,
+                          "disambiguation": "compilation of jazz standards, volume I",
+                          "languages": [],
+                          "title": "The Real Book",
+                          "iswcs": []
+                        },
+                        "source-credit": "",
+                        "ended": false,
+                        "end": null,
+                        "attribute-ids": {},
+                        "type-id": "35d45ac2-74ba-4908-804f-21d138fb3d78",
+                        "begin": null,
+                        "direction": "backward",
+                        "type": "included works",
+                        "target-credit": "",
+                        "attribute-values": {}
+                      }
+                    ],
+                    "attributes": [],
+                    "id": "90387f65-6247-3f7a-8817-3842e9c1d1f0"
+                  },
+                  "source-credit": "",
+                  "attributes": [],
+                  "target-type": "work",
+                  "direction": "forward",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "performance",
+                  "end": "1975-12",
+                  "ended": true,
+                  "begin": "1975-12",
+                  "type-id": "a3005666-a872-32c3-ad06-98af558e99b0",
+                  "attribute-ids": {}
+                }
+              ],
+              "length": 360640,
+              "disambiguation": "",
+              "title": "Midwestern Nights Dream",
+              "video": false
+            },
+            "title": "Midwestern Nights Dream",
+            "length": 360640,
+            "position": 5,
+            "artist-credit": [
+              {
+                "name": "Pat Metheny",
+                "artist": {
+                  "disambiguation": "",
+                  "type": "Person",
+                  "name": "Pat Metheny",
+                  "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                  "country": "US",
+                  "sort-name": "Metheny, Pat",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df"
+                },
+                "joinphrase": ""
+              }
+            ],
+            "id": "9cda83d2-40f8-4b2f-95db-5462676587cd"
+          },
+          {
+            "position": 6,
+            "artist-credit": [
+              {
+                "joinphrase": "",
+                "artist": {
+                  "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "sort-name": "Metheny, Pat",
+                  "country": "US",
+                  "disambiguation": "",
+                  "name": "Pat Metheny",
+                  "type": "Person"
+                },
+                "name": "Pat Metheny"
+              }
+            ],
+            "id": "34d6c87b-855f-4c24-92f1-6bdf01367a49",
+            "length": 215493,
+            "recording": {
+              "first-release-date": "1976",
+              "id": "f7d03ef2-8982-42b9-9b69-e82c9a61db96",
+              "artist-credit": [
+                {
+                  "name": "Pat Metheny",
+                  "artist": {
+                    "sort-name": "Metheny, Pat",
+                    "country": "US",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                    "type": "Person",
+                    "name": "Pat Metheny",
+                    "disambiguation": ""
+                  },
+                  "joinphrase": ""
+                }
+              ],
+              "length": 215493,
+              "relations": [
+                {
+                  "source-credit": "",
+                  "target-type": "artist",
+                  "attributes": [],
+                  "type": "engineer",
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "direction": "backward",
+                  "attribute-ids": {},
+                  "type-id": "5dcc52af-7064-4051-8d62-7d80f4c3c907",
+                  "begin": null,
+                  "ended": false,
+                  "end": null,
+                  "artist": {
+                    "name": "Martin Wieland",
+                    "type": "Person",
+                    "disambiguation": "recording engineer from Tonstudio Bauer",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": null,
+                    "sort-name": "Wieland, Martin",
+                    "id": "9b378a6e-0995-4d08-9264-ba7c4e91694e"
+                  }
+                },
+                {
+                  "source-credit": "",
+                  "target-type": "artist",
+                  "attributes": [
+                    "drums (drum set)"
+                  ],
+                  "direction": "backward",
+                  "attribute-credits": {},
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "type": "instrument",
+                  "artist": {
+                    "id": "2a047ec5-84a2-4616-ae24-bd28f66a9960",
+                    "sort-name": "Moses, Bob",
+                    "country": "US",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "disambiguation": "jazz drummer/composer",
+                    "type": "Person",
+                    "name": "Bob Moses"
+                  },
+                  "end": "1975-12",
+                  "ended": true,
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "begin": "1975-12",
+                  "attribute-ids": {
+                    "drums (drum set)": "12092505-6ee1-46af-a15a-b5b468b6b155"
+                  }
+                },
+                {
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "instrument",
+                  "direction": "backward",
+                  "attribute-credits": {},
+                  "begin": "1975-12",
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "attribute-ids": {
+                    "bass guitar": "17f9f065-2312-4a24-8309-6f6dd63e2e33"
+                  },
+                  "end": "1975-12",
+                  "artist": {
+                    "type": "Person",
+                    "name": "Jaco Pastorius",
+                    "disambiguation": "",
+                    "country": "US",
+                    "sort-name": "Pastorius, Jaco",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "46a6fac0-2e14-4214-b08e-3bdb1cffa5aa"
+                  },
+                  "ended": true,
+                  "source-credit": "",
+                  "attributes": [
+                    "bass guitar"
+                  ],
+                  "target-type": "artist"
+                },
+                {
+                  "attribute-ids": {},
+                  "begin": null,
+                  "type-id": "5c0ceac3-feb4-41f0-868d-dc06f6e27fc0",
+                  "ended": false,
+                  "artist": {
+                    "disambiguation": "",
+                    "name": "Manfred Eicher",
+                    "type": "Person",
+                    "id": "5990bfa9-aba4-4b4e-87aa-2d752218d8f1",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": "DE",
+                    "sort-name": "Eicher, Manfred"
+                  },
+                  "end": null,
+                  "type": "producer",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "direction": "backward",
+                  "attributes": [],
+                  "target-type": "artist",
+                  "source-credit": ""
+                },
+                {
+                  "attributes": [],
+                  "target-type": "work",
+                  "source-credit": "",
+                  "work": {
+                    "languages": [
+                      "zxx"
+                    ],
+                    "iswcs": [
+                      "T-700.075.726-8"
+                    ],
+                    "title": "Unquity Road",
+                    "disambiguation": "",
+                    "language": "zxx",
+                    "type": "Song",
+                    "id": "90a006e1-1f48-3a52-b916-bc3a4fa5c361",
+                    "attributes": [],
+                    "type-id": "f061270a-2fd6-32f1-a641-f0f8676d14e6",
+                    "relations": [
+                      {
+                        "target-credit": "",
+                        "attribute-values": {},
+                        "type": "composer",
+                        "direction": "backward",
+                        "type-id": "d59d99ea-23d4-4a80-b066-edca32ee158f",
+                        "begin": "1974",
+                        "attribute-ids": {},
+                        "artist": {
+                          "country": "US",
+                          "sort-name": "Metheny, Pat",
+                          "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                          "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                          "type": "Person",
+                          "name": "Pat Metheny",
+                          "disambiguation": ""
+                        },
+                        "end": "1974",
+                        "ended": true,
+                        "source-credit": "",
+                        "target-type": "artist",
+                        "attributes": []
+                      }
+                    ]
+                  },
+                  "begin": "1975-12",
+                  "type-id": "a3005666-a872-32c3-ad06-98af558e99b0",
+                  "attribute-ids": {},
+                  "end": "1975-12",
+                  "ended": true,
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "performance",
+                  "direction": "forward"
+                }
+              ],
+              "title": "Unquity Road",
+              "disambiguation": "",
+              "video": false
+            },
+            "title": "Unquity Road",
+            "number": "6"
+          },
+          {
+            "recording": {
+              "video": false,
+              "title": "Omaha Celebration",
+              "disambiguation": "",
+              "length": 258666,
+              "relations": [
+                {
+                  "source-credit": "",
+                  "target-type": "artist",
+                  "attributes": [],
+                  "direction": "backward",
+                  "type": "engineer",
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "ended": false,
+                  "artist": {
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": null,
+                    "sort-name": "Wieland, Martin",
+                    "id": "9b378a6e-0995-4d08-9264-ba7c4e91694e",
+                    "name": "Martin Wieland",
+                    "type": "Person",
+                    "disambiguation": "recording engineer from Tonstudio Bauer"
+                  },
+                  "end": null,
+                  "attribute-ids": {},
+                  "type-id": "5dcc52af-7064-4051-8d62-7d80f4c3c907",
+                  "begin": null
+                },
+                {
+                  "target-type": "artist",
+                  "attributes": [
+                    "drums (drum set)"
+                  ],
+                  "source-credit": "",
+                  "ended": true,
+                  "artist": {
+                    "sort-name": "Moses, Bob",
+                    "country": "US",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "2a047ec5-84a2-4616-ae24-bd28f66a9960",
+                    "type": "Person",
+                    "name": "Bob Moses",
+                    "disambiguation": "jazz drummer/composer"
+                  },
+                  "end": "1975-12",
+                  "attribute-ids": {
+                    "drums (drum set)": "12092505-6ee1-46af-a15a-b5b468b6b155"
+                  },
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "begin": "1975-12",
+                  "attribute-credits": {},
+                  "direction": "backward",
+                  "type": "instrument",
+                  "target-credit": "",
+                  "attribute-values": {}
+                },
+                {
+                  "target-type": "artist",
+                  "attributes": [
+                    "bass guitar"
+                  ],
+                  "source-credit": "",
+                  "end": "1975-12",
+                  "artist": {
+                    "country": "US",
+                    "sort-name": "Pastorius, Jaco",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "46a6fac0-2e14-4214-b08e-3bdb1cffa5aa",
+                    "type": "Person",
+                    "name": "Jaco Pastorius",
+                    "disambiguation": ""
+                  },
+                  "ended": true,
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "begin": "1975-12",
+                  "attribute-ids": {
+                    "bass guitar": "17f9f065-2312-4a24-8309-6f6dd63e2e33"
+                  },
+                  "direction": "backward",
+                  "attribute-credits": {},
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "type": "instrument"
+                },
+                {
+                  "attributes": [],
+                  "target-type": "artist",
+                  "source-credit": "",
+                  "attribute-ids": {},
+                  "begin": null,
+                  "type-id": "5c0ceac3-feb4-41f0-868d-dc06f6e27fc0",
+                  "ended": false,
+                  "artist": {
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "country": "DE",
+                    "sort-name": "Eicher, Manfred",
+                    "id": "5990bfa9-aba4-4b4e-87aa-2d752218d8f1",
+                    "name": "Manfred Eicher",
+                    "type": "Person",
+                    "disambiguation": ""
+                  },
+                  "end": null,
+                  "type": "producer",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "direction": "backward"
+                },
+                {
+                  "ended": true,
+                  "end": "1975-12",
+                  "attribute-ids": {},
+                  "type-id": "a3005666-a872-32c3-ad06-98af558e99b0",
+                  "begin": "1975-12",
+                  "direction": "forward",
+                  "type": "performance",
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "target-type": "work",
+                  "attributes": [],
+                  "work": {
+                    "attributes": [],
+                    "id": "c3e5be9d-12c7-311d-9791-9bddb442abc8",
+                    "relations": [
+                      {
+                        "source-credit": "",
+                        "target-type": "artist",
+                        "attributes": [],
+                        "type": "composer",
+                        "target-credit": "",
+                        "attribute-values": {},
+                        "direction": "backward",
+                        "attribute-ids": {},
+                        "type-id": "d59d99ea-23d4-4a80-b066-edca32ee158f",
+                        "begin": "1975",
+                        "ended": true,
+                        "end": "1975",
+                        "artist": {
+                          "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                          "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                          "sort-name": "Metheny, Pat",
+                          "country": "US",
+                          "disambiguation": "",
+                          "name": "Pat Metheny",
+                          "type": "Person"
+                        }
+                      }
+                    ],
+                    "type-id": "f061270a-2fd6-32f1-a641-f0f8676d14e6",
+                    "disambiguation": "",
+                    "iswcs": [
+                      "T-700.050.346-0"
+                    ],
+                    "languages": [
+                      "zxx"
+                    ],
+                    "title": "Omaha Celebration",
+                    "type": "Song",
+                    "language": "zxx"
+                  },
+                  "source-credit": ""
+                }
+              ],
+              "artist-credit": [
+                {
+                  "artist": {
+                    "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "sort-name": "Metheny, Pat",
+                    "country": "US",
+                    "disambiguation": "",
+                    "name": "Pat Metheny",
+                    "type": "Person"
+                  },
+                  "joinphrase": "",
+                  "name": "Pat Metheny"
+                }
+              ],
+              "first-release-date": "1976",
+              "id": "bd93b808-ffbd-4c74-a129-518c9978616a"
+            },
+            "title": "Omaha Celebration",
+            "number": "7",
+            "position": 7,
+            "artist-credit": [
+              {
+                "name": "Pat Metheny",
+                "artist": {
+                  "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "country": "US",
+                  "sort-name": "Metheny, Pat",
+                  "disambiguation": "",
+                  "name": "Pat Metheny",
+                  "type": "Person"
+                },
+                "joinphrase": ""
+              }
+            ],
+            "id": "d7de2e05-8ec8-4a11-9e0a-d16f06bf3bd9",
+            "length": 258666
+          },
+          {
+            "number": "8",
+            "recording": {
+              "relations": [
+                {
+                  "direction": "backward",
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "type": "engineer",
+                  "end": null,
+                  "artist": {
+                    "sort-name": "Wieland, Martin",
+                    "country": null,
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "9b378a6e-0995-4d08-9264-ba7c4e91694e",
+                    "type": "Person",
+                    "name": "Martin Wieland",
+                    "disambiguation": "recording engineer from Tonstudio Bauer"
+                  },
+                  "ended": false,
+                  "type-id": "5dcc52af-7064-4051-8d62-7d80f4c3c907",
+                  "begin": null,
+                  "attribute-ids": {},
+                  "source-credit": "",
+                  "target-type": "artist",
+                  "attributes": []
+                },
+                {
+                  "ended": true,
+                  "artist": {
+                    "id": "2a047ec5-84a2-4616-ae24-bd28f66a9960",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "sort-name": "Moses, Bob",
+                    "country": "US",
+                    "disambiguation": "jazz drummer/composer",
+                    "name": "Bob Moses",
+                    "type": "Person"
+                  },
+                  "end": "1975-12",
+                  "attribute-ids": {
+                    "drums (drum set)": "12092505-6ee1-46af-a15a-b5b468b6b155"
+                  },
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "begin": "1975-12",
+                  "attribute-credits": {},
+                  "direction": "backward",
+                  "type": "instrument",
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "target-type": "artist",
+                  "attributes": [
+                    "drums (drum set)"
+                  ],
+                  "source-credit": ""
+                },
+                {
+                  "direction": "backward",
+                  "attribute-credits": {},
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "instrument",
+                  "end": "1975-12",
+                  "artist": {
+                    "country": "US",
+                    "sort-name": "Pastorius, Jaco",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                    "id": "46a6fac0-2e14-4214-b08e-3bdb1cffa5aa",
+                    "type": "Person",
+                    "name": "Jaco Pastorius",
+                    "disambiguation": ""
+                  },
+                  "ended": true,
+                  "begin": "1975-12",
+                  "type-id": "59054b12-01ac-43ee-a618-285fd397e461",
+                  "attribute-ids": {
+                    "bass guitar": "17f9f065-2312-4a24-8309-6f6dd63e2e33"
+                  },
+                  "source-credit": "",
+                  "attributes": [
+                    "bass guitar"
+                  ],
+                  "target-type": "artist"
+                },
+                {
+                  "source-credit": "",
+                  "attributes": [],
+                  "target-type": "artist",
+                  "type": "producer",
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "direction": "backward",
+                  "attribute-ids": {},
+                  "begin": null,
+                  "type-id": "5c0ceac3-feb4-41f0-868d-dc06f6e27fc0",
+                  "ended": false,
+                  "artist": {
+                    "disambiguation": "",
+                    "type": "Person",
+                    "name": "Manfred Eicher",
+                    "id": "5990bfa9-aba4-4b4e-87aa-2d752218d8f1",
+                    "country": "DE",
+                    "sort-name": "Eicher, Manfred",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df"
+                  },
+                  "end": null
+                },
+                {
+                  "source-credit": "",
+                  "work": {
+                    "type": "Song",
+                    "language": "zxx",
+                    "title": "Broadway Blues",
+                    "languages": [
+                      "zxx"
+                    ],
+                    "iswcs": [],
+                    "disambiguation": "",
+                    "relations": [
+                      {
+                        "target-type": "artist",
+                        "attributes": [],
+                        "source-credit": "",
+                        "type-id": "d59d99ea-23d4-4a80-b066-edca32ee158f",
+                        "begin": null,
+                        "attribute-ids": {},
+                        "artist": {
+                          "id": "169c0d1b-fcb8-4a43-9097-829aa7b39205",
+                          "country": "US",
+                          "sort-name": "Coleman, Ornette",
+                          "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                          "disambiguation": "US jazz saxophonist, trumpeter, violinist, and composer",
+                          "type": "Person",
+                          "name": "Ornette Coleman"
+                        },
+                        "end": null,
+                        "ended": false,
+                        "target-credit": "",
+                        "attribute-values": {},
+                        "type": "composer",
+                        "direction": "backward"
+                      }
+                    ],
+                    "type-id": "f061270a-2fd6-32f1-a641-f0f8676d14e6",
+                    "id": "5ad10267-d0e6-47bf-8477-e07ca2b71ba0",
+                    "attributes": []
+                  },
+                  "target-type": "work",
+                  "attributes": [
+                    "cover",
+                    "medley"
+                  ],
+                  "target-credit": "",
+                  "attribute-values": {},
+                  "type": "performance",
+                  "direction": "forward",
+                  "type-id": "a3005666-a872-32c3-ad06-98af558e99b0",
+                  "begin": "1975-12",
+                  "attribute-ids": {
+                    "medley": "37da3398-5d1b-4acb-be25-df95e33e423c",
+                    "cover": "1e8536bd-6eda-3822-8e78-1c0f4d3d2113"
+                  },
+                  "end": "1975-12",
+                  "ended": true
+                },
+                {
+                  "begin": "1975-12",
+                  "type-id": "a3005666-a872-32c3-ad06-98af558e99b0",
+                  "attribute-ids": {
+                    "medley": "37da3398-5d1b-4acb-be25-df95e33e423c",
+                    "cover": "1e8536bd-6eda-3822-8e78-1c0f4d3d2113"
+                  },
+                  "end": "1975-12",
+                  "ended": true,
+                  "attribute-values": {},
+                  "target-credit": "",
+                  "type": "performance",
+                  "direction": "forward",
+                  "attributes": [
+                    "cover",
+                    "medley"
+                  ],
+                  "target-type": "work",
+                  "source-credit": "",
+                  "work": {
+                    "disambiguation": "",
+                    "languages": [
+                      "zxx"
+                    ],
+                    "iswcs": [],
+                    "title": "Round Trip",
+                    "type": "Song",
+                    "language": "zxx",
+                    "id": "d596416c-3cb2-421c-bed8-e3608ef9cbbb",
+                    "attributes": [],
+                    "relations": [
+                      {
+                        "attribute-values": {},
+                        "target-credit": "",
+                        "type": "composer",
+                        "direction": "backward",
+                        "begin": null,
+                        "type-id": "d59d99ea-23d4-4a80-b066-edca32ee158f",
+                        "attribute-ids": {},
+                        "artist": {
+                          "disambiguation": "US jazz saxophonist, trumpeter, violinist, and composer",
+                          "name": "Ornette Coleman",
+                          "type": "Person",
+                          "id": "169c0d1b-fcb8-4a43-9097-829aa7b39205",
+                          "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                          "country": "US",
+                          "sort-name": "Coleman, Ornette"
+                        },
+                        "end": null,
+                        "ended": false,
+                        "source-credit": "",
+                        "attributes": [],
+                        "target-type": "artist"
+                      }
+                    ],
+                    "type-id": "f061270a-2fd6-32f1-a641-f0f8676d14e6"
+                  }
+                }
+              ],
+              "length": 298173,
+              "artist-credit": [
+                {
+                  "name": "Pat Metheny",
+                  "artist": {
+                    "disambiguation": "",
+                    "type": "Person",
+                    "name": "Pat Metheny",
+                    "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                    "sort-name": "Metheny, Pat",
+                    "country": "US",
+                    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df"
+                  },
+                  "joinphrase": ""
+                }
+              ],
+              "first-release-date": "1976",
+              "id": "16a4b02d-3a1b-4d2b-bb96-f3077966ecf4",
+              "video": false,
+              "title": "Round Trip / Broadway Blues",
+              "disambiguation": ""
+            },
+            "title": "Round Trip / Broadway Blues",
+            "length": 299000,
+            "position": 8,
+            "artist-credit": [
+              {
+                "name": "Pat Metheny",
+                "joinphrase": "",
+                "artist": {
+                  "sort-name": "Metheny, Pat",
+                  "country": "US",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+                  "type": "Person",
+                  "name": "Pat Metheny",
+                  "disambiguation": ""
+                }
+              }
+            ],
+            "id": "cfc27ae6-d87f-49c1-8416-378ab09eac7e"
+          }
+        ]
+      }
+    ],
+    "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+    "title": "Bright Size Life",
+    "release-events": [
+      {
+        "date": "2016-10-26",
+        "area": {
+          "type-id": null,
+          "iso-3166-1-codes": [
+            "JP"
+          ],
+          "sort-name": "Japan",
+          "id": "2db42837-c832-3c27-b4a3-08198f75693c",
+          "name": "Japan",
+          "type": null,
+          "disambiguation": ""
+        }
+      }
+    ],
+    "cover-art-archive": {
+      "darkened": false,
+      "back": false,
+      "artwork": false,
+      "front": false,
+      "count": 0
+    },
+    "country": "JP",
+    "artist-credit": [
+      {
+        "joinphrase": "",
+        "artist": {
+          "id": "7daac7f9-8fcc-485f-a14f-f8091d98cf25",
+          "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+          "country": "US",
+          "sort-name": "Metheny, Pat",
+          "disambiguation": "",
+          "name": "Pat Metheny",
+          "type": "Person"
+        },
+        "name": "Pat Metheny"
+      }
+    ],
+    "asin": null
+  },
+  "brightVersions": [
+    {
+      "id": "0601d965-ba41-428b-ae84-6ac7841dcabb",
+      "cover-art-archive": {
+        "back": false,
+        "artwork": true,
+        "front": true,
+        "count": 2,
+        "darkened": false
+      },
+      "status": "Official",
+      "quality": "normal",
+      "packaging": "None",
+      "barcode": "0602507279646",
+      "packaging-id": "119eba76-b343-3e02-a292-f0f00644bb9b",
+      "asin": null,
+      "date": "2020-07-31",
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "disambiguation": "24‐bit/96kHz",
+      "country": "XW",
+      "release-events": [
+        {
+          "date": "2020-07-31",
+          "area": {
+            "iso-3166-1-codes": [
+              "XW"
+            ],
+            "name": "[Worldwide]",
+            "sort-name": "[Worldwide]",
+            "id": "525d4e18-3d00-31b9-a58b-a146a916de8f",
+            "disambiguation": "",
+            "type": null,
+            "type-id": null
+          }
+        }
+      ],
+      "title": "Bright Size Life"
+    },
+    {
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "asin": "B0000261L9",
+      "id": "0b6a369e-12d2-4e88-924f-747bd295468a",
+      "cover-art-archive": {
+        "darkened": false,
+        "count": 0,
+        "front": false,
+        "artwork": false,
+        "back": false
+      },
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "disambiguation": "",
+      "quality": "normal",
+      "status": "Official",
+      "packaging-id": null,
+      "title": "Bright Size Life",
+      "barcode": null,
+      "packaging": null
+    },
+    {
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "date": "2016-10-26",
+      "asin": null,
+      "text-representation": {
+        "script": "Latn",
+        "language": "eng"
+      },
+      "disambiguation": "SHM CD",
+      "country": "JP",
+      "release-events": [
+        {
+          "date": "2016-10-26",
+          "area": {
+            "type-id": null,
+            "disambiguation": "",
+            "type": null,
+            "name": "Japan",
+            "iso-3166-1-codes": [
+              "JP"
+            ],
+            "id": "2db42837-c832-3c27-b4a3-08198f75693c",
+            "sort-name": "Japan"
+          }
+        }
+      ],
+      "title": "Bright Size Life",
+      "id": "20aec3ab-e0a3-4565-a490-4cf64a5057b5",
+      "cover-art-archive": {
+        "darkened": false,
+        "front": false,
+        "count": 0,
+        "back": false,
+        "artwork": false
+      },
+      "quality": "normal",
+      "status": "Official",
+      "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+      "barcode": "4988031178041",
+      "packaging": "Jewel Case"
+    },
+    {
+      "asin": null,
+      "date": "1976",
+      "status-id": null,
+      "text-representation": {
+        "script": null,
+        "language": null
+      },
+      "country": "US",
+      "disambiguation": "",
+      "release-events": [
+        {
+          "area": {
+            "type": null,
+            "disambiguation": "",
+            "type-id": null,
+            "sort-name": "United States",
+            "id": "489ce91b-6658-3307-9877-795b68554c98",
+            "iso-3166-1-codes": [
+              "US"
+            ],
+            "name": "United States"
+          },
+          "date": "1976"
+        }
+      ],
+      "title": "Bright Size Life",
+      "id": "59f4ca86-9302-4dad-a35e-8831754dff80",
+      "cover-art-archive": {
+        "back": false,
+        "artwork": false,
+        "count": 0,
+        "front": false,
+        "darkened": false
+      },
+      "status": null,
+      "quality": "normal",
+      "packaging": null,
+      "barcode": "",
+      "packaging-id": null
+    },
+    {
+      "id": "655219aa-f312-445d-9182-5af2d23ab65e",
+      "cover-art-archive": {
+        "back": false,
+        "artwork": true,
+        "count": 1,
+        "front": true,
+        "darkened": false
+      },
+      "status": "Official",
+      "quality": "normal",
+      "barcode": null,
+      "packaging": null,
+      "packaging-id": null,
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "asin": null,
+      "date": "1976",
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "country": "DE",
+      "disambiguation": "",
+      "title": "Bright Size Life",
+      "release-events": [
+        {
+          "date": "1976",
+          "area": {
+            "iso-3166-1-codes": [
+              "DE"
+            ],
+            "name": "Germany",
+            "sort-name": "Germany",
+            "id": "85752fda-13c4-31a3-bee5-0e5cb1f51dad",
+            "disambiguation": "",
+            "type": null,
+            "type-id": null
+          }
+        }
+      ]
+    },
+    {
+      "status": "Official",
+      "quality": "normal",
+      "barcode": "4988031211380",
+      "packaging": "Jewel Case",
+      "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+      "id": "7b96b0cb-5d98-4c2d-96b7-024e23fe236c",
+      "cover-art-archive": {
+        "front": true,
+        "count": 12,
+        "back": true,
+        "artwork": true,
+        "darkened": false
+      },
+      "disambiguation": "",
+      "country": "JP",
+      "release-events": [
+        {
+          "area": {
+            "disambiguation": "",
+            "type": null,
+            "type-id": null,
+            "iso-3166-1-codes": [
+              "JP"
+            ],
+            "name": "Japan",
+            "sort-name": "Japan",
+            "id": "2db42837-c832-3c27-b4a3-08198f75693c"
+          },
+          "date": "2017-03-08"
+        }
+      ],
+      "title": "Bright Size Life",
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "asin": null,
+      "date": "2017-03-08",
+      "text-representation": {
+        "script": "Latn",
+        "language": "eng"
+      }
+    },
+    {
+      "cover-art-archive": {
+        "darkened": false,
+        "artwork": true,
+        "back": false,
+        "count": 1,
+        "front": true
+      },
+      "id": "87ac0b34-4ed3-4645-98ea-e6380c5e5086",
+      "packaging": "None",
+      "barcode": "602507279721",
+      "packaging-id": "119eba76-b343-3e02-a292-f0f00644bb9b",
+      "status": "Official",
+      "quality": "normal",
+      "text-representation": {
+        "script": "Latn",
+        "language": "eng"
+      },
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "date": "",
+      "asin": null,
+      "release-events": [
+        {
+          "area": {
+            "iso-3166-1-codes": [
+              "XW"
+            ],
+            "name": "[Worldwide]",
+            "sort-name": "[Worldwide]",
+            "id": "525d4e18-3d00-31b9-a58b-a146a916de8f",
+            "type": null,
+            "disambiguation": "",
+            "type-id": null
+          },
+          "date": ""
+        }
+      ],
+      "title": "Bright Size Life",
+      "disambiguation": "",
+      "country": "XW"
+    },
+    {
+      "country": "US",
+      "disambiguation": "",
+      "release-events": [
+        {
+          "area": {
+            "name": "United States",
+            "iso-3166-1-codes": [
+              "US"
+            ],
+            "id": "489ce91b-6658-3307-9877-795b68554c98",
+            "sort-name": "United States",
+            "type-id": null,
+            "type": null,
+            "disambiguation": ""
+          },
+          "date": "2005"
+        }
+      ],
+      "title": "Bright Size Life",
+      "date": "2005",
+      "asin": null,
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "text-representation": {
+        "script": "Latn",
+        "language": "eng"
+      },
+      "status": "Official",
+      "quality": "normal",
+      "barcode": "042282713322",
+      "packaging": "Jewel Case",
+      "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+      "id": "9149cc23-0bba-4e35-9216-5a8b94d87c34",
+      "cover-art-archive": {
+        "darkened": false,
+        "back": true,
+        "artwork": true,
+        "count": 8,
+        "front": true
+      }
+    },
+    {
+      "id": "91e3f8f6-0c51-4c50-96ca-28bc1757297d",
+      "cover-art-archive": {
+        "artwork": true,
+        "back": false,
+        "count": 4,
+        "front": true,
+        "darkened": false
+      },
+      "quality": "normal",
+      "status": "Official",
+      "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+      "barcode": "781182107328",
+      "packaging": "Jewel Case",
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "date": "1994-05",
+      "asin": null,
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "country": "US",
+      "disambiguation": "",
+      "title": "Bright Size Life",
+      "release-events": [
+        {
+          "area": {
+            "type": null,
+            "disambiguation": "",
+            "type-id": null,
+            "iso-3166-1-codes": [
+              "US"
+            ],
+            "name": "United States",
+            "sort-name": "United States",
+            "id": "489ce91b-6658-3307-9877-795b68554c98"
+          },
+          "date": "1994-05"
+        }
+      ]
+    },
+    {
+      "disambiguation": "",
+      "country": "DE",
+      "release-events": [
+        {
+          "area": {
+            "disambiguation": "",
+            "type": null,
+            "type-id": null,
+            "sort-name": "Germany",
+            "id": "85752fda-13c4-31a3-bee5-0e5cb1f51dad",
+            "iso-3166-1-codes": [
+              "DE"
+            ],
+            "name": "Germany"
+          },
+          "date": "1985-11-05"
+        }
+      ],
+      "title": "Bright Size Life",
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "date": "1985-11-05",
+      "asin": "B0000261L9",
+      "text-representation": {
+        "script": "Latn",
+        "language": "eng"
+      },
+      "quality": "normal",
+      "status": "Official",
+      "packaging-id": null,
+      "barcode": "042282713322",
+      "packaging": null,
+      "id": "b60d1bc5-a18c-38ca-a26b-6e040d5d7acb",
+      "cover-art-archive": {
+        "back": true,
+        "artwork": true,
+        "count": 6,
+        "front": true,
+        "darkened": false
+      }
+    }
+  ]
+}

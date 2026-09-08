@@ -1,8 +1,8 @@
 # 维护与功能规划
 
 更新日期：2026-09-08
-审阅基线：当前工作区 `v1.5.8`
-状态：F01 已完成；新增 F09 多服务商 AI 设置已完成实现与本地验证；F02–F08 待确认。
+审阅基线：早期规划基于 `v1.5.8`；本次 MusicBrainz 审查基于 `v1.6.0`、提交 `6962a1f`。
+状态：F01、F09 已完成实现与本地验证；F02–F08 待确认。[MusicBrainz 维护问题清单](#musicbrainz-维护问题清单) 已获确认并完成约定范围的源码修复，验收与边界见下文；尚未重新打包或发布。
 
 ## 1. 使用方式与规划前提
 
@@ -331,3 +331,130 @@ F01 已完成实现与本地验证；其余项目均为“待确认、未开始�
 - 发布说明改为 `docs/releases/<版本>.md`，已补充 1.6.0。源码与工作流尚未提交，因此不会在 GitHub 自动生效。
 
 验证：已通过新统一入口实际生成 Mac ARM 和 Windows x64 安装包，自动安装包校验通过；新增失败路径测试覆盖版本、架构、来源、校验文件、产物被修改和缺少发布确认。工作流完成本地 YAML 解析检查，未触发 GitHub Actions、未创建或公开 Release。仍未覆盖 Windows 实机安装、Apple 公证和实体打印。
+
+
+## MusicBrainz 维护问题清单
+
+审查日期：2026-09-08。基线：`v1.6.0`，提交 `6962a1f`。初次审查仅登记问题；随后用户明确确认“开始落地文档，实施”。以下保留审查时的问题证据，实施状态以末尾验收记录为准；不推进 F03、F05、F07 的完整功能范围。
+
+### 审查结论与证据边界（修复前快照）
+
+现有搜索可找到正确专辑候选，但发行版本选择、完整署名、封面来源及导入校验仍有缺口。证据分为真实接口对照、模拟响应复现和源码确认；本次没有向用户作品写入测试数据，也未修改 MusicBrainz 数据。
+
+| 样本 / 场景 | 已核实结果 | 证据类型 |
+| --- | --- | --- |
+| 《我要的幸福》＋孫燕姿 | 正确专辑排首位、返回分数 100；结果也包含《完美的一天》及其他低分专辑。不能据此认为整个候选列表都精准匹配。 | 真实搜索 |
+| 《Solo》＋Isabelle Faust | 正确专辑排首位。完整署名包含 Nicola Matteis, Jr 等多位作曲者及 Isabelle Faust；应用只取第一位。候选列表还出现 Isabelle van Keulen 的其他专辑。 | 真实搜索＋源码映射 |
+| 《Bright Size Life》＋Pat Metheny | 正确专辑排首位，专辑组首发年份为 1976；现有评分选中日本 2016-10-26 SHM-CD 版；专辑组封面来自 1976 年德国版。 | 真实搜索、发行列表、详情与封面来源对照 |
+| 同一 ECM 发行版的作品关系 | 现有请求解析出 0 个作品；只补 `work-rels` 后取得 8 个作品，当前分类函数随即把它判为 `CLASSICAL`。 | 真实接口参数对照＋现有解析/分类函数 |
+| 发行版本同分 | 调换模拟列表中两个同分版本的顺序，选中的版本随之改变。 | 模拟响应复现 |
+| HTTP 503 详情响应 | 详情函数未抛出失败，而是返回附带空演职员、空作品信息的错误对象。调用方可继续形成空曲目并写入；未在用户作品上实际执行覆盖。 | 模拟响应复现＋调用代码确认 |
+| 小提琴演奏者关系 | 模拟 `instrument: violin` 关系不会进入 `performers`；现有代码仅收录指挥关系。 | 模拟数据复现 |
+
+真实接口内容会随 MusicBrainz 编辑而变化。以下 MBID 和查询条件用于后续复验，不把本次返回顺序视为永久规则。
+
+### 问题清单（修复前快照）
+
+本清单 P0 表示优先修复可能覆盖作品的故障路径，P1 表示数据正确性修复，P2 表示匹配和编辑体验增强。原代码位置用于追溯审查基线，不代表当前实现；MB01–MB11 已完成约定范围的修复，其中 MB09 的 EP/单曲扩展仍未纳入。
+
+| 编号 | 优先级 | 已确认问题与影响 | 主要代码位置 | 修复验收条件 |
+| --- | --- | --- | --- | --- |
+| MB01 | P1 | 搜索列表、专辑及曲目署名只取 `artist-credit[0]`，遗漏合作艺术家；古典可能仅显示首位作曲者。演职员解析仅收录指挥，遗漏器乐演奏者。 | [SearchModal](src/components/SearchModal.jsx)、[导入入口](app.jsx) `handleSelectReleaseGroup`、[MusicBrainzService](src/services/MusicBrainzService.js) `parseCredits` | 保留完整署名及连接词；作曲者、演奏者、指挥按明确关系分别保存，不以数组位置猜角色。Solo 的 Isabelle Faust 不丢失；合作署名和器乐演奏关系有专项用例。 |
+| MB02 | P1 | “最佳发行版”只按 Official +10、JP/US/GB +5、有日期 +1 评分；同分取返回顺序第一项。仅取前 100 个版本，无分页；没有介质、曲目数、目录编号等选择依据。专辑首发日期与所选版本日期未区分。 | [MusicBrainzService](src/services/MusicBrainzService.js) `getBestReleaseId`、[导入入口](app.jsx) | 明确展示并允许选择发行版本；同分排序稳定且解释推荐依据；超过 100 个版本能继续查询；保留专辑首发与版本日期，不能把 2016 再版自动标作 1976 首版。 |
+| MB03 | P1 | 曲目、日期、厂牌来自所选 release，封面却独立取 release-group 默认图，可能混用不同发行版。 | [MusicBrainzService](src/services/MusicBrainzService.js) `getCoverArt`、[导入入口](app.jsx) | 优先读取所选 release 的封面；回退到专辑组时明确提示并记录实际来源 MBID，不声称封面与版本完全一致。用 ECM 样本验证。 |
+| MB04 | P1 | 详情请求包含 `recording-level-rels`、`work-level-rels`，却缺少取得录音—作品关系所需的 `work-rels`。 | [MusicBrainzService](src/services/MusicBrainzService.js) `getReleaseDetails` | 请求能取得预期作品及作曲者关系；区分“请求未包含关系”和“数据库未提供关系”。必须与 MB05 同批修复，不能单独补参数后上线。 |
+| MB05 | P1 | `works.length > 0` 直接判古典，普通歌曲和爵士的作品关系也会触发。其余规则依赖英文关键词及标题公共前缀，同样缺少可靠的分类边界。 | [LayoutEngine](src/utils/LayoutEngine.js) `detectMode` | Work 关系仅作为作品结构，不独立决定音乐类型；ECM 取得 8 个作品后仍保持普通曲目结构；古典和合辑分别覆盖，保留明确的手动模式选择。 |
+| MB06 | P1 | 作品解析只取第一条 work 关系和第一位作曲者，直接按当前 work ID 分组，没有遍历乐章所属的上级作品；不能保证形成完整的“作品—乐章”层次。 | [MusicBrainzService](src/services/MusicBrainzService.js) `parseWorks`、[LayoutEngine](src/utils/LayoutEngine.js) `groupTracksNested` | 覆盖独立作品、多乐章、多个作品关系、多位作曲者及缺失关系；通过明确的父子关系归组并保留原曲目顺序，不能仅靠相似标题强行合并。层次缺失时明确降级。 |
+| MB07 | P0 | 发行列表与详情不检查 HTTP 状态，详情缺少必需字段校验。JSON 错误响应可被当作成功数据；随后导入空曲目，存在覆盖当前作品的风险。 | [MusicBrainzService](src/services/MusicBrainzService.js) `getBestReleaseId` / `getReleaseDetails`、[导入入口](app.jsx) | 404、429、503、非 JSON、损坏字段及无有效曲目均明确失败；所有必需数据核对成功后一次性应用。任何失败不得改变当前曲目、署名、演职员和封面。 |
+| MB08 | P1 | 缺少统一限速、超时和有限重试；同一作品内没有独立请求序号或取消控制。加载时结果卡片仍可点击，输入框回车仍可再次搜索；现有 projectEpoch 只能隔离项目切换等场景。 | [MusicBrainzService](src/services/MusicBrainzService.js)、[SearchModal](src/components/SearchModal.jsx)、[请求入口](app.jsx) | MusicBrainz 请求按每秒至多一次统一调度；重试次数有限，超时可结束等待。快速连续搜索/选择、关闭弹窗、新建或打开作品后，过期结果不写入，加载状态正确收尾。并发风险目前为源码确认，实施时补交互复现。 |
+| MB09 | P2 | 搜索词仅处理部分特殊字符，结果未经本地匹配判断直接展示；不提示低匹配候选，不展示完整署名，缺少分页。固定 `primarytype:Album` 也限制 EP/单曲搜索。 | [MusicBrainzService](src/services/MusicBrainzService.js) `searchReleaseGroup`、[SearchModal](src/components/SearchModal.jsx) | 特殊字符作为用户文本安全处理；精确标题和明确艺术家优先，宽松候选有提示；分数只作排序参考，不当作概率。提供后续页或明确结果范围，专辑类型限制应可理解；EP/单曲扩展待范围确认。 |
+| MB10 | P1 | 新专辑没有封面时不清理或提示旧主封面；第二封面也不会随导入处理，可能出现新曲目配旧专辑图。 | [导入入口](app.jsx) `if (coverUrl) setCoverImage(coverUrl)` 及第二封面状态 | 导入预览明确列出封面的替换、缺失和保留状态；主封面与第二封面按同一导入意图处理，不能静默混用旧图。失败时保留整个旧作品，成功导入但缺图时显示缺失或由用户明确保留。 |
+| MB11 | P2 | 多碟曲目被展平后按数量对半分面，原介质/面信息丢失；不依据时长与容量，可能切开完整作品。 | [导入入口](app.jsx) `flatMap`、`Math.ceil(rawTracks.length / 2)` | 保留原碟号、曲序及已有面信息；需要重新分面时按容量、时长和作品连续性给出建议，不擅自重排。与 F03 共用规则；覆盖多碟、奇数曲目、长短曲目不均和跨面作品。 |
+
+补充说明：release-group 搜索使用 `release:` 是官方支持的字段，含义为组内发行版标题；不能把该字段本身登记为错误。应按搜索目的区分 `releasegroup:` 与 `release:`，并验证精确匹配、宽松匹配和别名行为。
+
+### 建议实施顺序与边界
+
+- [x] 第一批：MB07、MB08，先保证请求失败、超时和过期结果不会破坏作品。
+- [x] 第二批：MB01、MB03、MB04、MB05、MB06、MB10，处理完整署名、封面与古典结构；MB04 与 MB05 必须共同验收。
+- [x] 第三批：MB02、MB09、MB11，增加版本选择与匹配提示，完善分面；涉及完整撤销、追加导入、作品手动编辑时分别关联 F05、F07，不在本清单中默认扩大实施范围。
+
+建议的用户流程为“搜索专辑 → 选择发行版本 → 核对署名、封面和曲目 → 一次性导入”。后台请求、数据归一化与界面选择分别承担职责，优先局部拆分，不进行全面重写。导入来源 MBID、日期类型、完整署名等新增持久化字段，需要在实施前明确作品格式兼容策略。
+
+### 回归材料与来源
+
+真实样本定位：
+
+- [我要的幸福 release-group](https://musicbrainz.org/release-group/15c7b543-68e6-3e03-a07d-b5e94752327e)：查询 `我要的幸福` / `孫燕姿`，用于中文候选与署名；本次未完成其发行详情全链路核验。
+- [Solo release-group](https://musicbrainz.org/release-group/578e3f6a-89f7-4d00-b3a2-5c5bfd24cadd)：查询 `Solo` / `Isabelle Faust`，用于作曲者和演奏者完整署名；本次未完成其发行详情全链路核验。
+- [Bright Size Life release-group](https://musicbrainz.org/release-group/abac8d3d-f25a-386f-a819-5063c8df56a4)：查询 `Bright Size Life` / `Pat Metheny`。
+- [2016 日本 SHM-CD 版本](https://musicbrainz.org/release/20aec3ab-e0a3-4565-a490-4cf64a5057b5)：实际评分选中；用于日期、8 首曲目和作品关系参数对照。
+- [1976 德国版本](https://musicbrainz.org/release/655219aa-f312-445d-9182-5af2d23ab65e)：本次专辑组封面返回的实际来源。
+
+官方规则依据：
+
+- [Release-group 搜索字段](https://musicbrainz.org/doc/MusicBrainz_API/Search/ReleaseGroupSearch)：包含 `release`、`releasegroup`、完整艺术家署名相关字段。
+- [作品与演奏关系请求示例](https://musicbrainz.org/doc/MusicBrainz_API/Examples)：录音—作品关系需要 `work-rels`，连同其他关系参数使用。
+- [古典署名规则](https://musicbrainz.org/doc/Style/Classical/Release_Artist)：发行署名可能同时包含作曲者与演奏者，不能仅取第一项当作演奏者。
+- [请求限速](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting)：按应用和来源 IP 等限流，应实现统一调度并处理失败。
+- [封面 API](https://musicbrainz.org/doc/Cover_Art_Archive/API)：专辑组封面可来自特定发行版，返回其来源 release。
+
+审查时已有 43 项自动测试，但尚未覆盖上述 MusicBrainz 链路。实施后新增 16 项自动测试及隔离浏览器回归，详见下节。
+
+
+### 实施结果与验收（2026-09-08）
+
+状态：约定的三批修复已落地源码并完成本地验证。修复完成时版本号为 1.6.0，随后按用户要求升级至 1.6.1 并纳入本地提交；之前生成的安装包不包含本次改动。未重新打包、推送或发布。
+
+| 条目 | 当前行为与验收依据 |
+| --- | --- |
+| MB01 | 以完整 artist-credit 和连接词展示署名；明确收录器乐、演唱、指挥及作曲者关系。古典预览可改用明确演奏者显示，来源仍保存完整署名。Solo 真实署名样本与合成演奏关系用例通过。 |
+| MB02 | 专辑候选与发行版均按 25 项分页，支持超过 100 项继续读取；已加载版本按 Official、日期、MBID 稳定排序，不偏好国家，不自动代选。首发与版本日期分别保存，成品日期由用户选择。 |
+| MB03 | 优先所选 release 封面，缺封面才回退 release-group；提示版本差异并保存返回的来源 MBID。若服务未给出来源则明确未知。封面转为内嵌图片后才允许导入，HTTP 错误不伪装成无图。 |
+| MB04–MB06 | 补齐 work-rels，并查询 work 的明确父子与作曲者关系。多关系全部保留，仅在根作品明确且完整时分组；关系缺失、循环或多个根作品均降级提示，MusicBrainz 曲目不再走标题前缀猜组。Work 存在不决定音乐类型，用户可更改内容模式。 |
+| MB07–MB08 | 请求统一限速、超时及有限重试；核对状态、JSON、发行身份与曲目完整性。弹窗取消与请求序号隔离旧结果，候选预览不写入作品；确认时构造、校验完整快照后一次性应用，失败保留旧作品。 |
+| MB09 | 转义特殊字符，标题与艺术家词组检索；可切换宽松检索。候选附本地文字匹配提示，不把远端分数当概率。界面明确只搜索专辑；EP/单曲扩展继续待确认。 |
+| MB10 | 预览分别确认主封面、第二封面。缺图默认清空旧主图，第二封面默认清空；保留旧图需明确选择。替换成功清理旧文案与图片提示，失败不修改封面和曲目。 |
+| MB11 | 保存原碟号、介质、曲号与顺序，选择碟片后按连续断点建议分面。明确 A/B 编号可优先保留；否则依次考虑超容量、作品连续性、时长平衡。超容量禁止导入，未知时长提示核对，分面位置可调整。规则独立以便后续 F03 复用，本轮未完成全局容量编辑功能。 |
+
+实现分工：
+
+- `src/musicbrainz/client.mjs`：请求队列、取消、超时和重试。
+- `src/musicbrainz/model.mjs`：查询、匹配、稳定排序、资料校验、作品关系与分面规则。
+- `src/musicbrainz/service.mjs`：MusicBrainz / Cover Art Archive 读取与有限作品缓存；旧服务入口保留转出，避免扩大调用方改动。
+- `src/musicbrainz/importProject.mjs`：构造完整待导入作品，验证容量、版本身份和图片后返回，不直接修改编辑器。
+- `src/components/SearchModal.jsx`：搜索、选版本、核对与明确导入；`app.jsx` 仅负责应用已校验快照。
+- `src/musicbrainz/projectMetadata.mjs`：来源字段白名单。`.jcard` 仍为 v2，新增可选来源字段；旧 v1/v2 文件仍可读。旧应用重新保存会丢弃新增来源，不能宣称往返保留。桌面打包白名单已加入此共享依赖。
+
+运行边界：
+
+- MusicBrainz 每次请求开始至少间隔 1.1 秒；单次请求 20 秒超时，最多尝试 3 次，处理 429/502/503/504 与网络错误。限速是当前应用实例内的队列，不能协调其他进程或同一公网 IP 下的其他应用。
+- 每次详情读取最多补查 64 个作品，父子深度最多 6 层；缓存 10 分钟，上限 256 个作品。达到上限保留原曲名并提示，不承诺任意大型套装的完整作品树。
+- 关系信息未提供时明确提示；作品结构与音乐类型分开，标题关键词仍只是模式建议，不保证自动分类完全准确。
+- 每面容量默认 45 分钟，可选 1–120 分钟；缺失时长时只能对已知时长计算，不能声称容量已完整验证。保留曲序，不自动挑选或删减曲目。
+- 封面支持 PNG/JPEG/WebP/GIF，来源限定封面档案及 Internet Archive，单图最多 20 MB，仍受作品总大小 64 MB 限制。不会写入 MusicBrainz 或其他外部数据库。
+
+验证记录：
+
+- `npm test`：59 项全部通过（原有 43 项＋MusicBrainz 16 项），覆盖查询转义、完整署名、版本稳定排序、分页、异常响应、限速取消、超时重试、作品父子/多关系/循环、封面来源、分面及来源保存回读。
+- `npm run build`：通过；12 项字体资产验证通过。现有 Vite CJS 与 Browserslist 数据提示仍存在，本轮未扩大依赖升级范围。
+- 隔离 Chrome 回归：连续搜索替换、关闭弹窗隔离迟到详情、HTTP 503 不覆盖旧作品、预览不写入、手选演奏者和日期、超容量阻止导入、旧双封面清理、下载保存后重新打开，以及 ECM 保持 STANDARD 均通过；页面运行错误为零。预览截图已人工检查。
+- `tests/fixtures/musicbrainz.json` 固定三张专辑的公开响应片段，以及 ECM 的真实发行和作品关系。Solo 演奏/乐章、日期区分和 HTTP 故障由合成响应验证，不冒充其真实完整发行详情。
+- 原审查旧解析器只保留 ECM 8 首曲目中的 8 个首要 work；新解析保留末曲联奏的两条关系，实际为 8 曲、9 条直接关联、7 个可安全单根归组，末曲不强行并入单一作品。
+- 实时复验：新的中文专辑和 Solo 标题＋艺术家查询均返回正确候选；ECM 发行分页请求成功。ECM 额外搜索及补查作品时出现远端超时，未完成实时详情全链路；正确性回归使用固定公开响应及模拟故障，不把它记为外网全链路通过。
+- 复跑浏览器验证：启动开发服务后，设置 `PLAYWRIGHT_MODULE` 为可用 Playwright 模块路径，运行 `node tests/musicbrainz-browser.cjs`；可用 `JCARD_TEST_URL` 指定服务地址、`CHROME_EXECUTABLE` 指定浏览器路径。此测试拦截远端响应，不依赖线上数据库状态。
+
+### 后续可信源建议（尚未接入）
+
+MusicBrainz 保持结构化基础来源；Discogs 可用于补充实体发行版本，厂牌官网与官方内页用于核对具体字段。每个来源应保留链接、版本身份和日期含义，冲突交由用户核对，不将多个来源静默拼成一张专辑。当前没有增加新服务、凭据或外部写入。
+
+- [ECM：Bright Size Life](https://ecmrecords.com/product/bright-size-life-pat-metheny/)：官方页分别列出 1975 年录音、1976 年首发和 2024 年再版，并列出乐手、乐器和曲目作者；读取时不能把页面顶部的再版日期当首发日期。
+- [harmonia mundi：Solo 官方资料](https://www.harmoniamundi.com/wp-content/uploads/pdf/solo-HMM902678-en.pdf)：适合作曲者、曲目及演奏者核验。
+- [Discogs API 条款](https://support.discogs.com/hc/en-us/articles/360009334593-API-Terms-of-Use)：社区发行资料可以补充版本判断；接入前再确定接口认证、使用和署名要求，不承诺所有资料可任意缓存或再分发。
+
+
+### 1.6.1 版本整理
+
+用户确认提升版本号、更新 README 并提交。包版本、锁文件根版本及根包版本统一为 1.6.1；界面版本由构建配置读取包版本，MusicBrainz 请求标识同步更新。作品文件格式仍为 v2。
+
+README 新增 1.6.1 更新记录，区分当前源码与历史 1.6.0 安装包，并补充 `docs/releases/1.6.1.md` 供后续发布使用。本次提交包含 MusicBrainz 修复、测试、使用说明及版本整理；工作区另有 AI 模型选择与配置改动，不纳入本次提交。

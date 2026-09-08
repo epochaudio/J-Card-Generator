@@ -1,3 +1,4 @@
+import { normalizeAlbumSource, normalizeTrackSource } from '../musicbrainz/projectMetadata.mjs';
 import { formatDurationMs, parseDurationToMs } from '../utils/formatDuration.mjs';
 import { DESIGN_EDITIONS, FRONT_STYLES, TITLE_SIZES, PALETTES } from '../config/design.mjs';
 
@@ -66,6 +67,7 @@ export function normalizeSnapshot(input) {
     track.id = string(raw.id, '曲目 ID', `${side}-${index + 1}`);
     if (!track.id || usedIds.has(track.id)) fail('重复或空曲目 ID');
     usedIds.add(track.id);
+    if (raw.musicbrainz != null) track.musicbrainz = normalizeTrackSource(raw.musicbrainz);
     return track;
   });
   const sideA = tracks(data.sideA, 'sideA');
@@ -87,6 +89,7 @@ export function normalizeSnapshot(input) {
   }, 0));
   return {
     data: {
+      ...(data.musicbrainz != null ? { musicbrainz: normalizeAlbumSource(data.musicbrainz) } : {}),
       ...strings(data, ['title', 'artist', 'spineTitle', 'tapeId', 'tapeSubtitle', 'releaseDate', 'coverBadge']),
       sideA, sideB, sideADuration: total(sideA), sideBDuration: total(sideB),
       layout: {
