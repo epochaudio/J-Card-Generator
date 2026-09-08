@@ -105,19 +105,30 @@ const path = require('node:path');
  await page.waitForFunction(() => document.querySelector('input[type=text]').value==='草稿恢复作品');
  await page.getByRole('button',{name:'保存作品',exact:true}).click();
  await page.getByText('saved.jcard · 已保存',{exact:true}).waitFor();
- // Open a complete portable fixture, restore image/color/date, then ensure an old AI task cannot replace it.
+ // Open a complete portable fixture, restore image/color/date, then ensure an old title suggestion cannot replace it.
  const { serializeProject } = await import(path.join(root,'src/project/projectFormat.mjs'));
  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1sAAAAASUVORK5CYII=';
  const fixture = serializeProject({ data: { title: '双封面古典', sideA: [{id:'a',title:'第一乐章',duration:'12:30',_workId:'w',_workTitle:'奏鸣曲'}], sideB: [], layout: {mode:'CLASSICAL',frontStyle:'REVERSIBLE'} },
   recordingData:{recDate:'1994-08-01'}, coverImage:png,coverImageB:png,theme:{accent:'#abcdef'},fontTheme:'puhuiti' });
  await fs.writeFile(path.join(dir,'fixture.jcard'),fixture);
- await page.evaluate(async () => { const {aiTransport:service}=await import('/src/ai/aiTransport.mjs'); service.text=()=>new Promise(resolve=>window.finishOldAI=resolve); });
- await page.getByRole('button',{name:'AI 创意总监',exact:true}).click();
+ await app.evaluate(({net}) => {
+   globalThis.originalTitleTestFetch = net.fetch;
+   net.fetch = () => new Promise(resolve => {
+     globalThis.finishOldTitle = content => resolve(new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(content)}}]}),{status:200}));
+   });
+ });
+ await page.getByRole('button',{name:'生成专辑标题',exact:true}).click();
+ await app.evaluate(async () => {
+   const deadline = Date.now() + 5000;
+   while (!globalThis.finishOldTitle && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20));
+   if (!globalThis.finishOldTitle) throw new Error('Title generation did not reach the mocked API.');
+ });
  await app.evaluate(({dialog}, input) => { dialog.showOpenDialog=async()=>({canceled:false,filePaths:[input]}); },path.join(dir,'fixture.jcard'));
  await page.getByRole('button',{name:'打开作品',exact:true}).click();
  await page.getByText('fixture.jcard · 已保存',{exact:true}).waitFor();
- await page.evaluate(()=>window.finishOldAI({album_title:'旧任务标题'}));
+ await app.evaluate(({net}) => { net.fetch = globalThis.originalTitleTestFetch; globalThis.finishOldTitle({suggested_title:'旧任务标题'}); });
  await page.waitForFunction(()=>document.querySelector('input[type=color]').value==='#abcdef');
+ await page.waitForTimeout(200);
  assert.equal(await title.inputValue(),'双封面古典');
  await page.getByRole('button',{name:'保存作品',exact:true}).click();
  await page.getByText('fixture.jcard · 已保存',{exact:true}).waitFor();

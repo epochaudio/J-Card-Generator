@@ -206,7 +206,6 @@ export default function App() {
   const imageKeyConfigured = Boolean(aiSettings.settings.providers[aiSettings.settings.imageProvider]?.apiKey);
   const svgRef = useRef(null);
   const [loadingStates, setLoadingStates] = useState({
-    enhance: false,
     title: false,
     search: false,
     import: false,
@@ -490,31 +489,6 @@ export default function App() {
     } finally {
       if (epoch === projectEpoch.current) setLoadingState('import', false);
     }
-  };
-
-  const handleAIEnhance = async () => {
-    const epoch = projectEpoch.current;
-    setLoadingState('enhance', true); setError('');
-    try {
-      const parsed = await aiService.enhanceContent(data);
-      if (epoch !== projectEpoch.current) return;
-
-      const updates = {};
-      if (parsed.album_title) {
-        updates.title = parsed.album_title.toUpperCase();
-        updates.spineTitle = "";
-      }
-      if (parsed.album_copy) updates.coverBadge = parsed.album_copy;
-
-      // Update data state
-      setData(prev => ({ ...prev, ...updates }));
-
-      // Update Image Prompt State (so user can see it and click generation)
-      if (parsed.cover_prompt) {
-        setImagePrompt(parsed.cover_prompt + (parsed.negative_prompt ? `\n\nNegative: ${parsed.negative_prompt}` : ""));
-      }
-
-    } catch (err) { if (epoch !== projectEpoch.current) return; setError(err.message); if (!textKeyConfigured) setShowSettings(true); } finally { if (epoch === projectEpoch.current) setLoadingState('enhance', false); }
   };
 
   const handleTitleMagic = async () => {
@@ -902,7 +876,6 @@ export default function App() {
           <div className="h-6 w-px bg-gray-300 mx-1"></div>
           <button onClick={handleReset} className="p-2 rounded-full transition-colors text-gray-400 hover:bg-gray-100 hover:text-red-500" title="新建/重置项目"><RotateCcw size={20} /></button>
           <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
-          <button title={`${textProviderName} · 普通 API 按量计费`} onClick={handleAIEnhance} disabled={loadingStates.enhance || !aiSettings.ready} className={`flex items-center gap-2 px-4 py-2 rounded-md font-semibold transition-all ${loadingStates.enhance ? 'bg-gray-600 cursor-not-allowed' : 'bg-orange-700 hover:bg-orange-800 text-white'}`}>{loadingStates.enhance ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}{loadingStates.enhance ? 'AI 策划中...' : 'AI 创意总监'}</button>
 
           {/* Export Buttons */}
           <button onClick={downloadSVG} className="flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 shadow-sm"><Download size={18} />导出 SVG</button>
@@ -963,7 +936,7 @@ export default function App() {
             <section className="space-y-4">
               <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Type size={14} /> 专辑信息</h2>
               <div className="space-y-3">
-                <div><label className="block text-xs text-gray-400 mb-1">专辑标题</label><div className="flex gap-2"><input type="text" value={data.title || ''} onChange={(e) => setData({ ...data, title: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /><button onClick={handleTitleMagic} disabled={loadingStates.title} className="px-3 border border-gray-300 rounded transition-colors bg-white text-orange-600 hover:bg-gray-50">{loadingStates.title ? <span className="animate-spin text-xs">⏳</span> : <Wand2 size={16} />}</button></div></div>
+                <div><label className="block text-xs text-gray-400 mb-1">专辑标题</label><div className="flex gap-2"><input type="text" value={data.title || ''} onChange={(e) => setData({ ...data, title: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /><button aria-label="生成专辑标题" title="根据曲目生成专辑标题" onClick={handleTitleMagic} disabled={loadingStates.title} className="px-3 border border-gray-300 rounded transition-colors bg-white text-orange-600 hover:bg-gray-50">{loadingStates.title ? <span className="animate-spin text-xs">⏳</span> : <Wand2 size={16} />}</button></div></div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">脊部短标题</label>
                   <input
