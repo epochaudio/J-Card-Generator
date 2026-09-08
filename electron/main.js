@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, safeStorage, net } = require('electron');
+const { app, BrowserWindow, ipcMain, safeStorage, net, shell, dialog } = require('electron');
 const path = require('path');
 
 // Keep existing settings, encrypted credentials and drafts after the display-name change.
@@ -40,6 +40,23 @@ function createWindow() {
     });
 
     mainWindow = win;
+    const openWebPage = url => {
+        let destination;
+        try { destination = new URL(url); }
+        catch { return; }
+        if (!['http:', 'https:'].includes(destination.protocol)) return;
+        void shell.openExternal(destination.href).catch(() => {
+            dialog.showErrorBox('无法打开网页', '系统默认浏览器启动失败，请检查默认浏览器设置后重试。');
+        });
+    };
+    win.webContents.setWindowOpenHandler(({ url }) => {
+        openWebPage(url);
+        return { action: 'deny' };
+    });
+    win.webContents.on('will-navigate', (event, url) => {
+        event.preventDefault();
+        openWebPage(url);
+    });
     closeApproved = false;
     win.on('close', event => {
         if (!closeApproved) {
