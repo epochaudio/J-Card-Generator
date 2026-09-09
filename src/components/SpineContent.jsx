@@ -1,7 +1,11 @@
+import { StyledText, StyledSpan } from './StyledText.jsx';
+import { typographyFont, fontFamilyName } from '../config/textStyles.mjs';
 import React, { useMemo } from 'react';
 import SpineLayoutEngine from '../utils/SpineLayoutEngine.js';
 
 const SpineContent = ({ data, height, panelWidth, fontConfig, themeColors, exactColors, inverted }) => {
+  const metadataFont = typographyFont(fontConfig, 'metadata', 'body');
+  const artistFont = typographyFont(fontConfig, 'artist');
   const titleColor = themeColors.title || themeColors.titleColor;
   const idColor = themeColors.id || themeColors.idColor;
   const itemColor = item => (exactColors && themeColors[item.role === 'tapeId' ? 'id' : item.role === 'artist' ? 'artist' : 'note']) || (item.fillRole === 'id' ? idColor : titleColor);
@@ -31,7 +35,7 @@ const SpineContent = ({ data, height, panelWidth, fontConfig, themeColors, exact
   return (
     <g>
       {spineLayout.title.lines.map((line, index) => (
-        <text
+        <StyledText
           key={`sp-title-${line}-${index}`}
           x={getX(spineLayout.title.centerX)}
           y={spineLayout.title.crossOffsets[index] || 0}
@@ -44,15 +48,15 @@ const SpineContent = ({ data, height, panelWidth, fontConfig, themeColors, exact
           transform={`rotate(${rotation})`}
         >
           {line}
-        </text>
+        </StyledText>
       ))}
 
       {spineLayout.topItems.map((item) => (
-        <text
+        <StyledText
           key={`sp-top-${item.role}`}
           x={getX(item.physicalOffset)}
           y={item.crossOffset}
-          fontFamily={spineLayout.bodyFont}
+          fontFamily={item.role === 'artist' ? artistFont : metadataFont}
           fontSize={item.fontSize}
           fontWeight={item.fontOptions.fontWeight}
           data-color-role={`spine.${item.role}`} fill={itemColor(item)}
@@ -63,15 +67,15 @@ const SpineContent = ({ data, height, panelWidth, fontConfig, themeColors, exact
           opacity={exactColors ? 1 : item.opacity}
         >
           {item.text}
-        </text>
+        </StyledText>
       ))}
 
       {spineLayout.bottomItems.map((item) => (
-        <text
+        <StyledText
           key={`sp-bottom-${item.role}`}
           x={getX(item.physicalOffset)}
           y={item.crossOffset}
-          fontFamily={spineLayout.bodyFont}
+          fontFamily={item.role === 'artist' ? artistFont : metadataFont}
           fontSize={item.fontSize}
           fontWeight={item.fontOptions.fontWeight}
           data-color-role={`spine.${item.role}`} fill={itemColor(item)}
@@ -82,7 +86,7 @@ const SpineContent = ({ data, height, panelWidth, fontConfig, themeColors, exact
           opacity={exactColors ? 1 : item.opacity}
         >
           {item.text}
-        </text>
+        </StyledText>
       ))}
     </g>
   );

@@ -1,3 +1,4 @@
+import { normalizeTextStyles } from '../config/textStyles.mjs';
 import { normalizeAlbumSource, normalizeTrackSource } from '../musicbrainz/projectMetadata.mjs';
 import { formatDurationMs, parseDurationToMs } from '../utils/formatDuration.mjs';
 import { FRONT_STYLES, TITLE_SIZES, PALETTES, normalizePanelColors } from '../config/design.mjs';
@@ -94,6 +95,7 @@ export function normalizeSnapshot(input) {
       sideA, sideB, sideADuration: total(sideA), sideBDuration: total(sideB),
       layout: {
         ...strings(layout, ['noteUpper', 'noteLower']), mode,
+        spineSize: choice(layout.spineSize, ['standard', 'narrow'], 'standard', '脊宽'),
         frontStyle: choice(layout.frontStyle, FRONT_STYLES, 'STANDARD', '封面布局'),
         titleSize: choice(layout.titleSize, Object.keys(TITLE_SIZES), 'balanced', '标题尺寸'),
         texture: boolean(layout.texture, false, '纸纹'),
@@ -110,7 +112,7 @@ export function normalizeSnapshot(input) {
       credits: Object.fromEntries(['producers', 'engineers', 'performers'].map(field => [field, list(credits[field] ?? [], field).map(value => string(value, field))]))
     },
     coverImage: image(input.coverImage), coverImageB: image(input.coverImageB),
-    theme: { background: color(theme.background, '#121212'), accent: color(theme.accent, '#cc3300'), mood_description: string(theme.mood_description, '心情'), ...(theme.paletteId === 'custom' ? { colors: normalizePanelColors(theme.colors) } : {}), paletteId: choice(theme.paletteId, ['legacy', 'custom', ...Object.keys(PALETTES)], 'legacy', '配色方案') },
+    theme: { ...(theme.typography != null ? { typography: normalizeTextStyles(theme.typography, input.fontTheme || 'modern') } : {}), background: color(theme.background, '#121212'), accent: color(theme.accent, '#cc3300'), mood_description: string(theme.mood_description, '心情'), ...(theme.paletteId === 'custom' ? { colors: normalizePanelColors(theme.colors) } : {}), paletteId: choice(theme.paletteId, ['legacy', 'custom', ...Object.keys(PALETTES)], 'legacy', '配色方案') },
     fontTheme: choice(input.fontTheme, FONT_THEMES, 'modern', '字体主题'),
     jCardThemeMode: choice(input.jCardThemeMode, ['dark', 'light', 'cover', 'color'], 'dark', '背景主题'),
     imagePrompt: string(input.imagePrompt, '图片提示词')

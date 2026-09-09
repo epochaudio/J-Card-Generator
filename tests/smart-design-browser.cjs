@@ -5,24 +5,32 @@ const fs = require('node:fs/promises');
  const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true });
  const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
  page.setDefaultTimeout(60000);
- const errors = [], requests = []; let hold = false, release, badColors = false, persistentFailure = false, holdRepair = false;
+ const errors = [], requests = [], reviews = []; let hold = false, release, badColors = false, persistentFailure = false, holdRepair = false, rejectReview = false, holdReview = false;
  page.on('pageerror', error => errors.push(error.message));
+ const { defaultTextStyles } = await import('../src/config/textStyles.mjs');
  const { panelColors } = await import('./fixtures/panelColors.mjs');
  const { resolvePanelColors } = await import('../src/config/design.mjs');
  const candidates = [
   { direction: 'harmony', fontTheme: 'editorial', paletteId: 'custom', colors: panelColors(), frontStyle: 'EDITORIAL', titleSize: 'balanced', reason: '暖暗底色呼应画面中的晚霞，衬线标题延续安静气质。' },
   { direction: 'title', fontTheme: 'modern', paletteId: 'custom', colors: resolvePanelColors({ paletteId: 'paper' }), frontStyle: 'STANDARD', titleSize: 'expressive', reason: '浅色背景和醒目标题形成清晰的主次。' },
   { direction: 'reading', fontTheme: 'retro', paletteId: 'custom', colors: resolvePanelColors({ paletteId: 'cool' }), frontStyle: 'EDITORIAL', titleSize: 'compact', reason: '克制标题与冷灰色板使曲目阅读更加平静。' }
- ];
+ ].map(candidate => ({ ...candidate, typography: defaultTextStyles(candidate.fontTheme) }));
  await page.route('https://**/*', async route => {
   if (route.request().method() !== 'POST') return route.abort();
-  const body = JSON.parse(route.request().postData()); requests.push(body);
+  const body = JSON.parse(route.request().postData());
   const prompt = body.messages[0].content[0].text;
+  if (prompt.includes('复核资料：')) {
+   reviews.push(body);
+   if (holdReview) await new Promise(resolve => { release = resolve; });
+   const c = JSON.parse(prompt.split('复核资料：')[1]);
+   return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: JSON.stringify({ candidateId: c.candidateId, revision: c.revision, verdict: rejectReview ? 'uncertain' : 'pass', issues: [], summary: rejectReview ? '小字无法确认' : '整体协调，文字清楚。' }) }, finish_reason: 'stop' }] }) }).catch(() => {});
+  }
+  requests.push(body);
   const repair = prompt.includes('"previous":');
   if (hold || (holdRepair && repair)) await new Promise(resolve => { release = resolve; });
   const locked = prompt.includes('"palette":{"paletteId":"paper"');
   const lockedCustom = prompt.includes('"palette":{"paletteId":"custom"');
-  let responseCandidates = locked ? [{ ...candidates[1], fontTheme: 'modern', paletteId: 'paper', colors: null }]
+  let responseCandidates = locked ? [{ ...candidates[1], fontTheme: 'modern', paletteId: 'paper', colors: null, typography: null }]
     : lockedCustom ? candidates.map(item => ({ ...item, colors: panelColors() })) : structuredClone(candidates);
   if (badColors && (!repair || persistentFailure)) responseCandidates = responseCandidates.map(item => {
     const colors = structuredClone(item.colors); colors.back.note = colors.back.background;
@@ -65,13 +73,15 @@ const fs = require('node:fs/promises');
    return ink;
   }, previewSource);
   assert.ok(bodyInk > 100, 'artist body text must be painted in the candidate PNG');
+  assert.equal(reviews.length, 3);
+  assert.equal(reviews[0].messages[0].content[2].image_url.url, previewSource);
   assert.equal(requests.length, 1); assert.equal(requests[0].messages[0].content.filter(x => x.type === 'image_url').length, 3);
   assert.deepEqual(await save(), before);
   await panel.getByRole('button', { name: '放大延续原封面', exact: true }).click();
   await page.getByRole('dialog', { name: '搭配放大预览' }).screenshot({ path: '/private/tmp/jcard-smart-preview.png' });
   await page.getByRole('button', { name: '关闭预览', exact: true }).click();
   await page.locator('[data-smart-candidate="harmony"]').getByRole('button', { name: '应用这套' }).click();
-  const applied = await save(); assert.equal(applied.fontTheme, 'editorial'); assert.equal(applied.theme.paletteId, 'custom'); assert.deepEqual(applied.theme.colors, panelColors());
+  const applied = await save(); assert.equal(applied.fontTheme, 'editorial'); assert.equal(applied.theme.paletteId, 'custom'); assert.deepEqual(applied.theme.colors, panelColors()); assert.deepEqual(applied.theme.typography, candidates[0].typography);
   assert.equal(await page.locator('[data-smart-candidate]').count(), 3);
   for (const [name, colors] of Object.entries(panelColors())) {
     assert.equal(await page.locator(`svg [data-panel-background="${name}"]`).first().getAttribute('fill'), colors.background);
@@ -90,7 +100,7 @@ const fs = require('node:fs/promises');
   assert.ok(difference < 1, 'applied PNG export must match candidate rendering');
   await page.getByPlaceholder('标题', { exact: true }).first().fill('后续曲目修改');
   await panel.getByRole('button', { name: '撤销本次搭配', exact: true }).click();
-  const undone = await save(); assert.equal(undone.fontTheme, before.fontTheme); assert.equal(undone.theme.paletteId, before.theme.paletteId); assert.equal(undone.data.sideA[0].title, '后续曲目修改');
+  const undone = await save(); assert.equal(undone.fontTheme, before.fontTheme); assert.equal(undone.theme.paletteId, before.theme.paletteId); assert.equal(undone.theme.typography, before.theme.typography); assert.equal(undone.data.sideA[0].title, '后续曲目修改');
   assert.equal(await page.locator('[data-smart-candidate]').count(), 0);
   hold = true; await panel.getByRole('button', { name: '生成三套搭配', exact: true }).click();
   await page.waitForFunction(() => document.body.innerText.includes('视觉模型正在根据素材设计'));
@@ -99,12 +109,12 @@ const fs = require('node:fs/promises');
   release(); hold = false; await page.waitForTimeout(500);
   assert.equal(await page.locator('[data-smart-candidate]').count(), 0);
   assert.equal(await panel.getByRole('button', { name: '取消生成' }).count(), 0);
-  await panel.getByLabel('锁定字体', { exact: true }).check();
+  await panel.getByLabel('锁定字体与样式', { exact: true }).check();
   await panel.getByLabel('锁定配色', { exact: true }).check();
   await panel.getByRole('button', { name: '生成三套搭配', exact: true }).click();
   await panel.getByText('仅 1 套通过检查，其他方向未能提供有效且不同的组合。', { exact: true }).waitFor();
   assert.equal(await page.locator('[data-smart-candidate]').count(), 1);
-  assert.match(requests.at(-1).messages[0].content[0].text, /"locked":\{"fontTheme":"modern","palette":/);
+  assert.match(requests.at(-1).messages[0].content[0].text, /"locked":\{"fontTheme":"modern","typography":null,"palette":/);
   // Reopen the saved complete scheme with richer text, checking real SVG role paint.
   const reopened = structuredClone(applied);
   reopened.theme.mood_description = 'Evening edition'; reopened.data.coverBadge = 'PRIVATE COLLECTION';
@@ -132,7 +142,9 @@ const fs = require('node:fs/promises');
   badColors = true; const beforeRepair = requests.length;
   await panel.getByRole('button', { name: '生成三套搭配', exact: true }).click();
   await page.locator('[data-smart-candidate]').first().waitFor();
-  assert.equal(requests.length - beforeRepair, 2); assert.match(requests.at(-1).messages[0].content[0].text, /back.note/);
+  assert.equal(requests.length - beforeRepair, 2);
+  assert.equal(requests.at(-1).messages[0].content.filter(x => x.type === 'image_url').length, 2);
+  assert.match(requests.at(-1).messages[0].content[0].text, /本次没有字体小样图/); assert.match(requests.at(-1).messages[0].content[0].text, /back.note/);
   assert.deepEqual((await save()).theme.colors, panelColors());
   persistentFailure = true;
   await panel.getByRole('button', { name: '生成三套搭配', exact: true }).click();
@@ -146,7 +158,21 @@ const fs = require('node:fs/promises');
   await panel.getByRole('status').filter({ hasText: '已取消智能搭配' }).waitFor();
   assert.equal(await page.locator('[data-smart-candidate]').count(), 0);
   assert.deepEqual((await save()).theme.colors, panelColors());
+  badColors = false; rejectReview = true;
+  const beforeVisualFailure = requests.length;
+  await panel.getByRole('button', { name: '生成三套搭配', exact: true }).click();
+  await panel.getByRole('status').filter({ hasText: '没有通过检查的方案' }).waitFor();
+  assert.equal(requests.length - beforeVisualFailure, 2);
+  assert.equal(await page.locator('[data-smart-candidate]').count(), 0);
+  rejectReview = false; holdReview = true; release = null;
+  await panel.getByRole('button', { name: '生成三套搭配', exact: true }).click();
+  await panel.getByRole('status').filter({ hasText: '视觉模型正在复核' }).waitFor();
+  while (!release) await new Promise(resolve => setTimeout(resolve, 20));
+  await panel.getByRole('button', { name: '取消生成' }).click(); release(); holdReview = false;
+  await panel.getByRole('status').filter({ hasText: '已取消智能搭配' }).waitFor();
+  assert.equal(await page.locator('[data-smart-candidate]').count(), 0);
+  assert.deepEqual((await save()).theme.colors, panelColors());
   assert.deepEqual(errors, []);
-  console.log('PASS panel/role colors, original image, PNG parity, save/reopen, complete palette lock/undo, bounded repair, persistent failure, repair cancellation, stale response rejection; zero page errors');
- } finally { release?.(); await browser.close(); }
+  console.log('PASS panel/role colors, original image, PNG parity, save/reopen, complete palette lock/undo, bounded repair with rendered contact sheet, visual rejection, persistent failure, review/repair cancellation, stale response rejection; zero page errors');
+ } catch (error) { console.error('UI status:', await panel.getByRole('status').textContent()); console.error('request counts:', requests.length, reviews.length); throw error; } finally { release?.(); await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

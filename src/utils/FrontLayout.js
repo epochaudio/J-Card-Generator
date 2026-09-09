@@ -1,3 +1,4 @@
+import { typographyFont } from '../config/textStyles.mjs';
 import TypographyService from '../services/TypographyService.js';
 import { TITLE_SIZES } from '../config/design.mjs';
 import { JCARD_DIMENSIONS } from '../constants/app.js';
@@ -9,6 +10,8 @@ export const FRONT_RULES = {
 };
 export function computeFrontLayout(data, fontConfig, theme = {}) {
   const rules = FRONT_RULES;
+  fontConfig = { ...fontConfig, typography: theme.typography || fontConfig.typography };
+  const styled = !!fontConfig.typography;
   const width = JCARD_DIMENSIONS.panels.front;
   const editorial = data.layout?.frontStyle === 'EDITORIAL';
   const image = { x: 0, y: 0, size: width };
@@ -16,15 +19,16 @@ export function computeFrontLayout(data, fontConfig, theme = {}) {
   const maxHeight = JCARD_DIMENSIONS.height - rules.bottom - top;
   const maxWidth = width - rules.margin * 2;
   const titleMax = TITLE_SIZES[data.layout?.titleSize] || TITLE_SIZES.balanced;
-  const artist = [data.artist, theme.mood_description].filter(Boolean).join(' · ');
+  const artist = styled ? data.artist : [data.artist, theme.mood_description].filter(Boolean).join(' · ');
   const artistTracking = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(artist) || artist.length > 28 ? 0 : 2;
   let result;
   for (let size = titleMax; size >= rules.titleMin; size -= 2) {
     const ratio = size / titleMax;
     const definitions = [
-      { role: 'title', text: data.title, font: fontConfig.fonts.title, size, weight: 600, tracking: 0, lineRatio: rules.titleLineHeight, gap: 0 },
-      { role: 'artist', text: artist, font: fontConfig.fonts.body, size: Math.max(rules.artistMin, Math.round(rules.artistSize * ratio)), weight: 500, tracking: artistTracking, lineRatio: rules.bodyLineHeight, gap: rules.titleArtistGap },
-      { role: 'badge', text: data.coverBadge, font: fontConfig.fonts.serif, size: Math.max(rules.badgeMin, Math.round(rules.badgeSize * ratio)), weight: 400, tracking: 0, lineRatio: rules.bodyLineHeight, gap: rules.badgeGap },
+      { role: 'title', text: data.title, font: typographyFont(fontConfig, 'title'), size, weight: 600, tracking: 0, lineRatio: rules.titleLineHeight, gap: 0 },
+      { role: 'artist', text: artist, font: typographyFont(fontConfig, 'artist'), size: Math.max(rules.artistMin, Math.round(rules.artistSize * ratio)), weight: 500, tracking: artistTracking, lineRatio: rules.bodyLineHeight, gap: rules.titleArtistGap },
+      ...(styled ? [{ role: 'subtitle', text: theme.mood_description, font: typographyFont(fontConfig, 'subtitle'), size: rules.artistMin, weight: 400, tracking: 0, lineRatio: rules.bodyLineHeight, gap: rules.badgeGap }] : []),
+      { role: 'badge', text: data.coverBadge, font: typographyFont(fontConfig, 'badge'), size: Math.max(rules.badgeMin, Math.round(rules.badgeSize * ratio)), weight: 400, tracking: 0, lineRatio: rules.bodyLineHeight, gap: rules.badgeGap },
     ];
     const blocks = definitions.filter(block => block.text).map(block => {
       const box = TypographyService.measureFontBox(block.text, block.font, block.size, { fontWeight: block.weight });

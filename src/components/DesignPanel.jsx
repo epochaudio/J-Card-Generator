@@ -14,10 +14,19 @@ export default function DesignPanel({ data, theme, fontTheme, mode, onLayout, on
       <select id="design-font" value={fontTheme} onChange={event => onFont(event.target.value)} className="w-full rounded border border-gray-200 bg-white p-2 text-sm">
         {Object.values(FONT_THEMES).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select>
+      {theme.typography && <div className="mt-2 text-xs text-stone-600">已应用 AI 文字样式（字重、几何倾斜、宽度）。<button className="ml-2 underline" onClick={() => onTheme({ ...theme, typography: null })}>恢复默认文字样式</button></div>}
       <div className="mt-2 px-3 py-2 rounded bg-stone-50 text-stone-700" aria-label="字体小样">
         <span style={{ fontFamily: font.fonts.title }} className="text-xl">声音档案 · Album</span>
         <span style={{ fontFamily: font.fonts.body }} className="block text-xs mt-1">曲目与艺术家 · Track 01</span>
       </div>
+    </div>
+    <div>
+      <label htmlFor="spine-size" className="block text-xs text-gray-500 mb-2">盒子脊宽</label>
+      <select id="spine-size" value={data.layout.spineSize || 'standard'} onChange={event => onLayout({ spineSize: event.target.value })} className="w-full rounded border border-gray-200 bg-white p-2 text-sm">
+        <option value="standard">标准 · 12.7 mm</option>
+        <option value="narrow">窄脊 · 10.7 mm</option>
+      </select>
+      <p className="mt-1 text-xs text-gray-500">窄脊省下的宽度加入左侧内折页，正面和通高保持不变。</p>
     </div>
     <fieldset>
       <legend className="text-xs text-gray-500 mb-2">完整配色</legend>

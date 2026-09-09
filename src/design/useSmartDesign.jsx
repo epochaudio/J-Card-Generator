@@ -3,8 +3,9 @@ import { aiTransport } from '../ai/aiTransport.mjs';
 import { resolveProvider } from '../ai/providerConfig.mjs';
 import { supportsVision } from '../ai/modelCatalog.mjs';
 import { buildDesignInput, contentStamp, designChange, designFields, designPrompt, DIRECTIONS, eligibility } from './smartDesign.mjs';
-import { checkCancelled, prepareDesignImages } from './designMaterials.js';
+import { checkCancelled, prepareDesignImages, prepareRepairImages } from './designMaterials.js';
 import { generateDesigns } from './generateDesigns.mjs';
+import { reviewPrompt, hasPassedReview } from './visualReview.mjs';
 import { renderDesign, visiblyDifferent } from './renderDesign.jsx';
 
 export default function useSmartDesign({ snapshot, settings, projectIdentity, onApply, ready }) {
@@ -65,7 +66,11 @@ export default function useSmartDesign({ snapshot, settings, projectIdentity, on
       const input = buildDesignInput(current.snapshot, current.locks, current.intent);
       const images = await prepareDesignImages(current.snapshot, controller.signal); active();
       const generated = await generateDesigns({ snapshot: current.snapshot, locks: current.locks,
-        prompt: designPrompt(input), request: prompt => aiTransport.vision(current.settings, prompt, images, controller.signal),
+        prompt: designPrompt(input), request: async (prompt, failedImages) => {
+          const material = failedImages.length ? await prepareRepairImages(images[0], failedImages, controller.signal) : images;
+          active(); return aiTransport.vision(current.settings, prompt, material, controller.signal);
+        },
+        review: candidate => aiTransport.vision(current.settings, reviewPrompt(candidate, input), [images[0], candidate.preview], controller.signal),
         render: candidate => renderDesign(candidate, controller.signal), different: visiblyDifferent, active, status: setStatus });
       const { candidates: selected, rejected } = generated;
       active();
@@ -79,11 +84,11 @@ export default function useSmartDesign({ snapshot, settings, projectIdentity, on
   };
 
   const apply = candidate => {
-    if (!batch?.candidates.includes(candidate) || busy || !ready) return;
+    if (!batch?.candidates.includes(candidate) || !hasPassedReview(candidate) || busy || !ready) return;
     const current = latest.current;
     // Layout-effect invalidation normally handles these; verify again at the write boundary.
     if (previous.current?.stamp !== contentStamp(current.snapshot) || previous.current?.design !== JSON.stringify(designFields(current.snapshot))) { invalidate('作品已变化，请重新生成。'); return; }
-    if ((locks.font && candidate.fields.fontTheme !== current.snapshot.fontTheme) || (locks.palette && (candidate.fields.paletteId !== current.snapshot.theme.paletteId || candidate.fields.accent !== current.snapshot.theme.accent || JSON.stringify(candidate.fields.colors) !== JSON.stringify(current.snapshot.theme.colors || null)))) { invalidate('锁定设置已变化，请重新生成。'); return; }
+    if ((locks.font && (candidate.fields.fontTheme !== current.snapshot.fontTheme || JSON.stringify(candidate.fields.typography) !== JSON.stringify(current.snapshot.theme.typography || null))) || (locks.palette && (candidate.fields.paletteId !== current.snapshot.theme.paletteId || candidate.fields.accent !== current.snapshot.theme.accent || JSON.stringify(candidate.fields.colors) !== JSON.stringify(current.snapshot.theme.colors || null)))) { invalidate('锁定设置已变化，请重新生成。'); return; }
     const before = designFields(current.snapshot);
     const patch = designChange(before, candidate.fields);
     if (!Object.keys(patch).length) { setMessage('当前作品已使用这套搭配。'); return; }

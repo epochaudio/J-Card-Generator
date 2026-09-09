@@ -1,3 +1,5 @@
+import { StyledText, StyledSpan } from './StyledText.jsx';
+import { typographyFont, fontFamilyName } from '../config/textStyles.mjs';
 import React, { useMemo } from 'react';
 import { contrastInk } from '../config/design.mjs';
 
@@ -18,10 +20,11 @@ const ShortBackContent = ({
   fontConfig
 }) => {
   const colors = theme.panelColors || {};
-  const bodyFont = fontConfig?.fonts?.body || 'Arial, sans-serif';
-  const titleFont = fontConfig?.fonts?.title || 'Arial, sans-serif';
-  const monoFont = fontConfig?.fonts?.mono || 'Courier New, monospace';
+  const bodyFont = typographyFont(fontConfig, 'metadata', 'body');
+  const titleFont = typographyFont(fontConfig, 'metadata', 'title');
+  const monoFont = typographyFont(fontConfig, 'metadata', 'mono');
 
+  const trackFont = typographyFont(fontConfig, 'track');
   const resolvedMode = data.layout?.shortBackMode || 'TRACKS_COMPACT';
 
   const archiveLayout = useMemo(() => {
@@ -68,10 +71,10 @@ const ShortBackContent = ({
     const { label, credits, equipment, meta } = archiveLayout.columns;
 
     return (
-      <g transform={`translate(${width}, 0) rotate(90)`} fontFamily={monoFont}>
+      <g transform={`translate(${width}, 0) rotate(90)`} fontFamily={fontFamilyName(monoFont)}>
         <g transform={`translate(${label.x}, ${label.topY})`}>
           {label.label.lines.map((line, index) => (
-            <text
+            <StyledText fontFamily={monoFont}
               key={`label-${index}`}
               x="0"
               y={index * label.label.lineHeight}
@@ -82,16 +85,16 @@ const ShortBackContent = ({
               dominantBaseline="hanging"
             >
               {line}
-            </text>
+            </StyledText>
           ))}
 
           {label.source && label.source.body && (
             <g transform={`translate(0, ${label.source.groupY})`}>
-              <text x="0" y="0" fontSize={label.source.headerFontSize} fill={dimTextColor} letterSpacing="4" dominantBaseline="hanging">
+              <StyledText fontFamily={monoFont} x="0" y="0" fontSize={label.source.headerFontSize} fill={dimTextColor} letterSpacing="4" dominantBaseline="hanging">
                 {label.source.header}
-              </text>
+              </StyledText>
               {label.source.body.lines.map((line, index) => (
-                <text
+                <StyledText
                   key={`source-${index}`}
                   x="0"
                   y={label.source.bodyY + (index * label.source.body.lineHeight)}
@@ -102,7 +105,7 @@ const ShortBackContent = ({
                   dominantBaseline="hanging"
                 >
                   {line}
-                </text>
+                </StyledText>
               ))}
             </g>
           )}
@@ -112,11 +115,11 @@ const ShortBackContent = ({
           <g transform={`translate(${credits.x}, ${credits.topY})`}>
             {credits.sections.map((section, sectionIndex) => (
               <g key={`credit-section-${sectionIndex}`} transform={`translate(0, ${section.groupY})`}>
-                <text x="0" y="0" fontSize={section.headerFontSize} fill={dimTextColor} letterSpacing="4" dominantBaseline="hanging">
+                <StyledText fontFamily={monoFont} x="0" y="0" fontSize={section.headerFontSize} fill={dimTextColor} letterSpacing="4" dominantBaseline="hanging">
                   {section.header}
-                </text>
+                </StyledText>
                 {section.body?.lines.map((line, lineIndex) => (
-                  <text
+                  <StyledText
                     key={`credit-line-${sectionIndex}-${lineIndex}`}
                     x="0"
                     y={section.bodyY + (lineIndex * section.body.lineHeight)}
@@ -126,7 +129,7 @@ const ShortBackContent = ({
                     dominantBaseline="hanging"
                   >
                     {line}
-                  </text>
+                  </StyledText>
                 ))}
               </g>
             ))}
@@ -135,11 +138,11 @@ const ShortBackContent = ({
 
         {equipment && equipment.body && (
           <g transform={`translate(${equipment.x}, ${equipment.topY})`}>
-            <text x="0" y="0" fontSize={equipment.headerFontSize} fill={dimTextColor} letterSpacing="4" dominantBaseline="hanging">
+            <StyledText fontFamily={monoFont} x="0" y="0" fontSize={equipment.headerFontSize} fill={dimTextColor} letterSpacing="4" dominantBaseline="hanging">
               {equipment.header}
-            </text>
+            </StyledText>
             {equipment.body.lines.map((line, index) => (
-              <text
+              <StyledText
                 key={`equipment-${index}`}
                 x="0"
                 y={equipment.bodyY + (index * equipment.body.lineHeight)}
@@ -149,28 +152,28 @@ const ShortBackContent = ({
                 dominantBaseline="hanging"
               >
                 {line}
-              </text>
+              </StyledText>
             ))}
           </g>
         )}
 
         <g transform={`translate(${meta.x}, ${meta.topY})`}>
           <g>
-            <text x="0" y={meta.release.labelY} fontSize={meta.release.labelFontSize} fill={dimTextColor} letterSpacing="4" textAnchor="end" dominantBaseline="hanging">
+            <StyledText fontFamily={monoFont} x="0" y={meta.release.labelY} fontSize={meta.release.labelFontSize} fill={dimTextColor} letterSpacing="4" textAnchor="end" dominantBaseline="hanging">
               {meta.release.label}
-            </text>
-            <text x="0" y={meta.release.valueY} fontSize={meta.release.valueFontSize} data-color-role="shortBack.metadata" fill={colors.metadata || textColor} fontWeight="bold" letterSpacing="1" textAnchor="end" dominantBaseline="hanging">
+            </StyledText>
+            <StyledText fontFamily={monoFont} x="0" y={meta.release.valueY} fontSize={meta.release.valueFontSize} data-color-role="shortBack.metadata" fill={colors.metadata || textColor} fontWeight="bold" letterSpacing="1" textAnchor="end" dominantBaseline="hanging">
               {meta.release.value}
-            </text>
+            </StyledText>
           </g>
 
           <g transform={`translate(0, ${meta.recorded.groupY})`}>
-            <text x="0" y={meta.recorded.labelY} fontSize={meta.recorded.labelFontSize} fill={dimTextColor} letterSpacing="4" textAnchor="end" dominantBaseline="hanging">
+            <StyledText fontFamily={monoFont} x="0" y={meta.recorded.labelY} fontSize={meta.recorded.labelFontSize} fill={dimTextColor} letterSpacing="4" textAnchor="end" dominantBaseline="hanging">
               {meta.recorded.label}
-            </text>
-            <text x="0" y={meta.recorded.valueY} fontSize={meta.recorded.valueFontSize} fill={colors.metadata || theme.accent} fontWeight="bold" letterSpacing="1" textAnchor="end" dominantBaseline="hanging">
+            </StyledText>
+            <StyledText fontFamily={monoFont} x="0" y={meta.recorded.valueY} fontSize={meta.recorded.valueFontSize} fill={colors.metadata || theme.accent} fontWeight="bold" letterSpacing="1" textAnchor="end" dominantBaseline="hanging">
               {meta.recorded.value}
-            </text>
+            </StyledText>
           </g>
         </g>
       </g>
@@ -180,50 +183,50 @@ const ShortBackContent = ({
   const renderTracksCompactMode = () => {
     return (
       <g>
-        <text x={SHORT_BACK_PADDING_X} y="56" fontFamily={monoFont} fontSize="13" fill={dimTextColor} letterSpacing="4">TRACK INDEX</text>
+        <StyledText x={SHORT_BACK_PADDING_X} y="56" fontFamily={monoFont} fontSize="13" fill={dimTextColor} letterSpacing="4">TRACK INDEX</StyledText>
         {compactTrackLayout.map((side) => (
           <g key={side.key} transform={`translate(${SHORT_BACK_PADDING_X}, ${side.startY})`}>
             <circle cx="18" cy="0" r="18" fill={theme.accent} />
-            <text x="18" y="1" fontFamily={monoFont} fontWeight="bold" fontSize="20" data-color-role="shortBack.badgeText" fill={colors.badgeText || contrastInk(theme.accent)} textAnchor="middle" dominantBaseline="middle">{side.key}</text>
-            <text x={width - SHORT_BACK_PADDING_X * 2} y="1" fontFamily={monoFont} fontSize="14" fontWeight="bold" data-color-role="shortBack.duration" fill={colors.duration || subTextColor} textAnchor="end" dominantBaseline="middle">
+            <StyledText x="18" y="1" fontFamily={monoFont} fontWeight="bold" fontSize="20" data-color-role="shortBack.badgeText" fill={colors.badgeText || contrastInk(theme.accent)} textAnchor="middle" dominantBaseline="middle">{side.key}</StyledText>
+            <StyledText x={width - SHORT_BACK_PADDING_X * 2} y="1" fontFamily={monoFont} fontSize="14" fontWeight="bold" data-color-role="shortBack.duration" fill={colors.duration || subTextColor} textAnchor="end" dominantBaseline="middle">
               {side.duration}
-            </text>
+            </StyledText>
 
             {side.visibleTracks.map((track, index) => (
-              <text
+              <StyledText
                 key={`${side.key}-${track.id || index}`}
                 x="0"
                 y={track.y - 12}
-                fontFamily={bodyFont}
+                fontFamily={trackFont}
                 fontSize={side.trackFontSize}
                 data-color-role="shortBack.track" fill={colors.track || subTextColor}
                 dominantBaseline="hanging"
               >
-                <tspan x="0" dy="0">
-                  <tspan fontFamily={monoFont} fontSize={side.numberFontSize} fill={colors.number || dimTextColor}>
+                <StyledSpan x="0" dy="0">
+                  <StyledSpan fontFamily={monoFont} fontSize={side.numberFontSize} fill={colors.number || dimTextColor}>
                     {String(index + 1).padStart(2, '0')}
-                  </tspan>
-                  <tspan dx="8" fontWeight="bold">
+                  </StyledSpan>
+                  <StyledSpan dx="8" fontWeight="bold">
                     {track.fittedLines?.[0] || track.title || ''}
-                  </tspan>
-                </tspan>
+                  </StyledSpan>
+                </StyledSpan>
                 {track.fittedLines?.slice(1).map((line, lineIndex) => (
-                  <tspan
+                  <StyledSpan
                     key={`${side.key}-${track.id || index}-line-${lineIndex}`}
                     x={side.trackTextIndent}
                     dy={side.trackLineHeight}
                     fontWeight="bold"
                   >
                     {line}
-                  </tspan>
+                  </StyledSpan>
                 ))}
-              </text>
+              </StyledText>
             ))}
 
             {side.hiddenCount > 0 && (
-              <text x="0" y={side.moreY - 12} fontFamily={monoFont} fontSize={side.moreFontSize} fill={dimTextColor} letterSpacing="2">
+              <StyledText x="0" y={side.moreY - 12} fontFamily={monoFont} fontSize={side.moreFontSize} fill={dimTextColor} letterSpacing="2">
                 +{side.hiddenCount} MORE
-              </text>
+              </StyledText>
             )}
           </g>
         ))}

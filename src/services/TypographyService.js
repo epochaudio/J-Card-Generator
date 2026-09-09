@@ -1,3 +1,4 @@
+import { resolveTypographyFont, transformedTextWidth } from '../config/textStyles.mjs';
 /**
  * TypographyService — 基于 Pretext 的文本物理测量服务
  *
@@ -108,6 +109,8 @@ function getMeasurementContext() {
 
 const TypographyService = {
   measureFontBox(text, fontFamily, fontSize, fontOptions = {}) {
+    const resolved = resolveTypographyFont(fontFamily, fontOptions);
+    fontFamily = resolved.family; fontOptions = resolved.options;
     const context = getMeasurementContext();
     if (!context) return { ascent: fontSize, descent: fontSize * 0.3 };
     context.font = buildCanvasFont(fontFamily, fontSize, fontOptions);
@@ -152,13 +155,16 @@ const TypographyService = {
   measureWidth(text, fontFamily, fontSize, fontOptions = {}) {
     if (!text) return 0;
 
+    const resolved = resolveTypographyFont(fontFamily, fontOptions);
+    const box = TypographyService.measureFontBox(text, fontFamily, fontSize, fontOptions);
+    fontFamily = resolved.family; fontOptions = resolved.options;
     const canvasCtx = getMeasurementContext();
     if (canvasCtx) {
       canvasCtx.font = buildCanvasFont(fontFamily, fontSize, fontOptions);
       const width = canvasCtx.measureText(text).width;
       const letterSpacing = normalizeLetterSpacing(fontOptions.letterSpacing);
       const graphemeCount = Array.from(text).length;
-      return width + Math.max(0, graphemeCount - 1) * letterSpacing;
+      return transformedTextWidth(width + Math.max(0, graphemeCount - 1) * letterSpacing, box.ascent + box.descent, resolved.style);
     }
 
     const font = buildFontShorthand(fontFamily, fontSize, fontOptions);
@@ -171,7 +177,7 @@ const TypographyService = {
     });
 
     const letterSpacing = normalizeLetterSpacing(fontOptions.letterSpacing);
-    return width + Math.max(0, Array.from(text).length - 1) * letterSpacing;
+    return transformedTextWidth(width + Math.max(0, Array.from(text).length - 1) * letterSpacing, box.ascent + box.descent, resolved.style);
   },
 
   /**
@@ -189,6 +195,7 @@ const TypographyService = {
    * @returns {string[]} 折行后的文本行数组
    */
   wrapText(text, fontFamily, fontSize, maxWidthPx, fontOptions = {}) {
+    if (typeof fontFamily === 'object') return TypographyService.wrapMeasuredText(text, fontFamily, fontSize, maxWidthPx, fontOptions);
     if (!text) return [''];
 
     const paragraphs = text.split('\n');
@@ -236,6 +243,7 @@ const TypographyService = {
    * @returns {number} 最优字号 (px)，整数
    */
   fitFontSize(text, fontFamily, maxWidthPx, minFontSize, maxFontSize, fontOptions = {}) {
+    if (typeof fontFamily === 'object') return TypographyService.fitFontSizeSingleLine(text, fontFamily, maxWidthPx, minFontSize, maxFontSize, fontOptions);
     if (!text) return maxFontSize;
 
     let low = minFontSize;
@@ -298,6 +306,14 @@ const TypographyService = {
    * @returns {number} 最优字号 (px)
    */
   fitFontSizeMultiline(text, fontFamily, maxWidthPx, maxHeightPx, minFontSize, maxFontSize, fontOptions = {}) {
+    if (typeof fontFamily === 'object') {
+      for (let size = maxFontSize; size >= minFontSize; size--) {
+        const lines = TypographyService.wrapMeasuredText(text, fontFamily, size, maxWidthPx, fontOptions);
+        const box = TypographyService.measureFontBox(text, fontFamily, size, fontOptions);
+        if (lines.length * Math.max(size * 1.4, box.ascent + box.descent) <= maxHeightPx) return size;
+      }
+      return minFontSize;
+    }
     if (!text) return maxFontSize;
 
     let low = minFontSize;
@@ -335,6 +351,10 @@ const TypographyService = {
    * @returns {{ lines: string[], lineWidths: number[], height: number, lineCount: number }}
    */
   getFullLayout(text, fontFamily, fontSize, maxWidthPx, lineHeight, fontOptions = {}) {
+    if (typeof fontFamily === 'object') {
+      const lines = TypographyService.wrapMeasuredText(text, fontFamily, fontSize, maxWidthPx, fontOptions);
+      return { lines, lineWidths: lines.map(line => TypographyService.measureWidth(line, fontFamily, fontSize, fontOptions)), height: lines.length * lineHeight, lineCount: lines.length };
+    }
     if (!text) return { lines: [''], lineWidths: [0], height: 0, lineCount: 0 };
 
     const font = buildFontShorthand(fontFamily, fontSize, fontOptions);

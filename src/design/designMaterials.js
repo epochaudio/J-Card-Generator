@@ -75,3 +75,27 @@ export async function prepareDesignImages(snapshot, signal) {
   }
   return images;
 }
+
+// Preserve native pixels in the repair contact sheet; labels sit outside the artwork.
+const REPAIR_SHEET_COLUMNS = 2;
+const REPAIR_LABEL_HEIGHT = 36;
+export async function prepareRepairImages(original, candidates, signal) {
+  if (!candidates.length) return [original];
+  const loaded = [];
+  for (const candidate of candidates) loaded.push(await loadDesignImage(candidate.preview, signal));
+  const width = Math.max(...loaded.map(image => image.naturalWidth));
+  const height = Math.max(...loaded.map(image => image.naturalHeight)) + REPAIR_LABEL_HEIGHT;
+  const columns = Math.min(REPAIR_SHEET_COLUMNS, loaded.length);
+  const canvas = document.createElement('canvas');
+  canvas.width = columns * width; canvas.height = Math.ceil(loaded.length / columns) * height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (const [index, image] of loaded.entries()) {
+    checkCancelled(signal);
+    const x = (index % columns) * width, y = Math.floor(index / columns) * height;
+    ctx.fillStyle = '#000000'; ctx.font = '20px sans-serif';
+    ctx.fillText(`${candidates[index].id} / ${candidates[index].direction}`, x + 8, y + 25);
+    ctx.drawImage(image, x, y + REPAIR_LABEL_HEIGHT);
+  }
+  return [original, canvas.toDataURL('image/png')];
+}

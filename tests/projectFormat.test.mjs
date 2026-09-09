@@ -60,3 +60,12 @@ test('local date uses local calendar and filenames cannot introduce directories'
   assert.equal(localDate(new Date(2026, 8, 8, 0, 10)), '2026-09-08');
   assert.equal(projectFilename('a/b:c'), 'a_b_c.jcard');
 });
+
+test('narrow spine survives project round trip and old layouts default to standard', () => {
+  const source = fixture();
+  assert.equal(normalizeSnapshot(source).data.layout.spineSize, 'standard');
+  source.data.layout.spineSize = 'narrow';
+  assert.equal(parseProject(serializeProject(source)).data.layout.spineSize, 'narrow');
+  source.data.layout.spineSize = 'unknown';
+  assert.throws(() => normalizeSnapshot(source));
+});

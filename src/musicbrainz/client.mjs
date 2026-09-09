@@ -31,7 +31,7 @@ export function createClient({ fetchImpl = (...args) => fetch(...args), rules = 
         signal?.addEventListener('abort', cancel, { once: true });
         const timer = setTimeout(cancel, rules.timeoutMs);
         try {
-          const response = await fetchImpl(url, { signal: controller.signal, credentials: 'omit', headers: isMB ? { 'User-Agent': 'JCardGenesis/2.0.1 (https://www.epochaudio.cn/)' } : {} });
+          const response = await fetchImpl(url, { signal: controller.signal, credentials: 'omit', headers: isMB ? { 'User-Agent': 'JCardGenesis/2.1.0 (https://www.epochaudio.cn/)' } : {} });
           if (response.status === 404 && allow404) return null;
           if (!response.ok) {
             const error = new Error(`资料请求失败（HTTP ${response.status}），当前作品未改变。`);

@@ -1,3 +1,4 @@
+import { applyTextTransforms, checkTextTransforms } from './TextTransform.js';
 import ZCOOLQingKeHuangYou from '../assets/fonts/ZCOOLQingKeHuangYou-Regular.ttf';
 import ZCOOLLicense from '../assets/fonts/ZCOOL-OFL.txt?raw';
 import GlowSansCondensedBold from '../assets/fonts/GlowSansSC-Condensed-Bold.otf';
@@ -78,7 +79,11 @@ const ExportService = {
     }));
     return styles.join('\n');
   },
-  async serializeSVG(svg, config) {
+  async serializeSVG(svg, config, { allowTypographyOverflow = false } = {}) {
+    await ExportService.ensureFonts(config);
+    applyTextTransforms(svg);
+    const typographyFailures = checkTextTransforms(svg);
+    if (!allowTypographyOverflow && typographyFailures.length) throw new Error(typographyFailures.join('；'));
     const css = await ExportService.getEmbeddableFontStyles(config);
     const clone = svg.cloneNode(true);
     clone.setAttribute('width', String(JCARD_DIMENSIONS.width));

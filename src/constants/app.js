@@ -25,3 +25,21 @@ export const JCARD_DIMENSIONS = {
     artistBaseline: 1125
   }
 };
+
+// Physical widths use the existing 300 DPI print scale; keep fractional SVG units.
+const PRINT_DPI = 300;
+const MILLIMETERS_PER_INCH = 25.4;
+const NARROW_SPINE_MM = 10.7;
+export function getJCardDimensions(layout = {}) {
+  const spine = layout.spineSize === 'narrow'
+    ? NARROW_SPINE_MM * PRINT_DPI / MILLIMETERS_PER_INCH
+    : JCARD_DIMENSIONS.panels.spine;
+  return {
+    ...JCARD_DIMENSIONS,
+    panels: {
+      ...JCARD_DIMENSIONS.panels,
+      shortBack: JCARD_DIMENSIONS.panels.shortBack + JCARD_DIMENSIONS.panels.spine - spine,
+      spine
+    }
+  };
+}

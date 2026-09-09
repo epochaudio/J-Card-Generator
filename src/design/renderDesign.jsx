@@ -1,10 +1,11 @@
+import { applyTextTransforms, checkTextTransforms } from '../services/TextTransform.js';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import JCardPreview from '../components/JCardPreview.jsx';
 import { getFontConfig } from '../config/fonts.js';
 import { resolvePalette, contrastRatio, resolvePanelColors, panelColorFailures, MIN_TEXT_CONTRAST } from '../config/design.mjs';
-import { JCARD_DIMENSIONS } from '../constants/app.js';
+import { JCARD_DIMENSIONS, getJCardDimensions } from '../constants/app.js';
 import { computeFrontLayout } from '../utils/FrontLayout.js';
 import SpineLayoutEngine from '../utils/SpineLayoutEngine.js';
 import ColorExtractor from '../services/ColorExtractor.js';
@@ -23,7 +24,8 @@ export function visiblyDifferent(a, b) {
 }
 
 export async function renderDesign(snapshot, signal) {
-  const fontConfig = getFontConfig(snapshot.fontTheme);
+  const dimensions = getJCardDimensions(snapshot.data.layout);
+  const fontConfig = { ...getFontConfig(snapshot.fontTheme), typography: snapshot.theme.typography };
   await bounded(ExportService.ensureFonts(fontConfig), signal);
   const needsImageColor = snapshot.theme.paletteId === 'legacy' && snapshot.jCardThemeMode === 'color';
   const dominantColor = needsImageColor ? await bounded(ColorExtractor.extractColor(snapshot.coverImage, { representative: true }), signal) : '#232629';
@@ -36,7 +38,7 @@ export async function renderDesign(snapshot, signal) {
   else for (const role of ['text', 'secondary', 'muted']) if (contrastRatio(palette[role], palette.background) < MIN_TEXT_CONTRAST) failures.push('文字与背景对比度不足');
   const front = computeFrontLayout(snapshot.data, fontConfig, snapshot.theme);
   if (front.overflow) failures.push('正面文字超出可读空间');
-  const spine = SpineLayoutEngine.compute({ data: snapshot.data, height: JCARD_DIMENSIONS.height, panelWidth: JCARD_DIMENSIONS.panels.spine, fontConfig });
+  const spine = SpineLayoutEngine.compute({ data: snapshot.data, height: JCARD_DIMENSIONS.height, panelWidth: dimensions.panels.spine, fontConfig });
   if (spine.status.source !== 'full' || !['full', 'compact'].includes(spine.status.metaMode)) warnings.push(`脊背：${spine.status.summary}`);
   const host = document.createElement('div');
   host.style.cssText = `position:fixed;left:-20000px;top:0;width:${JCARD_DIMENSIONS.width}px;pointer-events:none;`;
@@ -47,6 +49,8 @@ export async function renderDesign(snapshot, signal) {
     flushSync(() => root.render(<JCardPreview {...snapshot} fontConfig={fontConfig} dominantColor={dominantColor} />));
     const svg = host.querySelector('svg');
     if (!svg) throw new Error('候选预览未能生成。');
+    applyTextTransforms(svg);
+    failures.push(...checkTextTransforms(svg));
     const back = svg.querySelector('[data-back-overflow]');
     if (!back) throw new Error('缺少背面排版结果。');
     if (back.dataset.backOverflow === 'true') failures.push('背面曲目超出可读空间');
@@ -55,7 +59,7 @@ export async function renderDesign(snapshot, signal) {
     const short = JSON.parse(svg.querySelector('[data-shortback-status]')?.getAttribute('data-shortback-status') || '{}');
     if (short.mode === 'META_ARCHIVE' && (short.truncated || short.level !== 'LEVEL_0_FULL')) warnings.push('折页档案采用压缩显示，部分资料可能省略');
     for (const side of short.sides || []) if (side.hidden || side.truncated) warnings.push(`折页 ${side.side} 面：未展示 ${side.hidden} 首，截短 ${side.truncated} 个曲名`);
-    const serialized = await bounded(ExportService.serializeSVG(svg, fontConfig), signal);
+    const serialized = await bounded(ExportService.serializeSVG(svg, fontConfig, { allowTypographyOverflow: true }), signal);
     const rendered = await rasterizeSVG(serialized, svg, signal);
     checkCancelled(signal);
     const canvas = document.createElement('canvas');
@@ -68,7 +72,7 @@ export async function renderDesign(snapshot, signal) {
     const signature = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     const panels = {};
     let x = 0;
-    for (const [name, width] of Object.entries(JCARD_DIMENSIONS.panels)) {
+    for (const [name, width] of Object.entries(dimensions.panels)) {
       canvas.width = width; canvas.height = JCARD_DIMENSIONS.height;
       ctx.drawImage(rendered, x, 0, width, canvas.height, 0, 0, width, canvas.height);
       panels[name] = canvas.toDataURL('image/png'); x += width;

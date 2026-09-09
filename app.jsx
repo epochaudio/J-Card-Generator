@@ -3,7 +3,7 @@ import brandIcon from './src/assets/branding/tapefolio-icon.png';
 import { flushSync } from 'react-dom';
 import { Sparkles, Download, Music, Type, Palette, Wand2, Settings, Image as ImageIcon, Trash2, Globe, Printer, Eye, Sun, Moon, Droplet, LayoutTemplate, FileText, ImageDown, Upload, ListTree, RotateCcw, Plus, GripVertical } from 'lucide-react';
 
-import { JCARD_DIMENSIONS, STORAGE_KEYS } from './src/constants/app.js';
+import { JCARD_DIMENSIONS, getJCardDimensions, STORAGE_KEYS } from './src/constants/app.js';
 import ImportModal from './src/components/ImportModal.jsx';
 import JCardPreview from './src/components/JCardPreview.jsx';
 import DesignPanel from './src/components/DesignPanel.jsx';
@@ -102,6 +102,7 @@ const normalizeLayoutSettings = (layout = {}) => {
     minimalSpine: false,
     mode: 'STANDARD',
     frontStyle: 'STANDARD',
+    spineSize: 'standard',
     spineInverted: true,
     ...layout,
   };
@@ -283,7 +284,6 @@ export default function App() {
     return result;
   };
 
-  const currentFontConfig = useMemo(() => getFontConfig(fontTheme), [fontTheme]);
   const [previewData, setPreviewData] = useState(() => createDefaultData());
   const [dragState, setDragState] = useState(null);
 
@@ -301,6 +301,8 @@ export default function App() {
     paletteId: 'paper',
     mood_description: ""
   });
+
+  const currentFontConfig = useMemo(() => ({ ...getFontConfig(fontTheme), typography: theme.typography }), [fontTheme, theme.typography]);
 
   const projectSnapshot = useMemo(() => ({ data, recordingData, coverImage, coverImageB, theme, fontTheme, jCardThemeMode, imagePrompt }),
     [data, recordingData, coverImage, coverImageB, theme, fontTheme, jCardThemeMode, imagePrompt]);
@@ -346,7 +348,7 @@ export default function App() {
     () => SpineLayoutEngine.compute({
       data,
       height: JCARD_DIMENSIONS.height,
-      panelWidth: JCARD_DIMENSIONS.panels.spine,
+      panelWidth: getJCardDimensions(data.layout).panels.spine,
       fontConfig: currentFontConfig,
     }).status,
     [data, currentFontConfig, fontMetricsVersion]
@@ -913,7 +915,7 @@ export default function App() {
               ready={projectFiles.ready && !projectFiles.busy && aiSettings.ready} onApply={applySmartDesign} onSettings={() => setShowSettings(true)} />
             <DesignPanel data={data} theme={theme} fontTheme={fontTheme} mode={jCardThemeMode}
               onLayout={patch => setData(prev => ({ ...prev, layout: { ...prev.layout, ...patch } }))}
-              onTheme={setTheme} onFont={setFontTheme} onMode={setJCardThemeMode} onAutoColor={handleAutoColor} hasImage={!!coverImage} />
+              onTheme={setTheme} onFont={value => { setFontTheme(value); setTheme(previous => ({ ...previous, typography: null })); }} onMode={setJCardThemeMode} onAutoColor={handleAutoColor} hasImage={!!coverImage} />
             <section className="space-y-4">
               <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Type size={14} /> 专辑信息</h2>
               <div className="space-y-3">

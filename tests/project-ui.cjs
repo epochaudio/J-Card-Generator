@@ -13,7 +13,8 @@ const path = require('node:path');
  await fs.writeFile(path.join(resources,'app/package.json'),JSON.stringify({name:'jcard-test',main:'main.cjs'}));
  const wrapper = path.join(resources, 'app/main.cjs');
  await fs.writeFile(wrapper, `require('electron').app.setPath('userData', ${JSON.stringify(dir)}); require(${JSON.stringify(path.join(root,'electron/main.js'))});`);
- const app = await _electron.launch({ executablePath: path.join(appCopy,'Contents/MacOS/Tape Cover Generator'), args: [], env: {...process.env, ELECTRON_START_URL:'http://127.0.0.1:5187'}, timeout:20000 });
+ const executable = require('node:child_process').execFileSync('/usr/libexec/PlistBuddy', ['-c','Print :CFBundleExecutable',path.join(appCopy,'Contents/Info.plist')], {encoding:'utf8'}).trim();
+ const app = await _electron.launch({ executablePath: path.join(appCopy,'Contents/MacOS',executable), args: [], env: {...process.env, ELECTRON_START_URL:process.env.JCARD_TEST_URL || 'http://127.0.0.1:5187'}, timeout:20000 });
  console.log('Electron', await app.evaluate(() => process.versions.electron));
  try {
  const page = await app.firstWindow();

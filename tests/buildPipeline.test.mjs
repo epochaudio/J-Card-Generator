@@ -5,8 +5,43 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { assertVersions, verifyArchitecture, verifyPackagedResources } from '../scripts/build-validation.mjs';
+import { assertVersions, verifyArchitecture, verifyPackagedResources, fileSha256, assertRuntimeVersion, verifyWindowsRuntime } from '../scripts/build-validation.mjs';
 import { validateDelivery, githubAssetName } from '../scripts/release-validation.mjs';
+
+test('chunked file hashing includes empty files and data crossing chunk boundaries', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jcard-hash-'));
+  try {
+    for (const bytes of [Buffer.alloc(0), Buffer.alloc(2 * 1024 * 1024 + 19, 0x5a)]) {
+      const file = path.join(dir, 'sample'); fs.writeFileSync(file, bytes);
+      assert.equal(fileSha256(file), createHash('sha256').update(bytes).digest('hex'));
+    }
+    assert.throws(() => fileSha256(path.join(dir, 'missing')));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('runtime checks reject old Electron, absent Chromium and incorrect Windows product version', () => {
+  assertRuntimeVersion({ electron: '44.3.0', chrome: '152.0.7977.78' }, '44.3.0');
+  assert.throws(() => assertRuntimeVersion({ electron: '31.7.7', chrome: '126.0.6478.234' }, '44.3.0'));
+  assert.throws(() => assertRuntimeVersion({ electron: '44.3.0' }, '44.3.0'));
+  const bytes = Buffer.alloc(1024); bytes.write('MZ'); bytes.writeUInt32LE(64, 0x3c);
+  bytes.writeUInt32LE(0x4550, 64); bytes.writeUInt16LE(0x8664, 68);
+  assert.throws(() => verifyWindowsRuntime(bytes, '44.3.0'));
+  bytes.writeUInt16LE(1, 70); bytes.writeUInt16LE(240, 84); bytes.writeUInt16LE(0x20b, 88);
+  bytes.writeUInt32LE(0x1000, 216); bytes.writeUInt32LE(512, 220);
+  bytes.writeUInt32LE(0x1000, 340); bytes.writeUInt32LE(512, 344); bytes.writeUInt32LE(512, 348);
+  bytes.writeUInt16LE(1, 526); bytes.writeUInt32LE(16, 528); bytes.writeUInt32LE(0x80000018, 532);
+  bytes.writeUInt16LE(1, 550); bytes.writeUInt32LE(1, 552); bytes.writeUInt32LE(0x80000030, 556);
+  bytes.writeUInt16LE(1, 574); bytes.writeUInt32LE(1033, 576); bytes.writeUInt32LE(72, 580);
+  bytes.writeUInt32LE(0x1058, 584); bytes.writeUInt32LE(92, 588);
+  bytes.writeUInt16LE(92, 600); bytes.writeUInt16LE(52, 602); bytes.write('VS_VERSION_INFO\0', 606, 'utf16le');
+  bytes.writeUInt32LE(0xfeef04bd, 640); bytes.writeUInt32LE(0x10000, 644);
+  bytes.writeUInt32LE((44 << 16) | 3, 656);
+  // Identical signatures outside RT_VERSION must not be mistaken for product metadata.
+  bytes.writeUInt32LE(0xfeef04bd, 400); bytes.writeUInt32LE(0x10000, 404);
+  assert.equal(verifyWindowsRuntime(bytes, '44.3.0'), '44.3.0.0');
+  assert.throws(() => verifyWindowsRuntime(bytes, '31.7.7'));
+  assert.throws(() => verifyWindowsRuntime(bytes.subarray(0, 160), '44.3.0'));
+});
 
 test('packaging rejects inconsistent package and lock versions', () => {
   const pkg = { version: '1.6.0' };

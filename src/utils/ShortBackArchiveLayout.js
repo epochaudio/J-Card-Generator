@@ -1,3 +1,4 @@
+import { typographyFont } from '../config/textStyles.mjs';
 import { JCARD_DIMENSIONS } from '../constants/app.js';
 import TypographyService from '../services/TypographyService.js';
 
@@ -399,9 +400,9 @@ const getReleaseYear = (releaseDate = '') => (
 );
 
 const buildArchiveLayoutForLevel = ({ level, data, recordingData, fontConfig }) => {
-  const bodyFont = fontConfig?.fonts?.body || 'Arial, sans-serif';
-  const titleFont = fontConfig?.fonts?.title || 'Arial, sans-serif';
-  const monoFont = fontConfig?.fonts?.mono || 'Courier New, monospace';
+  const bodyFont = fontConfig ? typographyFont(fontConfig, 'metadata', 'body') : 'Arial, sans-serif';
+  const titleFont = fontConfig ? typographyFont(fontConfig, 'metadata', 'title') : 'Arial, sans-serif';
+  const monoFont = fontConfig ? typographyFont(fontConfig, 'metadata', 'mono') : 'Courier New, monospace';
 
   const labelText = (recordingData?.labelOverride || data.tapeSubtitle || '').toUpperCase();
   const sourceText = recordingData?.source || '';

@@ -1,3 +1,4 @@
+import { typographyFont } from '../config/textStyles.mjs';
 import TypographyService from '../services/TypographyService.js';
 
 const DEFAULT_HORIZONTAL_PADDING = 32;
@@ -267,7 +268,7 @@ export const resolveShortBackTrackLayout = ({
   horizontalPadding = DEFAULT_HORIZONTAL_PADDING,
   fontConfig
 }) => {
-  const bodyFont = fontConfig?.fonts?.body || 'Arial, sans-serif';
+  const bodyFont = fontConfig ? typographyFont(fontConfig, 'track') : 'Arial, sans-serif';
   const trackTextMaxWidth = width - (horizontalPadding * 2) - TRACK_TEXT_INDENT;
 
   return sideSummaries.map((side) => {

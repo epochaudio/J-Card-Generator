@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, createHash } from 'node:crypto';
-import { assertVersions, verifyArchitecture, verifyPackagedResources } from './build-validation.mjs';
+import { assertVersions, verifyArchitecture, verifyPackagedResources, fileSha256, assertRuntimeVersion, verifyWindowsRuntime } from './build-validation.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 process.chdir(root);
@@ -24,16 +24,26 @@ for (const dependency of Object.keys({ ...pkg.dependencies, ...pkg.devDependenci
 }
 const asar = require('@electron/asar');
 const sevenZip = require('7zip-bin').path7za;
+// npm archives may unpack this helper without executable permission on macOS/Linux.
+if (process.platform !== 'win32') fs.chmodSync(sevenZip, fs.statSync(sevenZip).mode | 0o111);
 const builder = require.resolve('electron-builder/cli.js');
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error('Run this script through the documented npm commands.');
-const run = (command, args, capture = false) => execFileSync(command, args, {
+const run = (command, args, capture = false, env = {}) => execFileSync(command, args, {
   cwd: root, stdio: capture ? 'pipe' : 'inherit', encoding: capture ? 'utf8' : undefined,
+  env: { ...process.env, ...env },
   maxBuffer: 32 * 1024 * 1024,
 });
 const npm = (...args) => run(process.execPath, [npmCli, ...args]);
+run(sevenZip, ['i'], true); // Fail before building if installer verification cannot run.
 const hash = data => createHash('sha256').update(data).digest('hex');
-const fileHash = file => hash(fs.readFileSync(file));
+const fileHash = fileSha256;
+const timingsSeconds = {};
+const timed = (name, action) => {
+  const start = performance.now();
+  try { return action(); }
+  finally { timingsSeconds[name] = Number(((performance.now() - start) / 1000).toFixed(3)); }
+};
 const git = (...args) => run('git', args, true).trim();
 const sourceFiles = () => [...new Set(run('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], true).split('\0').filter(Boolean))].sort();
 const snapshot = () => Object.fromEntries(sourceFiles().map(file => [file, fs.existsSync(file) ? fileHash(file) : null]));
@@ -55,7 +65,7 @@ try {
   temp = fs.mkdtempSync(path.join(outputRoot, '.pending-'));
   const deliver = path.join(temp, 'deliver');
   fs.mkdirSync(deliver);
-  const source = snapshot();
+  const source = timed('source-snapshot', snapshot);
   const sourceSha256 = hash(JSON.stringify(source));
   const record = {
     schemaVersion: 1, version: pkg.version, commit, dirty: Boolean(status), sourceSha256,
@@ -63,11 +73,12 @@ try {
     tools: { node: process.version, npm: run(process.execPath, [npmCli, '--version'], true).trim(),
       electron: require('electron/package.json').version, builder: require('electron-builder/package.json').version },
     host: { platform: process.platform, arch: process.arch, release: os.release() },
+    timingsSeconds, runtimes: {},
     checks: [], artifacts: [], limitations: ['No Windows installation smoke test or physical print test.', 'macOS ad-hoc signature without notarization; Windows unsigned.'],
   };
-  npm('test');
+  timed('automated-tests', () => npm('test'));
   record.checks.push('automated-tests');
-  npm('run', 'build');
+  timed('frontend-build', () => npm('run', 'build'));
   record.checks.push('font-assets', 'production-build');
   const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
     const name = path.join(dir, entry.name);
@@ -89,7 +100,7 @@ try {
   }
   if (target !== 'win-x64') {
     const raw = path.join(temp, 'mac');
-    run(process.execPath, [builder, '--mac', 'dir', '--arm64', '--publish', 'never', `-c.directories.output=${raw}`]);
+    timed('mac-package', () => run(process.execPath, [builder, '--mac', 'dir', '--arm64', '--publish', 'never', `-c.directories.output=${raw}`]));
     const app = path.join(raw, 'mac-arm64', `${pkg.build.productName}.app`);
     run('codesign', ['--force', '--deep', '--sign', '-', '--timestamp=none', app]);
     run('codesign', ['--verify', '--deep', '--strict', app]);
@@ -98,7 +109,7 @@ try {
     run('ditto', [app, path.join(staging, path.basename(app))]);
     fs.symlinkSync('/Applications', path.join(staging, 'Applications'));
     const dmg = path.join(deliver, `${pkg.build.productName}-${pkg.version}-arm64-mac.dmg`);
-    run('hdiutil', ['create', '-volname', pkg.build.productName, '-srcfolder', staging, '-format', 'UDZO', dmg]);
+    timed('dmg-compression', () => run('hdiutil', ['create', '-volname', pkg.build.productName, '-srcfolder', staging, '-format', 'UDZO', dmg]));
     run('hdiutil', ['verify', dmg]);
     const mount = path.join(temp, 'mount');
     fs.mkdirSync(mount);
@@ -112,13 +123,16 @@ try {
       if (version !== pkg.version) throw new Error('DMG application version mismatch');
       const executable = run('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleExecutable', plist], true).trim();
       verifyArchitecture(fs.readFileSync(path.join(installed, 'Contents/MacOS', executable)), 'arm64');
+      const versions = JSON.parse(run(path.join(installed, 'Contents/MacOS', executable), ['-p', 'JSON.stringify(process.versions)'], true, { ELECTRON_RUN_AS_NODE: '1' }));
+      assertRuntimeVersion(versions, record.tools.electron);
+      record.runtimes.mac = { electron: versions.electron, chromium: versions.chrome, node: versions.node };
       verifyAsar(path.join(installed, 'Contents/Resources/app.asar'));
     } finally { run('hdiutil', ['detach', mount]); mounted = false; }
-    artifact(dmg, 'darwin', 'arm64', ['dmg-integrity', 'mounted-resources', 'version', 'arm64', 'ad-hoc-signature']);
+    artifact(dmg, 'darwin', 'arm64', ['dmg-integrity', 'mounted-resources', 'version', 'arm64', 'ad-hoc-signature', 'runtime-version']);
   }
   if (target !== 'mac-arm64') {
     const raw = path.join(temp, 'win');
-    run(process.execPath, [builder, '--win', 'nsis', '--x64', '--publish', 'never', '--config.win.signAndEditExecutable=false', `-c.directories.output=${raw}`]);
+    timed('windows-package', () => run(process.execPath, [builder, '--win', 'nsis', '--x64', '--publish', 'never', '--config.win.signAndEditExecutable=false', `-c.directories.output=${raw}`]));
     const name = `${pkg.build.productName} Setup ${pkg.version}-x64.exe`;
     const installer = path.join(raw, name);
     run(sevenZip, ['t', installer]);
@@ -129,11 +143,12 @@ try {
     verifyAsar(archives[0]);
     const executable = path.join(path.dirname(path.dirname(archives[0])), `${pkg.build.productName}.exe`);
     verifyArchitecture(fs.readFileSync(executable), 'x64');
+    record.runtimes.windows = { electronProductVersion: verifyWindowsRuntime(fs.readFileSync(executable), record.tools.electron), method: 'PE product-version resource; execution not tested on macOS' };
     const dest = path.join(deliver, name);
     fs.copyFileSync(installer, dest);
-    artifact(dest, 'win32', 'x64', ['nsis-integrity', 'extracted-resources', 'version', 'x64']);
+    artifact(dest, 'win32', 'x64', ['nsis-integrity', 'extracted-resources', 'version', 'x64', 'runtime-version']);
   }
-  if (hash(JSON.stringify(snapshot())) !== sourceSha256 || git('rev-parse', 'HEAD') !== commit) throw new Error('Source changed during build; outputs will not be delivered.');
+  if (hash(JSON.stringify(timed('source-recheck', snapshot))) !== sourceSha256 || git('rev-parse', 'HEAD') !== commit) throw new Error('Source changed during build; outputs will not be delivered.');
   record.completedAt = new Date().toISOString();
   record.checks.push('source-unchanged', 'packaged-resources');
   fs.writeFileSync(path.join(deliver, 'build-record.json'), `${JSON.stringify(record, null, 2)}\n`);

@@ -44,7 +44,8 @@ test('locking a complete color scheme rejects a single altered role', () => {
   assert.match(parsed.rejected[0], /锁定/);
 });
 const fakeRender = async snapshot => ({ failures: panelColorFailures(snapshot.theme.colors), signature: snapshot.data.layout.titleSize, metrics: { bodySize: 24, backFolded: false } });
-const run = request => generateDesigns({ snapshot: source(), locks: {}, prompt: 'original prompt', request, render: fakeRender, different: (a,b) => a !== b, active: () => {}, status: () => {} });
+const review = async candidate => ({ candidateId: candidate.id, revision: candidate.revision, verdict: 'pass', issues: [], summary: '通过' });
+const run = request => generateDesigns({ snapshot: source(), locks: {}, prompt: 'original prompt', request, review, render: fakeRender, different: (a,b) => a !== b, active: () => {}, status: () => {} });
 const good = () => [designCandidate(), designCandidate({ direction: 'title', titleSize: 'expressive' }), designCandidate({ direction: 'reading', titleSize: 'compact' })];
 test('failed colors are sent to AI once for repair; accepted designs retain exact returned colors', async () => {
   const invalid = panelColors(); invalid.back.note = invalid.back.background;
@@ -73,7 +74,7 @@ test('cancelled repair cannot return candidates or write a stale result', async 
   let calls = 0, cancelled = false;
   await assert.rejects(generateDesigns({ snapshot: source(), locks: {}, prompt: 'original',
     request: async () => { calls++; if (calls === 2) cancelled = true; return { candidates: [designCandidate()] }; },
-    render: fakeRender, different: (a,b) => a !== b,
+    review, render: fakeRender, different: (a,b) => a !== b,
     active: () => { if (cancelled) throw new Error('cancelled'); }, status: () => {} }), /cancelled/);
   assert.equal(calls, 2);
 });

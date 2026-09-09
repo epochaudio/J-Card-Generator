@@ -1,3 +1,5 @@
+import { StyledText, StyledSpan } from './StyledText.jsx';
+import { typographyFont, fontFamilyName } from '../config/textStyles.mjs';
 import React from 'react';
 import { splitWrappedLine } from '../utils/splitWrappedLine.mjs';
 
@@ -7,9 +9,9 @@ const ContentFront = ({ resourceId, xOffset, width, data, theme, coverImage, cov
   const colors = theme.panelColors;
   const blockText = (block, index) => {
     const line = block.lines[index];
-    if (!theme.exactColors || block.role !== 'artist' || !theme.mood_description) return line;
+    if (theme.typography || !theme.exactColors || block.role !== 'artist' || !theme.mood_description) return line;
     const [artist, subtitle] = splitWrappedLine(block.text, block.lines, index, String(data.artist || '').length);
-    return <>{artist}<tspan data-color-role="front.subtitle" fill={colors.subtitle}>{subtitle}</tspan></>;
+    return <>{artist}<StyledSpan data-color-role="front.subtitle" fill={colors.subtitle}>{subtitle}</StyledSpan></>;
   };
   const panelHeight = JCARD_DIMENSIONS.height;
 
@@ -30,8 +32,8 @@ const ContentFront = ({ resourceId, xOffset, width, data, theme, coverImage, cov
         )}
 
         <line x1="80" y1={midPoint} x2={width - 80} y2={midPoint} stroke={textColor} strokeWidth="1.2" opacity="0.38" />
-        <text x={width / 2} y={midPoint - 12} textAnchor="middle" fontSize="14" fill={textColor} opacity="0.78" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE A ▲</text>
-        <text x={width / 2} y={midPoint + 20} textAnchor="middle" fontSize="14" fill={textColor} opacity="0.78" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE B ▼</text>
+        <StyledText x={width / 2} y={midPoint - 12} textAnchor="middle" fontSize="14" fill={textColor} opacity="0.78" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE A ▲</StyledText>
+        <StyledText x={width / 2} y={midPoint + 20} textAnchor="middle" fontSize="14" fill={textColor} opacity="0.78" letterSpacing="3" fontFamily="Arial, sans-serif" fontWeight="bold">SIDE B ▼</StyledText>
 
         {coverImage ? (
           <image href={coverImage} x={(width - imgSize) / 2} y={marginY} width={imgSize} height={imgSize} preserveAspectRatio="xMidYMid meet" />
@@ -45,7 +47,7 @@ const ContentFront = ({ resourceId, xOffset, width, data, theme, coverImage, cov
           ) : (
             <g opacity="0.3">
               <rect x={(width - imgSize) / 2} y={midPoint + marginY} width={imgSize} height={imgSize} fill="none" stroke={textColor} strokeWidth="2" strokeDasharray="5,5" />
-              <text x={width / 2} y={midPoint + marginY + imgSize / 2} textAnchor="middle" fill={textColor} fontSize="20" dominantBaseline="middle">UPLOAD SIDE B</text>
+              <StyledText x={width / 2} y={midPoint + marginY + imgSize / 2} textAnchor="middle" fill={textColor} fontSize="20" dominantBaseline="middle">UPLOAD SIDE B</StyledText>
             </g>
           )}
         </g>
@@ -67,9 +69,9 @@ const ContentFront = ({ resourceId, xOffset, width, data, theme, coverImage, cov
         const badgeLeft = block.role === 'badge' && data.layout?.coverBadgeAlign === 'left';
         return <g key={block.role} data-front-role={block.role}>
           {theme.exactColors && block.role === 'badge' && <rect data-color-role="front.badgeBackground" x={margin} y={block.y - block.ascent} width={width - margin * 2} height={block.lines.length * block.lineHeight} fill={colors.badgeBackground} />}
-          {block.lines.map((line, index) => <text key={index} x={badgeLeft ? margin : x} y={block.y + index * block.lineHeight}
+          {block.lines.map((line, index) => <StyledText key={index} x={badgeLeft ? margin : x} y={block.y + index * block.lineHeight}
             textAnchor={badgeLeft ? 'start' : anchor} fontFamily={block.font} fontWeight={block.weight} fontSize={block.size}
-            letterSpacing={block.tracking} data-color-role={`front.${block.role}`} fill={colors?.[block.role] || (block.role === 'title' ? textColor : subTextColor)}>{blockText(block, index)}</text>)}
+            letterSpacing={block.tracking} data-color-role={`front.${block.role}`} fill={colors?.[block.role] || (block.role === 'title' ? textColor : subTextColor)}>{blockText(block, index)}</StyledText>)}
         </g>;
       })}
     </g>

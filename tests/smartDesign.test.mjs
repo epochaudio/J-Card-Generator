@@ -17,8 +17,8 @@ test('unlocked source input does not contain or depend on current design, image 
 });
 test('only explicitly locked values enter constraints and matching candidates retain the exact accent', () => {
   const a = album(); a.theme.accent = '#b45122';
-  assert.deepEqual(buildDesignInput(a, { font: true }).locked, { fontTheme: a.fontTheme });
-  const output = parseDesignCandidates({ candidates: [candidate(), candidate({ fontTheme: a.fontTheme, paletteId: a.theme.paletteId, colors: null })] }, a, { font: true, palette: true });
+  assert.deepEqual(buildDesignInput(a, { font: true }).locked, { fontTheme: a.fontTheme, typography: null });
+  const output = parseDesignCandidates({ candidates: [candidate(), candidate({ fontTheme: a.fontTheme, paletteId: a.theme.paletteId, colors: null, typography: null })] }, a, { font: true, palette: true });
   assert.equal(output.candidates.length, 1); assert.equal(output.candidates[0].fields.accent, '#b45122'); assert.equal(output.rejected.length, 1);
 });
 test('invalid, duplicate, unknown or content-changing candidates are rejected without changing source', () => {

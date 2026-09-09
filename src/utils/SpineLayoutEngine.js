@@ -1,3 +1,4 @@
+import { typographyFont } from '../config/textStyles.mjs';
 import TypographyService from '../services/TypographyService.js';
 
 const SPINE_RULES = {
@@ -358,7 +359,7 @@ function resolveBottomLaneOffset(artistItem, noteItem, crossAxisBudget) {
   return Math.min(requiredOffset, maxOffset);
 }
 
-function buildBottomItems({ noteLower, artist, bodyFont, metaMode, crossAxisBudget, outerLaneDirection }) {
+function buildBottomItems({ noteLower, artist, bodyFont, noteFont = bodyFont, metaMode, crossAxisBudget, outerLaneDirection }) {
   const artistItem = fitSingleLineItem({
     text: artist,
     fontFamily: bodyFont,
@@ -371,7 +372,7 @@ function buildBottomItems({ noteLower, artist, bodyFont, metaMode, crossAxisBudg
   const note = metaMode.showNotes
     ? fitSingleLineItem({
         text: noteLower,
-        fontFamily: bodyFont,
+        fontFamily: noteFont,
         minFontSize: metaMode.noteLowerMin,
         maxFontSize: metaMode.noteLowerMax,
         maxWidth: metaMode.bottomBudget,
@@ -488,8 +489,9 @@ function buildEmergencyTitle(fullTitle, titleFont, titleZoneLength, crossAxisBud
 
 const SpineLayoutEngine = {
   compute({ data, height, panelWidth, fontConfig }) {
-    const titleFont = fontConfig?.fonts?.title || 'Arial, sans-serif';
-    const bodyFont = fontConfig?.fonts?.body || 'Arial, sans-serif';
+    const titleFont = fontConfig ? typographyFont(fontConfig, 'title') : 'Arial, sans-serif';
+    const bodyFont = fontConfig ? typographyFont(fontConfig, 'artist') : 'Arial, sans-serif';
+    const metadataFont = fontConfig ? typographyFont(fontConfig, 'metadata', 'body') : bodyFont;
     const forceCaps = !!data?.layout?.forceCaps;
 
     const fullTitle = formatText(data?.title, forceCaps);
@@ -508,14 +510,14 @@ const SpineLayoutEngine = {
       const topMeta = buildTopItems({
         noteUpper: data?.layout?.noteUpper,
         tapeId: data?.tapeId,
-        bodyFont,
+        bodyFont: metadataFont,
         metaMode,
       });
 
       const bottomMeta = buildBottomItems({
         noteLower: data?.layout?.noteLower,
         artist: formatText(data?.artist, forceCaps),
-        bodyFont,
+        bodyFont, noteFont: metadataFont,
         metaMode,
         crossAxisBudget,
         outerLaneDirection,
@@ -596,7 +598,7 @@ const SpineLayoutEngine = {
       const bottomMeta = buildBottomItems({
         noteLower: '',
         artist: formatText(data?.artist, forceCaps),
-        bodyFont,
+        bodyFont, noteFont: metadataFont,
         metaMode: fallbackMetaMode,
         crossAxisBudget,
         outerLaneDirection,
