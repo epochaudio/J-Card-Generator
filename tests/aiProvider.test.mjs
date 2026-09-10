@@ -4,17 +4,20 @@ import { generateText, generateImage, parseJSONContent } from '../src/ai/provide
 import { PROVIDERS } from '../src/ai/providerConfig.mjs';
 const png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1sAAAAASUVORK5CYII=';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-const req=id=>({id,apiKey:`test-${id}-key`,model:'test-model',prompt:'测试',systemPrompt:'JSON'});
-for(const id of Object.keys(PROVIDERS))test(`${id} text uses only chosen endpoint/credential and compatible parameters`,async()=>{
+const req=id=>({id,apiKey:`test-${id}-key`,model:id==='deepseek'?PROVIDERS.deepseek.model:(PROVIDERS[id]?.imageModel||'test-model'),prompt:'测试',systemPrompt:'JSON'});
+test('DeepSeek text uses only its fixed endpoint and credential',async()=>{
+ const id='deepseek';
  let count=0;
  const result=await generateText({...req(id),meta:{textUrl:'https://evil.example'}},{fetchImpl:async(url,options)=>{
   count++;assert.equal(url,PROVIDERS[id].textUrl);assert.equal(options.headers.Authorization,`Bearer test-${id}-key`);
-  const body=JSON.parse(options.body);assert.equal(body.model,'test-model');assert.equal(body.stream,false);
-  if(id==='deepseek'){assert.deepEqual(body.thinking,{type:'disabled'});assert.equal(body.response_format.type,'json_object');assert.equal(body.reasoning_split,undefined);}
-  if(id==='aliyun')assert.equal(body.response_format.type,'json_object');
+  const body=JSON.parse(options.body);assert.equal(body.model,PROVIDERS.deepseek.model);assert.equal(body.stream,false);
+  assert.deepEqual(body.thinking,{type:'disabled'});assert.equal(body.response_format.type,'json_object');assert.equal(body.reasoning_split,undefined);
   return json({choices:[{message:{content:'<think>reason</think>\n```json\n{"slogan":"测试"}\n```'}}]});
  }});
  assert.equal(result.slogan,'测试');assert.equal(count,1);
+});
+test('non-DeepSeek providers cannot be used for text generation',async()=>{
+ for(const id of ['aliyun','volcengine'])await assert.rejects(generateText(req(id),{fetchImpl:async()=>{throw new Error('must not fetch');}}),/统一使用 DeepSeek/);
 });
 for(const id of ['volcengine'])test(`${id} image returns portable base64 with correct schema`,async()=>{
  const result=await generateImage(req(id),{fetchImpl:async(url,options)=>{
@@ -44,8 +47,8 @@ test('auth failure never switches provider or includes response content/key',asy
 test('HTTP 200 business errors, bad JSON, truncated JSON and timeout are explicit failures',async()=>{
  await assert.rejects(generateText(req('deepseek'),{fetchImpl:async()=>json({error:{message:'secret'}})}),/请求失败/);
  assert.throws(()=>parseJSONContent('not json'),/结构化/);assert.throws(()=>parseJSONContent('[]'),/结构/);
- await assert.rejects(generateText(req('aliyun'),{fetchImpl:async()=>json({choices:[{finish_reason:'length',message:{content:'{}'}}]})}),/截断/);
- await assert.rejects(generateText(req('aliyun'),{timeoutMs:1,fetchImpl:async(url,{signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('abort'))))}),/超时/);
+ await assert.rejects(generateText(req('deepseek'),{fetchImpl:async()=>json({choices:[{finish_reason:'length',message:{content:'{}'}}]})}),/截断/);
+ await assert.rejects(generateText(req('deepseek'),{timeoutMs:1,fetchImpl:async(url,{signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('abort'))))}),/超时/);
 });
 test('untrusted task download URLs rejected before any fetch to unrelated destinations',async()=>{
  let count=0;

@@ -10,7 +10,9 @@ const assert = require('node:assert/strict');
   try {
     await page.goto(base);
     const panel = page.getByRole('region', { name: '封面设计', exact: true });
+    await page.getByRole('tab', { name: '外观', exact: true }).click();
     await panel.waitFor();
+    await panel.locator('summary').filter({ hasText: /^封面排版/ }).click();
     for (const name of ['出版排版', '原版排版']) assert.equal(await page.getByRole('button', { name, exact: true }).count(), 0);
     for (const name of ['经典居中', '编辑左齐', '双面颠倒']) {
       await panel.getByRole('button', { name, exact: true }).click();

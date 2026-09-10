@@ -1,4 +1,4 @@
-import { generateImage, generateText, listModels, analyzeImages } from './providerAPI.mjs';
+import { generateImage, generateText, analyzeImages } from './providerAPI.mjs';
 import { resolveProvider } from './providerConfig.mjs';
 
 export const aiTransport = {
@@ -13,16 +13,8 @@ export const aiTransport = {
     try { return await window.electronAPI.ai.vision({ ...request, requestId }); }
     finally { signal?.removeEventListener('abort', cancel); }
   },
-  async models(id, entry) {
-    const request = { id, apiKey: entry.apiKey.trim(), workspaceId: entry.workspaceId?.trim() };
-    if (globalThis.window?.electronAPI?.ai) {
-      if (!window.electronAPI.ai.models) throw new Error('请重启桌面应用以启用模型获取。');
-      return window.electronAPI.ai.models(request);
-    }
-    return listModels(request);
-  },
-  async text(settings, prompt, systemPrompt, defaultModel) {
-    const request = { ...resolveProvider(settings, 'text', defaultModel), prompt, systemPrompt };
+  async text(settings, prompt, systemPrompt) {
+    const request = { ...resolveProvider(settings, 'text'), prompt, systemPrompt };
     if (globalThis.window?.electronAPI?.ai) return window.electronAPI.ai.text(request);
     return generateText(request);
   },

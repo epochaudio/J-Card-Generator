@@ -19,22 +19,16 @@ export function createSettingsStorage({ secureStore, localStore }) {
       if (!localStore) throw new Error('浏览器本地存储不可用，设置未保存。');
       localStore.setItem(AI_SETTINGS_KEY, payload);
     }
-    // Cleanup happens only after the complete replacement has been committed.
     try { await removeLegacy(); } catch { warning = '新设置已保存，旧版密钥副本清理失败，请检查本地存储权限。'; }
     return { settings: normalized, warning };
   };
   const loadPayload = async (payload, fromLocal) => {
     const input = JSON.parse(payload);
     const settings = normalizeAISettings(input);
-    const removedMiniMax = Object.hasOwn(input.providers || {}, 'minimax') || input.textProvider === 'minimax' || input.imageProvider === 'minimax';
+    const removedMiniMax = Object.hasOwn(input.providers || {}, 'minimax');
     if (input.version !== AI_CONFIG_VERSION || removedMiniMax || (fromLocal && secureStore)) {
       const result = await save(settings);
-      if (removedMiniMax) {
-        result.warning = [
-          'MiniMax 已移除，旧密钥已从当前配置中删除。DeepSeek 需填写独立密钥；原选中 MiniMax 的服务请重新选择并保存。',
-          result.warning
-        ].filter(Boolean).join(' ');
-      }
+      if (removedMiniMax) result.warning = ['旧版 MiniMax 设置已移除；DeepSeek 现统一负责文本与图片理解。', result.warning].filter(Boolean).join(' ');
       return result;
     }
     return { settings, warning: '' };
@@ -43,10 +37,7 @@ export function createSettingsStorage({ secureStore, localStore }) {
     const encrypted = secureStore ? await secureStore.getItem(AI_SETTINGS_KEY) : null;
     if (encrypted) return loadPayload(encrypted, false);
     const local = localStore?.getItem(AI_SETTINGS_KEY);
-    if (local) {
-      return loadPayload(local, true);
-    }
-    // Prefer the existing canonical key, then the two historical aliases.
+    if (local) return loadPayload(local, true);
     let legacyKey = '';
     if (secureStore) {
       for (const key of LEGACY_ALI_KEYS) { legacyKey = await secureStore.getItem(key); if (legacyKey) break; }

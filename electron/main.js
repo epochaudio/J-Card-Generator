@@ -97,7 +97,7 @@ ipcMain.handle('ai:vision-cancel', (event, id) => {
     visionRequests.get(id)?.abort();
 });
 
-for (const [kind, method] of [['text', 'generateText'], ['image', 'generateImage'], ['models', 'listModels']]) {
+for (const [kind, method] of [['text', 'generateText'], ['image', 'generateImage']]) {
     ipcMain.handle(`ai:${kind}`, (event, request) => {
         assertMainWindow(event);
         // Endpoints are selected inside providerAPI; renderer cannot supply a target URL.

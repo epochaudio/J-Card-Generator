@@ -20,14 +20,7 @@ export default function DesignPanel({ data, theme, fontTheme, mode, onLayout, on
         <span style={{ fontFamily: font.fonts.body }} className="block text-xs mt-1">曲目与艺术家 · Track 01</span>
       </div>
     </div>
-    <div>
-      <label htmlFor="spine-size" className="block text-xs text-gray-500 mb-2">盒子脊宽</label>
-      <select id="spine-size" value={data.layout.spineSize || 'standard'} onChange={event => onLayout({ spineSize: event.target.value })} className="w-full rounded border border-gray-200 bg-white p-2 text-sm">
-        <option value="standard">标准 · 12.7 mm</option>
-        <option value="narrow">窄脊 · 10.7 mm</option>
-      </select>
-      <p className="mt-1 text-xs text-gray-500">窄脊省下的宽度加入左侧内折页，正面和通高保持不变。</p>
-    </div>
+    <details className="rounded border border-gray-200 p-3"><summary className="cursor-pointer text-sm">颜色与背景 · {PALETTES[theme.paletteId]?.name || (theme.paletteId === 'custom' ? 'AI 完整配色' : '自定义背景')}</summary><div className="mt-4 space-y-4">
     <fieldset>
       <legend className="text-xs text-gray-500 mb-2">完整配色</legend>
       <div className="grid grid-cols-3 gap-2">
@@ -47,8 +40,10 @@ export default function DesignPanel({ data, theme, fontTheme, mode, onLayout, on
       <label className="flex items-center gap-2">强调色<input aria-label="强调色" type="color" value={theme.accent} onChange={event => onTheme({ ...theme, accent: event.target.value })} className="h-7 w-8 bg-transparent cursor-pointer" /></label>
       <button disabled={!hasImage} onClick={onAutoColor} className="disabled:opacity-40 hover:text-orange-800">从封面推荐</button>
     </div>}
+    </div></details>
+    <details className="rounded border border-gray-200 p-3"><summary className="cursor-pointer text-sm">封面排版 · {layouts.find(([value]) => value === data.layout.frontStyle)?.[1]}</summary><div className="mt-4 space-y-4">
     <fieldset>
-      <legend className="text-xs text-gray-500 mb-2">正面布局</legend>
+      <legend className="text-xs text-gray-500 mb-2">封面排版</legend>
       <div className="grid grid-cols-3 gap-2">
         {layouts.map(([value, label]) => <button key={value} className={buttonStyle(data.layout.frontStyle === value)} aria-pressed={data.layout.frontStyle === value} onClick={() => onLayout({ frontStyle: value })}>
           <span aria-hidden="true" className={`flex flex-col gap-1 w-9 h-12 border border-current rounded-sm p-1 mx-auto mb-2 ${value === 'STANDARD' ? 'items-center' : ''}`}><span className="bg-current opacity-20 w-full h-6" /><span className="bg-current opacity-60 w-4 h-0.5" /><span className="bg-current opacity-30 w-3 h-0.5" /></span>{label}
@@ -61,5 +56,14 @@ export default function DesignPanel({ data, theme, fontTheme, mode, onLayout, on
       </select>
     </label>}
     <label className="flex gap-2 items-center text-xs text-gray-500"><input type="checkbox" checked={!!data.layout.texture} onChange={event => onLayout({ texture: event.target.checked })} />轻微纸纹</label>
+    </div></details>
+    <div>
+      <label htmlFor="spine-size" className="block text-xs text-gray-500 mb-2">盒子脊宽</label>
+      <select id="spine-size" value={data.layout.spineSize || 'standard'} onChange={event => onLayout({ spineSize: event.target.value })} className="w-full rounded border border-gray-200 bg-white p-2 text-sm">
+        <option value="standard">标准 · 12.7 mm</option>
+        <option value="narrow">窄脊 · 10.7 mm</option>
+      </select>
+      <p className="mt-1 text-xs text-gray-500">窄脊省下的宽度加入左侧内折页，正面和通高保持不变。</p>
+    </div>
   </section>;
 }

@@ -1,5 +1,5 @@
-import { PROVIDERS, validateProviderKey, validateWorkspaceId } from './providerConfig.mjs';
-import { buildModelCatalog, supportsVision } from './modelCatalog.mjs';
+import { PROVIDERS, validateProviderKey } from './providerConfig.mjs';
+import { supportsVision } from './modelCatalog.mjs';
 
 export const TEXT_TIMEOUT_MS = 120000;
 export const IMAGE_TIMEOUT_MS = 180000;
@@ -12,14 +12,11 @@ export const VISION_MAX_PROMPT_LENGTH = 40000;
 // Up to six complete four-panel color designs plus their explanations.
 const VISION_MAX_TOKENS = 8000;
 const BASE64_ENCODING_CHUNK_BYTES = 8192;
-export const MODELS_TIMEOUT_MS = 20000;
-export const MODELS_PAGE_SIZE = 100;
-export const MAX_MODEL_PAGES = 50;
 
 function checkedRequest(input) {
   if (!input || !Object.hasOwn(PROVIDERS, input.id)) throw new Error('无效的 AI 服务商。');
   for (const field of ['apiKey', 'model', 'prompt']) {
-    if (typeof input[field] !== 'string' || !input[field].trim()) throw new Error('请先配置密钥、模型并填写生成内容。');
+    if (typeof input[field] !== 'string' || !input[field].trim()) throw new Error('请先配置所需的 API Key 并填写生成内容。');
   }
   if (input.systemPrompt != null && typeof input.systemPrompt !== 'string') throw new Error('提示词格式无效。');
   validateProviderKey(input.id, input.apiKey);
@@ -90,7 +87,7 @@ export function parseJSONContent(content) {
   if (typeof content !== 'string') throw new Error('模型没有返回可用的文本。');
   const text = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
   let parsed;
-  try { parsed = JSON.parse(text); } catch { throw new Error('模型未返回有效的结构化内容，当前作品未改变。请重试或调整文本模型。'); }
+  try { parsed = JSON.parse(text); } catch { throw new Error('模型未返回有效的结构化内容，当前作品未改变，请重试。'); }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('模型返回的数据结构无效。');
   return parsed;
 }
@@ -144,26 +141,26 @@ function delay(ms, signal) {
 }
 
 export async function generateText(input, { fetchImpl = globalThis.fetch, timeoutMs = TEXT_TIMEOUT_MS } = {}) {
-  const { meta, id, apiKey, model, prompt, systemPrompt = '' } = checkedRequest(input);
+  const { meta, apiKey, model, prompt, systemPrompt = '' } = checkedRequest(input);
+  if (!meta.capabilities.includes('text')) throw new Error('文本与图片理解统一使用 DeepSeek。');
+  if (model !== meta.model) throw new Error('文本固定使用 DeepSeek-V4.1-Flash。');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const body = { model, messages: [
       { role: 'system', content: `${systemPrompt}\n仅返回符合用户要求的 JSON 对象，不要输出解释或 Markdown。` },
       { role: 'user', content: prompt }
-    ], stream: false, max_tokens: TEXT_MAX_TOKENS };
-    if (id === 'aliyun' || id === 'deepseek') body.response_format = { type: 'json_object' };
-    // These short structured tasks do not need a separate reasoning response.
-    if (id === 'deepseek') body.thinking = { type: 'disabled' };
+    ], stream: false, max_tokens: TEXT_MAX_TOKENS,
+      response_format: { type: 'json_object' }, thinking: { type: 'disabled' } };
     const response = await jsonRequest(fetchImpl, meta.textUrl, apiKey, body, controller.signal, meta.name);
-    if (response.choices?.[0]?.finish_reason === 'length') throw new Error('文本输出被截断，当前作品未改变。请减少输入或调整模型。');
+    if (response.choices?.[0]?.finish_reason === 'length') throw new Error('文本输出被截断，当前作品未改变，请减少输入后重试。');
     return parseJSONContent(response.choices?.[0]?.message?.content);
   } finally { clearTimeout(timer); }
 }
 
 export async function analyzeImages(input, { fetchImpl = globalThis.fetch, timeoutMs = TEXT_TIMEOUT_MS, signal } = {}) {
   const { meta, id, apiKey, model, prompt } = checkedRequest(input);
-  if (!supportsVision(id, model)) throw new Error('该视觉模型尚未适配，请选择设置中注明的视觉模型。');
+  if (!meta.capabilities.includes('vision') || !supportsVision(id, model)) throw new Error('图片理解统一使用 DeepSeek-V4.1-Flash。');
   if (prompt.length > VISION_MAX_PROMPT_LENGTH) throw new Error('设计资料过长，请精简内容后重试。');
   if (!Array.isArray(input.images) || !input.images.length || input.images.length > VISION_MAX_IMAGES) throw new Error('视觉分析图片数量无效。');
   const images = input.images.map(source => {
@@ -180,7 +177,7 @@ export async function analyzeImages(input, { fetchImpl = globalThis.fetch, timeo
     if (signal?.aborted) { abort(); throw new Error('已取消智能搭配。'); }
     const body = { model, messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, ...images] }],
       stream: false, max_tokens: VISION_MAX_TOKENS,
-      ...(id === 'aliyun' ? { enable_thinking: false, response_format: { type: 'json_object' } } : { thinking: { type: 'disabled' }, ...(id === 'deepseek' ? { response_format: { type: 'json_object' } } : {}) }) };
+      response_format: { type: 'json_object' }, thinking: { type: 'disabled' } };
     const result = await jsonRequest(fetchImpl, meta.textUrl, apiKey, body, controller.signal, meta.name);
     if (controller.signal.aborted) throw new Error('视觉分析已结束，请重新生成。');
     if (result.choices?.[0]?.finish_reason === 'length') throw new Error('设计方案被截断，请重新生成。');
@@ -194,6 +191,7 @@ export async function analyzeImages(input, { fetchImpl = globalThis.fetch, timeo
 export async function generateImage(input, { fetchImpl = globalThis.fetch, timeoutMs = IMAGE_TIMEOUT_MS, wait = delay } = {}) {
   const { meta, id, apiKey, model, prompt } = checkedRequest(input);
   if (!meta.capabilities.includes('image')) throw new Error(`${meta.name}未接入封面图片生成，请选择阿里云或火山方舟。`);
+  if (model !== meta.imageModel) throw new Error(`${meta.name}当前仅使用已适配的默认生图模型。`);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -219,42 +217,5 @@ export async function generateImage(input, { fetchImpl = globalThis.fetch, timeo
     // All application-created errors are sanitized; transport errors must not expose signed URLs.
     if (error instanceof TypeError) throw new Error('图片服务连接或下载失败，请重试。');
     throw error;
-  } finally { clearTimeout(timer); }
-}
-
-export async function listModels(input, { fetchImpl = globalThis.fetch, timeoutMs = MODELS_TIMEOUT_MS } = {}) {
-  const { id, apiKey, workspaceId } = input || {};
-  validateProviderKey(id, apiKey);
-  const meta = PROVIDERS[id];
-  const baseUrl = id === 'aliyun'
-    ? `https://${validateWorkspaceId(workspaceId)}.cn-beijing.maas.aliyuncs.com/api/v1/models`
-    : meta.modelsUrl;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    if (id !== 'aliyun') {
-      const data = await jsonRequest(fetchImpl, baseUrl, apiKey, null, controller.signal, meta.name);
-      // Do not silently label an incomplete response as a complete catalog.
-      if (data.has_more || data.next_page) throw new Error('模型列表需要额外分页，暂无法完整读取。原有选择未改变，可手动填写模型 ID。');
-      return buildModelCatalog(id, data.data);
-    }
-    const entries = [];
-    for (let page = 1; page <= MAX_MODEL_PAGES; page++) {
-      const url = new URL(baseUrl);
-      url.searchParams.set('page_no', String(page));
-      url.searchParams.set('page_size', String(MODELS_PAGE_SIZE));
-      url.searchParams.set('language', 'zh-CN');
-      url.searchParams.set('service_site', 'asia-pacific-china');
-      url.searchParams.append('inference_providers', 'aliyun-bailian');
-      const data = await jsonRequest(fetchImpl, url.href, apiKey, null, controller.signal, meta.name);
-      const output = data.output;
-      if (!Array.isArray(output?.models) || !Number.isSafeInteger(output.total) || output.total < 0 || (output.page_no != null && output.page_no !== page)) {
-        throw new Error('阿里云未返回有效的分页模型列表，原有选择未改变。');
-      }
-      entries.push(...output.models);
-      if (entries.length >= output.total) return buildModelCatalog(id, entries);
-      if (!output.models.length) throw new Error('阿里云模型列表返回不完整，原有选择未改变。');
-    }
-    throw new Error('模型列表超过读取上限，原有选择未改变。请手动填写模型 ID。');
   } finally { clearTimeout(timer); }
 }

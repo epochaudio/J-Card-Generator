@@ -2,7 +2,7 @@ import { aiTransport } from '../ai/aiTransport.mjs';
 
 export function createAIContentService(settings) {
   const service = {
-    callJSON: (prompt, configuration, systemPrompt, model = 'qwen-plus') => aiTransport.text(configuration, prompt, systemPrompt, model),
+    callJSON: (prompt, configuration, systemPrompt) => aiTransport.text(configuration, prompt, systemPrompt),
     generateImage: (prompt) => aiTransport.image(settings, prompt),
     suggestTitle: async (tracks) => {
         const systemPrompt = "You are a creative naming expert. Output JSON.";
@@ -61,7 +61,7 @@ export function createAIContentService(settings) {
         ]
       }
     `;
-        return service.callJSON(userPrompt, settings, systemPrompt, "qwen3-max");
+        return service.callJSON(userPrompt, settings, systemPrompt);
     },
 
     // --- New Granular AI Methods ---
@@ -91,7 +91,7 @@ export function createAIContentService(settings) {
         { "slogan": "Line 1.\\nLine 2.\\nLine 3" }
         `;
 
-        return service.callJSON(userPrompt, settings, systemPrompt, "qwen3-max");
+        return service.callJSON(userPrompt, settings, systemPrompt);
     },
 
     generateImagePrompt: async (isDark, tracks, notes) => {
@@ -138,7 +138,7 @@ export function createAIContentService(settings) {
            }
         `;
 
-        return service.callJSON(userPrompt, settings, systemPrompt, "qwen3-max");
+        return service.callJSON(userPrompt, settings, systemPrompt);
     }
   };
   // Validate task-specific shapes before editor mutations (JSON syntax alone is insufficient).

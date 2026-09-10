@@ -9,10 +9,12 @@ const button = 'rounded border border-stone-300 px-3 py-1.5 text-xs hover:bg-sto
 const titleSizes = { compact: '克制', balanced: '均衡', expressive: '醒目' };
 function CandidateDetails({ candidate }) {
   return <>
+    <p className="text-sm leading-relaxed text-stone-700">{candidate.reason}</p>
+    <details className="text-xs text-stone-500"><summary className="cursor-pointer">搭配详情</summary><div className="mt-2 space-y-2">
     <p className="text-xs text-stone-600">{FONT_THEMES[candidate.fields.fontTheme].name} · {candidate.fields.paletteId === 'custom' ? 'AI 完整配色' : PALETTES[candidate.fields.paletteId]?.name || '锁定配色'} · {candidate.fields.frontStyle === 'EDITORIAL' ? '编辑左齐' : '经典居中'} · 标题{titleSizes[candidate.fields.titleSize]}</p>
     {candidate.fields.typography && <p className="text-xs text-stone-600">标题：字重 {candidate.fields.typography.title.weight} · 几何倾斜 {candidate.fields.typography.title.slant}° · 宽度 {Math.round(candidate.fields.typography.title.width * 100)}%；正文采用独立样式。</p>}
-    <p className="text-sm leading-relaxed text-stone-700">{candidate.reason}</p>
     {candidate.review && <p className="text-xs text-stone-600">已通过成品视觉复核：{candidate.review.summary}</p>}
+    </div></details>
     <p className="text-xs text-stone-500">实测标题 {candidate.metrics.titleLines} 行 · {candidate.metrics.backFolded ? '背面紧凑显示' : '背面未启用信息折叠'}</p>
     {candidate.warnings.map(warning => <p key={warning} className="text-xs text-amber-800">{warning}</p>)}
   </>;
@@ -52,16 +54,18 @@ export default function SmartDesignPanel(props) {
   return <section aria-label="智能搭配" className="border border-stone-200 rounded-xl p-4 bg-stone-50/70 space-y-3">
     <div className="flex items-center justify-between"><h3 className="font-semibold text-sm">智能搭配</h3><span className="text-[11px] text-stone-500">根据素材重新设计</span></div>
     <p className="text-xs text-stone-500 leading-relaxed">根据封面原图、内容和可用资源设计，并回传候选成品进行视觉复核。当前外观仅在主动锁定时约束 AI。</p>
+    <details className="rounded border border-stone-200 p-3"><summary className="cursor-pointer text-xs text-stone-600">搭配要求 <span>{[design.locks.font && '已锁定字体', design.locks.palette && '已锁定配色', design.intent && '已填写风格要求'].filter(Boolean).join(' · ') || '可选'}</span></summary><div className="mt-3 space-y-3">
     <div className="flex gap-4 text-xs text-stone-700">
       <label className="flex gap-1.5 items-center"><input type="checkbox" checked={design.locks.font} onChange={event => design.setLocks(prev => ({ ...prev, font: event.target.checked }))} />锁定字体与样式</label>
       <label className="flex gap-1.5 items-center"><input type="checkbox" checked={design.locks.palette} onChange={event => design.setLocks(prev => ({ ...prev, palette: event.target.checked }))} />锁定配色</label>
     </div>
     <label className="block text-xs text-stone-600">风格要求（可选）<input aria-label="搭配风格要求" maxLength={MAX_INTENT_LENGTH} value={design.intent} onChange={event => design.setIntent(event.target.value)} placeholder="例如：安静、克制，有唱片内页的感觉" className="mt-1 w-full rounded border border-stone-200 bg-white p-2 text-sm" /></label>
+    </div></details>
     <div className="flex flex-wrap gap-2">
       <button className={`${button} bg-orange-50 border-orange-300 text-orange-900`} disabled={design.busy || !props.ready || !!design.unavailable} onClick={design.generate}>生成三套搭配</button>
       {design.busy && <button className={button} onClick={design.cancel}>取消生成</button>}
       {design.undo && <button className={button} onClick={design.revert} disabled={!props.ready}>撤销本次搭配</button>}
-      <button className={button} onClick={props.onSettings}>视觉模型设置</button>
+      <button className={button} onClick={props.onSettings}>AI 服务设置</button>
     </div>
     <p className="text-[11px] text-stone-500">AI 自主决定颜色与文字样式；本地检查与成品视觉复核共用一次自动修订机会，最终仅展示通过的方案。预览、应用与撤销不调用 AI。</p>
     {design.unavailable && <p className="text-xs text-amber-800">{design.unavailable}</p>}

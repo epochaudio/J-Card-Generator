@@ -1,46 +1,41 @@
+import { DEEPSEEK_CURRENT_MODEL } from './modelCatalog.mjs';
+
 // Mainland China endpoints. Account regions and subscription channels are not interchangeable.
-export const AI_CONFIG_VERSION = 3;
-// Keep the storage key stable so version 1 can be migrated atomically.
+export const AI_CONFIG_VERSION = 5;
+// Keep the storage key stable so an existing encrypted key can be read into the simpler shape.
 export const AI_SETTINGS_KEY = 'jcard_ai_settings_v1';
 export const LEGACY_ALI_KEYS = ['jcard_dashscope_api_key', 'dashscope_api_key', 'gemini_api_key'];
+
 export const PROVIDERS = {
-  aliyun: {
-    name: '阿里云百炼',
-    capabilities: ['text', 'image', 'vision'],
-    textUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
-    imageUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
-    textModel: '', imageModel: 'wan2.5-t2i-preview',
-    textHint: '留空沿用原默认：标题 qwen-plus，其余 qwen3-max',
-    imageHint: '通义万相异步文生图模型',
-    keyUrl: 'https://help.aliyun.com/zh/model-studio/get-api-key/',
-    planUrl: 'https://help.aliyun.com/zh/model-studio/coding-plan',
-    planNote: '本应用接百炼普通 API，按实际调用计费。Coding Plan 是独立的编程订阅，使用专用密钥与地址，本版本不接入；订阅中的图片理解不等于万相封面生成额度。其他订阅权益以控制台为准。'
-  },
-  volcengine: {
-    name: '火山引擎（火山方舟）',
-    capabilities: ['text', 'image', 'vision'],
-    modelsUrl: 'https://ark.cn-beijing.volces.com/api/v3/models',
-    textUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
-    imageUrl: 'https://ark.cn-beijing.volces.com/api/v3/images/generations',
-    textModel: '', imageModel: '',
-    textHint: '填写已开通的文本 Model ID 或推理接入点 ID（ep-…）',
-    imageHint: '填写已开通的 Seedream Model ID 或推理接入点 ID',
-    keyUrl: 'https://www.volcengine.com/docs/82379/1541594',
-    planUrl: 'https://www.volcengine.com/docs/82379/1925114',
-    planNote: '本应用接方舟普通 API，按实际调用计费。Coding Plan 是面向 AI 编程工具的独立套餐，不能当作本应用通用 API 额度；本版本未接入 Coding / Agent 订阅通道。'
-  },
   deepseek: {
     name: 'DeepSeek',
     capabilities: ['text', 'vision'],
     textUrl: 'https://api.deepseek.com/chat/completions',
-    modelsUrl: 'https://api.deepseek.com/models',
-    textModel: 'deepseek-v4-flash', imageModel: '',
-    textHint: '默认 deepseek-v4-flash；可获取模型后选择或手动填写',
+    model: DEEPSEEK_CURRENT_MODEL,
     keyUrl: 'https://platform.deepseek.com/api_keys',
     planUrl: 'https://api-docs.deepseek.com/quick_start/pricing',
-    planNote: '本应用接 DeepSeek 官方普通 API，按实际调用计费。API 余额与网页或 App 使用权益分开；本应用支持文本及指定内测模型的视觉分析；封面图片生成请选择阿里云或火山方舟。'
+    planNote: '文本生成与图片理解统一使用 DeepSeek-V4.1-Flash；本应用接普通 API，按实际调用计费。'
+  },
+  aliyun: {
+    name: '阿里云百炼',
+    capabilities: ['image'],
+    imageUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
+    imageModel: 'wan2.5-t2i-preview',
+    keyUrl: 'https://help.aliyun.com/zh/model-studio/get-api-key/',
+    planUrl: 'https://help.aliyun.com/zh/model-studio/coding-plan',
+    planNote: '仅在需要 AI 生成封面图片时使用普通按量 API。'
+  },
+  volcengine: {
+    name: '火山引擎（火山方舟）',
+    capabilities: ['image'],
+    imageUrl: 'https://ark.cn-beijing.volces.com/api/v3/images/generations',
+    imageModel: 'doubao-seedream-4-0-250828',
+    keyUrl: 'https://www.volcengine.com/docs/82379/1541594',
+    planUrl: 'https://www.volcengine.com/docs/82379/1925114',
+    planNote: '仅在需要 AI 生成封面图片时使用普通按量 API。'
   }
 };
+
 export const PROVIDER_IDS = Object.keys(PROVIDERS);
 export const providersFor = kind => PROVIDER_IDS.filter(id => PROVIDERS[id].capabilities.includes(kind));
 
@@ -53,62 +48,40 @@ export function validateProviderKey(id, apiKey) {
   }
 }
 
-export function validateWorkspaceId(value) {
-  // A workspace is one DNS label, never a user-controlled URL or hostname.
-  if (typeof value !== 'string' || !/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/.test(value)) {
-    throw new Error('请填写有效的阿里云业务空间 ID（在百炼控制台查看）。');
-  }
-  return value;
-}
-
 export function normalizeAISettings(input = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('AI 设置格式无效。');
-  if (input.version != null && ![1, 2, AI_CONFIG_VERSION].includes(input.version)) throw new Error('不支持此 AI 设置版本。');
+  if (input.version != null && (!Number.isInteger(input.version) || input.version < 1 || input.version > AI_CONFIG_VERSION)) {
+    throw new Error('不支持此 AI 设置版本。');
+  }
   const text = value => {
     if (value == null) return '';
     if (typeof value !== 'string') throw new Error('AI 设置字段必须为文本。');
     return value.trim();
   };
-  const provider = (value, kind) => {
-    // Removing MiniMax must not silently select another billable service.
-    if (value === 'minimax' && (input.version == null || input.version === 1)) return '';
-    if (value === '') return '';
-    if (!providersFor(kind).includes(value)) throw new Error(`请选择支持${kind === 'vision' ? '视觉分析' : kind === 'image' ? '图片' : '文本'}的 AI 服务商。`);
-    return value;
-  };
+  const imageProvider = input.imageProvider == null || input.imageProvider === 'minimax' ? '' : input.imageProvider;
+  if (imageProvider && !providersFor('image').includes(imageProvider)) throw new Error('请选择支持图片生成的 AI 服务商。');
+
   return {
     version: AI_CONFIG_VERSION,
-    textProvider: provider(input.textProvider ?? 'aliyun', 'text'),
-    imageProvider: provider(input.imageProvider ?? 'aliyun', 'image'),
-    visionProvider: provider(input.visionProvider ?? '', 'vision'),
+    imageProvider,
     providers: Object.fromEntries(PROVIDER_IDS.map(id => {
       const entry = input.providers?.[id] ?? {};
       if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error('服务商设置格式无效。');
       const apiKey = text(entry.apiKey);
       if (/\s/.test(apiKey)) throw new Error(`${PROVIDERS[id].name} 密钥中不能包含空格或换行。`);
-      const workspaceId = id === 'aliyun' ? text(entry.workspaceId) : '';
-      if (workspaceId) validateWorkspaceId(workspaceId);
-      return [id, {
-        apiKey,
-        textModel: text(entry.textModel ?? PROVIDERS[id].textModel),
-        imageModel: PROVIDERS[id].capabilities.includes('image') ? text(entry.imageModel ?? PROVIDERS[id].imageModel) : '',
-        ...(PROVIDERS[id].capabilities.includes('vision') ? { visionModel: text(entry.visionModel) } : {}),
-        ...(id === 'aliyun' ? { workspaceId } : {})
-      }];
+      if (id === 'deepseek') return [id, { apiKey, model: DEEPSEEK_CURRENT_MODEL }];
+      return [id, { apiKey, imageModel: PROVIDERS[id].imageModel }];
     }))
   };
 }
 
-export function resolveProvider(settings, kind, defaultTextModel = 'qwen3-max') {
-  const config = normalizeAISettings(settings);
+export function resolveProvider(settings, kind) {
   if (!['text', 'image', 'vision'].includes(kind)) throw new Error('不支持的 AI 能力。');
-  const id = config[`${kind}Provider`];
-  if (!id) throw new Error(`请在设置中重新选择并保存${kind === 'vision' ? '视觉分析' : kind === 'image' ? '图片' : '文本'}服务商。`);
+  const config = normalizeAISettings(settings);
+  const id = kind === 'image' ? config.imageProvider : 'deepseek';
+  if (!id) throw new Error('如需 AI 生成封面图片，请先在设置中开启并配置生图服务。');
   const entry = config.providers[id];
-  const meta = PROVIDERS[id];
-  if (!entry.apiKey) throw new Error(`请在设置中填写并保存${meta.name}的普通 API Key。`);
   validateProviderKey(id, entry.apiKey);
-  const model = kind === 'text' ? entry.textModel || (id === 'aliyun' ? defaultTextModel : '') : entry[`${kind}Model`];
-  if (!model) throw new Error(`请在设置中填写${meta.name}的${kind === 'vision' ? '视觉分析' : kind === 'image' ? '图片' : '文本'}模型 ID。`);
+  const model = id === 'deepseek' ? entry.model : entry.imageModel;
   return { id, apiKey: entry.apiKey, model };
 }

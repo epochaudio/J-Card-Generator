@@ -28,14 +28,14 @@ const fs = require('node:fs/promises');
  const panel = page.getByRole('region',{name:'封面智能补足'});
  const save = async () => { const pending = page.waitForEvent('download'); await page.getByRole('button',{name:'保存作品',exact:true}).click();return JSON.parse(await fs.readFile(await(await pending).path(),'utf8')).project; };
  try {
-  await page.goto(process.env.JCARD_TEST_URL || 'http://127.0.0.1:5187'); await page.getByRole('button',{name:'打开作品',exact:true}).waitFor();
+  await page.goto(process.env.JCARD_TEST_URL || 'http://127.0.0.1:5187'); await page.getByRole('button',{name:'保存作品',exact:true}).waitFor();
   assert.equal(await panel.getByRole('button',{name:'智能补足信息'}).isDisabled(),true);
   await page.evaluate(async () => {
    const {normalizeSnapshot,serializeProject}=await import('/src/project/projectFormat.mjs');const {projectStorage}=await import('/src/project/projectStorage.mjs');const {normalizeAISettings}=await import('/src/ai/providerConfig.mjs');
    const canvas=document.createElement('canvas');canvas.width=canvas.height=300;const ctx=canvas.getContext('2d');ctx.fillStyle='#d9c8a2';ctx.fillRect(0,0,300,300);ctx.fillStyle='#222';ctx.font='24px Arial';ctx.fillText('Test Album',20,80);ctx.fillText('Test Artist',20,140);
    const image=canvas.toDataURL();
    await projectStorage.writeDraft(serializeProject(normalizeSnapshot({data:{title:'PRIVATE CURRENT TITLE',artist:'My Artist',sideA:[{id:'old',title:'Keep Track',duration:'1:00'}],sideB:[],coverBadge:'Keep badge'},coverImage:image,coverImageB:image,imagePrompt:'PRIVATE PROMPT',recordingData:{equipment:'Keep equipment'}})));
-   localStorage.setItem('jcard_ai_settings_v1',JSON.stringify(normalizeAISettings({visionProvider:'deepseek',providers:{deepseek:{apiKey:'test-enrichment-key',visionModel:'deepseek-v4.1-flash-expires-on-0910'}}})));
+   localStorage.setItem('jcard_ai_settings_v1',JSON.stringify(normalizeAISettings({providers:{deepseek:{apiKey:'test-enrichment-key'}}})));
   });
   await page.reload(); await page.getByRole('button',{name:'恢复草稿',exact:true}).click(); const before=await save();
   await panel.getByRole('button',{name:'智能补足信息'}).click();

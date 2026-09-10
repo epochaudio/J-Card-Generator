@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { aiTransport } from '../ai/aiTransport.mjs';
 import { resolveProvider } from '../ai/providerConfig.mjs';
-import { supportsVision } from '../ai/modelCatalog.mjs';
 import { buildDesignInput, contentStamp, designChange, designFields, designPrompt, DIRECTIONS, eligibility } from './smartDesign.mjs';
 import { checkCancelled, prepareDesignImages, prepareRepairImages } from './designMaterials.js';
 import { generateDesigns } from './generateDesigns.mjs';
@@ -56,8 +55,7 @@ export default function useSmartDesign({ snapshot, settings, projectIdentity, on
     const unavailable = eligibility(current.snapshot, current.locks);
     if (unavailable) { setMessage(unavailable); return; }
     try {
-      const provider = resolveProvider(current.settings, 'vision');
-      if (!supportsVision(provider.id, provider.model)) throw new Error('请在 AI 服务设置中选择已适配的视觉模型。');
+      resolveProvider(current.settings, 'vision');
     } catch (error) { setMessage(error.message); return; }
     const controller = new AbortController(); request.current = controller;
     setBusy(true); setBatch(null); setExpanded(null); setMessage(''); setStatus('准备设计素材与字体小样…');

@@ -8,7 +8,10 @@ const path = require('node:path');
  const appCopy = path.join(dir, 'Test.app');
  require('node:child_process').execFileSync('cp', ['-cR', process.env.ELECTRON_TEST_SOURCE_APP || path.join(root,'dist_electron_macos_arm64/Tape Cover Generator.app'), appCopy]);
  const resources = path.join(appCopy,'Contents/Resources');
- await fs.rename(path.join(resources,'app.asar'), path.join(dir,'original-app.asar'));
+ // A packaged app has app.asar; a clean Electron runtime has only default_app.asar.
+ await fs.rename(path.join(resources,'app.asar'), path.join(dir,'original-app.asar')).catch(error => {
+   if (error.code !== 'ENOENT') throw error;
+ });
  await fs.mkdir(path.join(resources,'app'));
  await fs.writeFile(path.join(resources,'app/package.json'),JSON.stringify({name:'jcard-test',main:'main.cjs'}));
  const wrapper = path.join(resources, 'app/main.cjs');
@@ -21,40 +24,19 @@ const path = require('node:path');
  const errors = []; page.on('pageerror', e => errors.push(e.message));
  await page.getByRole('button',{name:'保存作品',exact:true}).waitFor();
  await page.waitForFunction(() => !document.body.innerText.includes('正在检查草稿'));
- // Exercise the actual preload -> main-process -> providerAPI model-list path.
- await app.evaluate(({net}) => {
-   globalThis.originalModelTestFetch = net.fetch;
-   globalThis.modelTestRequests = [];
-   net.fetch = async (url, options) => {
-     globalThis.modelTestRequests.push({url,method:options.method,key:options.headers.Authorization});
-     const body = url.includes('maas.aliyuncs.com')
-       ? {output:{total:2,page_no:1,models:[{model:'qwen3-max',capabilities:['TG']},{model:'wan2.5-t2i-preview',capabilities:['IG']}]}}
-       : {data:url.includes('deepseek.com') ? [{id:'deepseek-v4-flash'},{id:'deepseek-v4-pro'}] : [{id:'doubao-seed-1-6-250615'},{id:'doubao-seedream-4-0-250828'}]};
-     return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
-   };
- });
- // Exercise all provider settings with isolated dummy credentials (no network calls).
- await page.getByRole('button',{name:'AI 服务设置',exact:true}).click();
- const providers = [['阿里云百炼','aliyun'],['火山引擎（火山方舟）','volcengine'],['DeepSeek','deepseek']];
- for (const [name,id] of providers) {
-   await page.getByRole('tab',{name,exact:true}).click();
-   await page.getByLabel(`${name} API Key`,{exact:true}).fill(`test-${id}-secret`);
-   if (id==='aliyun') await page.getByLabel('阿里云业务空间 ID').fill('workspace-test');
-   await page.getByRole('button',{name:'获取模型',exact:true}).click();
-   await page.getByText(/^已获取 2 个已适配模型/).waitFor();
-   if (id==='deepseek') await page.getByLabel('DeepSeek 文本模型 选择',{exact:true}).selectOption('deepseek-v4-pro');
-   if (id==='volcengine') {
-     await page.getByLabel(`${name} 文本模型`,{exact:true}).fill('ep-test-text');
-     await page.getByLabel(`${name} 图片模型`,{exact:true}).fill('ep-test-image');
-   }
-   assert.match(await page.getByRole('dialog').innerText(), /订阅包.*Coding Plan/);
- }
- const modelRequests = await app.evaluate(({net}) => { net.fetch=globalThis.originalModelTestFetch; return globalThis.modelTestRequests; });
- assert.equal(modelRequests.length,3);
- assert.ok(modelRequests.every(request=>request.method==='GET'));
- assert.deepEqual(modelRequests.map(request=>request.key),providers.map(([,id])=>`Bearer test-${id}-secret`));
+ // Exercise the simplified DeepSeek-first settings with dummy credentials.
+ await page.getByTitle('配置 DeepSeek 与可选生图服务',{exact:true}).click();
+ const settingsDialog = page.getByRole('dialog',{name:'AI 服务设置'});
+ assert.match(await settingsDialog.innerText(), /DeepSeek AI.*推荐.*deepseek-flash/s);
+ assert.equal(await settingsDialog.getByRole('button',{name:/获取模型|刷新模型/}).count(),0);
+ await page.getByLabel('DeepSeek API Key',{exact:true}).fill('test-deepseek-secret');
+ await page.getByLabel('启用 AI 生成封面图片').check();
+ await page.getByLabel('阿里云百炼 API Key',{exact:true}).fill('test-aliyun-secret');
+ await page.getByLabel('生图服务商').selectOption('volcengine');
+ await page.getByLabel('火山引擎（火山方舟） API Key',{exact:true}).fill('test-volcengine-secret');
  // The vision protocol crosses the real preload/IPC boundary with dummy credentials.
  await app.evaluate(({net}) => {
+   globalThis.originalVisionTestFetch = net.fetch;
    globalThis.visionTestRequests = [];
    net.fetch = async (url, options) => {
      globalThis.visionTestRequests.push({ url, body: JSON.parse(options.body) });
@@ -62,7 +44,7 @@ const path = require('node:path');
      return new Response(JSON.stringify({choices:[{message:{content:'{"candidates":[]}'},finish_reason:'stop'}]}), {status:200});
    };
  });
- const visionRequest = { id:'aliyun', apiKey:'test-vision-key', model:'qwen3-vl-plus', prompt:'test', images:['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='], requestId:'vision-test-1' };
+ const visionRequest = { id:'deepseek', apiKey:'test-deepseek-vision', model:'deepseek-flash', prompt:'test', images:['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='], requestId:'vision-test-1' };
  assert.deepEqual(await page.evaluate(request => window.electronAPI.ai.vision(request), visionRequest), {candidates:[]});
  assert.equal((await app.evaluate(() => globalThis.visionTestRequests)).length, 1);
  await app.evaluate(() => { globalThis.holdVisionTest = true; });
@@ -70,31 +52,26 @@ const path = require('node:path');
  await page.waitForTimeout(100);
  await page.evaluate(() => window.electronAPI.ai.cancelVision('vision-test-cancel'));
  assert.match(await page.evaluate(() => window.visionTestPending), /取消/);
- await app.evaluate(({net}) => { net.fetch = globalThis.originalModelTestFetch; });
+ await app.evaluate(({net}) => { net.fetch = globalThis.originalVisionTestFetch; });
  console.log('PASS desktop vision preload/IPC, single mock request and cancellation');
- await page.getByLabel('文本服务商',{exact:true}).selectOption('volcengine');
- await page.getByLabel('图片服务商',{exact:true}).selectOption('aliyun');
  await page.getByRole('button',{name:'保存设置',exact:true}).click();
  await page.getByText('设置已保存；密钥是否有效、账户套餐与余额尚未验证。',{exact:true}).waitFor();
  const encrypted = await fs.readFile(path.join(dir,'secure-store.json'),'utf8');
- for (const [,id] of providers) assert.equal(encrypted.includes(`test-${id}-secret`),false);
+ for (const secret of ['test-deepseek-secret','test-aliyun-secret','test-volcengine-secret']) assert.equal(encrypted.includes(secret),false);
  await page.screenshot({path:path.join(dir,'settings.png')});
  await page.getByRole('button',{name:'关闭设置',exact:true}).click();
  await page.reload();
- await page.getByRole('button',{name:'AI 服务设置',exact:true}).click();
- assert.equal(await page.getByLabel('文本服务商',{exact:true}).inputValue(),'volcengine');
- assert.equal(await page.getByLabel('图片服务商',{exact:true}).inputValue(),'aliyun');
- for (const [name,id] of providers) {
-   await page.getByRole('tab',{name,exact:true}).click();
-   assert.equal(await page.getByLabel(`${name} API Key`,{exact:true}).inputValue(),`test-${id}-secret`);
- }
+ await page.getByTitle('配置 DeepSeek 与可选生图服务',{exact:true}).click();
+ assert.equal(await page.getByLabel('DeepSeek API Key',{exact:true}).inputValue(),'test-deepseek-secret');
+ assert.equal(await page.getByLabel('启用 AI 生成封面图片').isChecked(),true);
+ assert.equal(await page.getByLabel('生图服务商').inputValue(),'volcengine');
+ assert.equal(await page.getByLabel('火山引擎（火山方舟） API Key',{exact:true}).inputValue(),'test-volcengine-secret');
  await page.getByLabel('DeepSeek API Key',{exact:true}).fill('discard-me');
- assert.equal(await page.getByLabel('DeepSeek 文本模型 选择',{exact:true}).inputValue(),'deepseek-v4-pro');
  await page.getByRole('button',{name:'关闭设置',exact:true}).click();
- await page.getByRole('button',{name:'AI 服务设置',exact:true}).click();
+ await page.getByTitle('配置 DeepSeek 与可选生图服务',{exact:true}).click();
  assert.equal(await page.getByLabel('DeepSeek API Key',{exact:true}).inputValue(),'test-deepseek-secret');
  await page.getByRole('button',{name:'关闭设置',exact:true}).click();
- console.log('PASS provider settings, encrypted persistence, reload, selectors, cancelled edit, plan explanation');
+ console.log('PASS simplified DeepSeek settings, optional image provider, encrypted persistence and cancelled edit');
  await app.evaluate(({session}, output) => { globalThis.pngTestCompletion = new Promise(resolve => session.defaultSession.once('will-download', (event, item) => { item.setSavePath(output); item.once('done', (event, state) => resolve(state)); })); }, path.join(dir,'desktop-export.png'));
  await page.getByRole('button',{name:'导出 PNG',exact:true}).click();
  assert.equal(await app.evaluate(() => globalThis.pngTestCompletion), 'completed');
@@ -114,13 +91,16 @@ const path = require('node:path');
  await page.getByText('saved.jcard · 已保存',{exact:true}).waitFor();
  assert.equal(JSON.parse(await fs.readFile(path.join(dir,'saved.jcard'),'utf8')).project.data.title,'桌面作品一');
  await title.fill('还没保存');
+ await page.locator('summary[aria-label="作品"]').click();
  await page.getByTitle('新建/重置项目',{exact:true}).click();
  await page.getByRole('button',{name:'取消',exact:true}).click();
  assert.equal(await title.inputValue(),'还没保存');
+ await page.locator('summary[aria-label="作品"]').click();
  await page.getByTitle('新建/重置项目',{exact:true}).click();
  await page.getByRole('button',{name:'放弃修改',exact:true}).click();
  await page.waitForFunction(() => document.querySelector('input[type=text]').value==='ALBUM TITLE');
  await app.evaluate(({dialog}, input) => { dialog.showOpenDialog = async () => ({canceled:false,filePaths:[input]}); },path.join(dir,'saved.jcard'));
+ await page.locator('summary[aria-label="作品"]').click();
  await page.getByRole('button',{name:'打开作品',exact:true}).click();
  await page.getByText('saved.jcard · 已保存',{exact:true}).waitFor();
  assert.equal(await title.inputValue(),'桌面作品一');
@@ -150,6 +130,7 @@ const path = require('node:path');
    if (!globalThis.finishOldTitle) throw new Error('Title generation did not reach the mocked API.');
  });
  await app.evaluate(({dialog}, input) => { dialog.showOpenDialog=async()=>({canceled:false,filePaths:[input]}); },path.join(dir,'fixture.jcard'));
+ await page.locator('summary[aria-label="作品"]').click();
  await page.getByRole('button',{name:'打开作品',exact:true}).click();
  await page.getByText('fixture.jcard · 已保存',{exact:true}).waitFor();
  await app.evaluate(({net}) => { net.fetch = globalThis.originalTitleTestFetch; globalThis.finishOldTitle({suggested_title:'旧任务标题'}); });
@@ -165,15 +146,18 @@ const path = require('node:path');
  // Cancel Save As and then fail a write: both must keep unsaved edits.
  await title.fill('保存失败也保留');
  await app.evaluate(({dialog})=>{dialog.showSaveDialog=async()=>({canceled:true});});
+ await page.locator('summary[aria-label="作品"]').click();
  await page.getByRole('button',{name:'另存为',exact:true}).click();
  await page.getByText('fixture.jcard · 未保存修改',{exact:true}).waitFor();
  await app.evaluate(({dialog}, output)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:output});},path.join(dir,'missing','bad.jcard'));
+ await page.locator('summary[aria-label="作品"]').click();
  await page.getByRole('button',{name:'另存为',exact:true}).click();
  await page.getByRole('alert').filter({hasText:'ENOENT'}).waitFor();
  assert.equal(await title.inputValue(),'保存失败也保留');
  // A malformed file leaves the current project intact.
  await fs.writeFile(path.join(dir,'bad.jcard'),'{');
  await app.evaluate(({dialog}, input)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[input]});},path.join(dir,'bad.jcard'));
+ await page.locator('summary[aria-label="作品"]').click();
  await page.getByRole('button',{name:'打开作品',exact:true}).click();
  await page.getByRole('alert').filter({hasText:'JSON'}).waitFor();
  assert.equal(await title.inputValue(),'保存失败也保留');

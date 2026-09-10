@@ -26,6 +26,7 @@ const fs = require('node:fs/promises');
   await page.getByRole('button',{name:'放弃草稿',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('input[type=text]').value==='ALBUM TITLE');
   const chooser=page.waitForEvent('filechooser');
+  await page.locator('summary[aria-label="作品"]').click();
   await page.getByRole('button',{name:'打开作品',exact:true}).click();
   await (await chooser).setFiles({name:'浏览器草稿.jcard',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(content))});
   await page.waitForFunction(()=>document.querySelector('input[type=text]').value==='浏览器草稿');

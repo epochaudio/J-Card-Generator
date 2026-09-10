@@ -31,6 +31,7 @@ import SpineLayoutEngine from './src/utils/SpineLayoutEngine.js';
 import { localDate, normalizeSnapshot } from './src/project/projectFormat.mjs';
 import useProjectFiles from './src/project/useProjectFiles.jsx';
 import ProjectControls from './src/project/ProjectControls.jsx';
+import DisclosureMenu from './src/components/DisclosureMenu.jsx';
 
 let trackIdCounter = 0;
 const NOTE_LOWER_MAX_VISIBLE_CHARS = 16;
@@ -206,7 +207,7 @@ export default function App() {
   const restoredCover = useRef(undefined);
   const aiSettings = useAISettings();
   const aiService = useMemo(() => createAIContentService(aiSettings.settings), [aiSettings.settings]);
-  const textKeyConfigured = Boolean(aiSettings.settings.providers[aiSettings.settings.textProvider]?.apiKey);
+  const textKeyConfigured = Boolean(aiSettings.settings.providers.deepseek.apiKey);
   const svgRef = useRef(null);
   const [loadingStates, setLoadingStates] = useState({
     title: false,
@@ -217,6 +218,7 @@ export default function App() {
     prompt: false
   });
   const [error, setError] = useState('');
+  const [editorTab, setEditorTab] = useState('content');
   const fileInputRef = useRef(null);
   const fileInputRefB = useRef(null); // [NEW] Ref for Cover B input
 
@@ -851,30 +853,37 @@ export default function App() {
       {/* Header */}
       <header className="flex flex-wrap gap-3 items-center justify-between px-6 py-4 border-b shrink-0 bg-white border-gray-200 shadow-sm relative z-10">
         <div className="flex items-center gap-2 shrink-0 whitespace-nowrap"><img src={brandIcon} alt="" className="w-10 h-10" /><h1 className="text-xl font-bold tracking-wider">带藏 <span className="text-orange-500 text-sm">TapeFolio</span></h1></div>
-        <div className="flex flex-wrap items-center gap-3 whitespace-nowrap">
-
-          <button onClick={() => document.getElementById('design-panel')?.scrollIntoView({ behavior: 'smooth' })} className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-200 text-sm hover:bg-gray-50"><Palette size={16} />设计</button>
-          <button aria-label="AI 服务设置" title="配置密钥、模型与套餐说明" onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-colors ${!textKeyConfigured ? 'text-gray-400 hover:text-gray-500 hover:bg-gray-100' : 'text-orange-600 hover:bg-orange-50'}`}><Settings size={20} /></button>
-          <div className="h-6 w-px bg-gray-300 mx-1"></div>
-          <button onClick={handleReset} className="p-2 rounded-full transition-colors text-gray-400 hover:bg-gray-100 hover:text-red-500" title="新建/重置项目"><RotateCcw size={20} /></button>
-          <div className="h-6 w-px bg-gray-600 mx-1 opacity-20"></div>
-
-          {/* Export Buttons */}
-          <button onClick={downloadSVG} className="flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 shadow-sm"><Download size={18} />导出 SVG</button>
-          <button onClick={downloadPNG} className="flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors bg-gray-900 hover:bg-gray-800 text-white shadow-sm"><ImageDown size={18} />导出 PNG</button>
-        </div>
+        <ProjectControls project={projectFiles} onNew={handleReset} about={<>            <div className="mt-3 text-xs flex flex-col gap-2 text-gray-600 leading-relaxed">
+              {/*
+                * Update: Version is now injected via Vite's `define` config
+                * sourced from package.json.
+                */}
+              <span>{__APP_VERSION__}</span>
+              <span>@ 门耳朵制作</span>
+              <span>加入群聊【磁带封面生成器】(QQ群: 140785966) 免费下载</span>
+              <span>官网：http://www.epochaudio.cn/</span>
+              <span>本软件为开源软件，允许个人在非商业目的下免费使用、学习与研究。</span>
+              <span>🚫 禁止商业化用途：禁止售卖、会员付费下载或提供有偿代制作服务。</span>
+              <span>本软件按“现状”提供，作者不对使用后果承担责任。商业授权请另行取得书面许可。</span>
+            </div></>}>
+          <div className="flex items-center rounded-md border border-gray-300">
+            <button onClick={downloadPNG} className="flex items-center gap-2 px-3 py-2 rounded-l-md bg-gray-900 text-white text-sm"><ImageDown size={18} />导出 PNG</button>
+            <DisclosureMenu label="更多导出格式" compact>
+              <button onClick={downloadSVG} className="w-full text-left p-2 rounded hover:bg-gray-50 text-sm">导出 SVG<span className="block text-xs text-gray-500">用于进一步排版与编辑</span></button>
+            </DisclosureMenu>
+          </div>
+          <button aria-label="AI 服务设置" title="配置 DeepSeek 与可选生图服务" onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-colors ${!textKeyConfigured ? 'text-gray-400 hover:text-gray-500 hover:bg-gray-100' : 'text-orange-600 hover:bg-orange-50'}`}><Settings size={20} /></button>
+        </ProjectControls>
       </header>
-
-      <ProjectControls project={projectFiles} />
 
       {error && <div role="alert" className="px-6 py-2 text-xs text-red-800 bg-red-50 flex items-center justify-between gap-3">
         <span>{error}</span><button onClick={() => setError('')} className="underline shrink-0">关闭提示</button>
       </div>}
 
       <main className="flex flex-1 overflow-hidden">
-        <div className="flex flex-col lg:flex-row gap-8 w-full h-full">
+        <div className="flex flex-col lg:flex-row w-full h-full min-h-0">
           {/* Left Column: Preview */}
-          <div className="w-full lg:w-2/3 flex flex-col items-center justify-start overflow-y-auto relative p-8">
+          <div className="w-full lg:w-2/3 max-h-[40vh] lg:max-h-none shrink-0 lg:shrink flex flex-col items-center justify-start overflow-y-auto relative p-4 lg:p-8">
             <div className={`w-full transition-all duration-500 max-w-5xl`}>
               <JCardPreview
                 onBackStatus={setBackStatus}
@@ -894,45 +903,94 @@ export default function App() {
             {backStatus.overflow && <p role="alert" className="mt-3 text-sm text-red-700">背面曲目超出可读空间，请调整内容后再导出。</p>}
             {backStatus.folded && <p className="mt-3 text-sm text-amber-800">背面已启用紧凑显示，部分说明、时长或长曲名可能已省略；请检查成品，作品文件仍保留完整内容。</p>}
             <p className="mt-6 text-sm font-mono text-gray-500">预览：J-CARD 四折页布局 (U-CARD 风格)</p>
-            <div className="mt-4 text-xs font-mono flex flex-col items-center gap-1 opacity-60 text-gray-400">
-              {/* 
-                * Update: Version is now injected via Vite's `define` config
-                * sourced from package.json.
-                */}
-              <span>{__APP_VERSION__}</span>
-              <span>@ 门耳朵制作</span>
-              <span>加入群聊【磁带封面生成器】(QQ群: 140785966) 免费下载</span>
-              <span>官网：http://www.epochaudio.cn/</span>
-              <span>本软件为开源软件，允许个人在非商业目的下免费使用、学习与研究。</span>
-              <span>🚫 禁止商业化用途：禁止售卖、会员付费下载或提供有偿代制作服务。</span>
-              <span>本软件按“现状”提供，作者不对使用后果承担责任。商业授权请另行取得书面许可。</span>
-            </div>
+
           </div>
 
           {/* Right Column: Controls */}
-          <div className="w-full lg:w-1/3 min-w-[350px] overflow-y-auto border-l border-gray-200 bg-white p-6 space-y-8 custom-scrollbar">
-            <SmartDesignPanel snapshot={projectSnapshot} settings={aiSettings.settings} projectIdentity={projectEpoch.current}
-              ready={projectFiles.ready && !projectFiles.busy && aiSettings.ready} onApply={applySmartDesign} onSettings={() => setShowSettings(true)} />
-            <DesignPanel data={data} theme={theme} fontTheme={fontTheme} mode={jCardThemeMode}
-              onLayout={patch => setData(prev => ({ ...prev, layout: { ...prev.layout, ...patch } }))}
-              onTheme={setTheme} onFont={value => { setFontTheme(value); setTheme(previous => ({ ...previous, typography: null })); }} onMode={setJCardThemeMode} onAutoColor={handleAutoColor} hasImage={!!coverImage} />
+          <div className="w-full lg:w-1/3 min-w-0 lg:min-w-[350px] min-h-0 flex flex-col border-l border-gray-200 bg-white">
+<div role="tablist" aria-label="编辑作品" className="flex gap-2 border-b border-gray-200 p-3 shrink-0">
+  {['content', 'appearance'].map((tab, index) => <button key={tab} id={`editor-tab-${tab}`} role="tab" aria-selected={editorTab === tab} aria-controls={`editor-panel-${tab}`} tabIndex={editorTab === tab ? 0 : -1}
+    onClick={() => setEditorTab(tab)} onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const next = event.key === 'Home' ? 'content' : event.key === 'End' ? 'appearance' : tab === 'content' ? 'appearance' : 'content'; setEditorTab(next); document.getElementById(`editor-tab-${next}`)?.focus(); } }}
+    className={`flex-1 rounded-md px-4 py-2 text-sm ${editorTab === tab ? 'bg-orange-50 text-orange-800 font-semibold' : 'text-gray-500 hover:bg-gray-50'}`}>{index === 0 ? '内容' : '外观'}</button>)}
+</div>
+<div id="editor-panel-content" role="tabpanel" aria-labelledby="editor-tab-content" hidden={editorTab !== 'content'} className="overflow-y-auto p-5 space-y-6 custom-scrollbar">
+            {/* AI Art & Style Options */}
+            <section className="space-y-4">
+              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><ImageIcon size={14} /> 封面图片</h2>
+
+              {/* Image Upload/Generate */}
+              {/* Image Upload/Generate */}
+              <div className="space-y-3">
+                {/* Cover A */}
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    {data.layout.frontStyle === 'REVERSIBLE' ? '封面 A (上半部 Top / 正向 Upright)' : '封面图片'}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={(e) => handleFileUpload(e, 'A')}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <button onClick={() => fileInputRef.current?.click()} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"><Upload size={14} /> 上传图片</button>
+
+                    {coverImage && (<button onClick={() => setCoverImage(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
+                  </div>
+                  <CoverInfoPanel snapshot={projectSnapshot} settings={aiSettings.settings} projectIdentity={projectEpoch.current}
+                    ready={projectFiles.ready && !projectFiles.busy && aiSettings.ready} onApply={applyProject} onSettings={() => setShowSettings(true)} />
+                </div>
+
+                {/* Cover B (Conditional) */}
+                {data.layout.frontStyle === 'REVERSIBLE' && (
+                  <div className="pt-2 border-t border-gray-100">
+                    <label className="block text-xs text-gray-400 mb-1">封面 B (下半部 Bottom / 颠倒 Rotated 180°)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="file"
+                        ref={fileInputRefB}
+                        onChange={(e) => handleFileUpload(e, 'B')}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <button onClick={() => fileInputRefB.current?.click()} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700">
+                        <Upload size={14} /> 上传封面 B
+                      </button>
+                      {coverImageB && (<button onClick={() => setCoverImageB(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
+                    </div>
+                  </div>
+                )}
+              </div>
+<details className="rounded border border-gray-200 p-3"><summary className="cursor-pointer text-sm">AI 生成图片 <span className="text-xs text-gray-500">{loadingStates.image ? '生成中…' : imagePrompt ? '已填写画面描述' : '可选'}</span></summary><div className="mt-3 space-y-3">              {/* Prompt Input */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1 flex justify-between items-center">
+                  描述想要的画面
+                  <button onClick={handleGenerateCoverPrompt} disabled={loadingStates.prompt} className="text-[10px] bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded flex items-center gap-1">
+                    {loadingStates.prompt ? <span className="animate-spin">⏳</span> : <Wand2 size={10} />}
+                    {loadingStates.prompt ? '生成中...' : '帮我写描述'}
+                  </button>
+                </label>
+                <textarea
+                  className="w-full border border-gray-300 rounded p-2 text-xs h-20 focus:ring-2 focus:ring-orange-500 outline-none resize-none bg-white text-gray-900"
+                  placeholder="描述你想要的封面画面..."
+                  value={imagePrompt}
+                  onChange={(e) => setImagePrompt(e.target.value)}
+                />
+              </div>
+
+                    <button onClick={handleGenerateCover} disabled={loadingStates.image} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700">{loadingStates.image ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingStates.image ? '生成中...' : 'AI 生成'}</button></div></details>            </section>
+
             <section className="space-y-4">
               <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Type size={14} /> 专辑信息</h2>
               <div className="space-y-3">
                 <div><label className="block text-xs text-gray-400 mb-1">专辑标题</label><div className="flex gap-2"><input type="text" value={data.title || ''} onChange={(e) => setData({ ...data, title: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /><button aria-label="生成专辑标题" title="根据曲目生成专辑标题" onClick={handleTitleMagic} disabled={loadingStates.title} className="px-3 border border-gray-300 rounded transition-colors bg-white text-orange-600 hover:bg-gray-50">{loadingStates.title ? <span className="animate-spin text-xs">⏳</span> : <Wand2 size={16} />}</button></div></div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">脊部短标题</label>
-                  <input
-                    type="text"
-                    value={data.spineTitle || ''}
-                    onChange={(e) => setData({ ...data, spineTitle: e.target.value })}
-                    className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900"
-                    placeholder="可选。仅在完整标题过长时启用；留空则自动生成短标题"
-                  />
-                  <p className="mt-1 text-[11px] text-gray-500">当前脊部策略：{spineLayoutStatus.summary}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
                   <div><label className="block text-xs text-gray-400 mb-1">艺术家</label><input type="text" value={data.artist || ''} onChange={(e) => setData({ ...data, artist: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /></div>
+                <details className="rounded border border-gray-200 p-3">
+                  <summary className="cursor-pointer text-sm text-gray-600">更多专辑信息 <span className="text-xs text-gray-400">{[data.releaseDate && '发行日期', data.tapeId && '目录编号', data.coverBadge && '标语'].filter(Boolean).join(' · ') || '可选'}</span></summary>
+                  <div className="mt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+
                   <div><label className="block text-xs text-gray-400 mb-1">发行日期</label><input type="text" value={data.releaseDate || ''} onChange={(e) => setData({ ...data, releaseDate: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="YYYY" /></div>
                   <div><label className="block text-xs text-gray-400 mb-1">目录编号</label><input type="text" value={data.tapeId || ''} onChange={(e) => setData({ ...data, tapeId: e.target.value })} className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" /></div>
                 </div>
@@ -959,36 +1017,12 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+                  </div>
+                </details>
               </div>
             </section>
 
-            {/* Layout Options */}
-            <section className="space-y-4">
-              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><LayoutTemplate size={14} /> 布局选项</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs text-gray-400 mb-1">顶部备注</label><input type="text" value={data.layout.noteUpper || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteUpper: e.target.value } })} className="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="例如：STEREO / MONO / 年份 / 录音日期" /></div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">底部备注</label>
-                  <input
-                    type="text"
-                    value={data.layout.noteLower || ''}
-                    onChange={(e) => setData({
-                      ...data,
-                      layout: {
-                        ...data.layout,
-                        noteLower: truncateVisibleChars(e.target.value, NOTE_LOWER_MAX_VISIBLE_CHARS)
-                      }
-                    })}
-                    className="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900"
-                    placeholder="例如：版权 / 版本信息 / 自定义说明"
-                  />
-                  <p className="mt-1 text-[11px] text-gray-500">
-                    建议 {NOTE_LOWER_RECOMMENDED_VISIBLE_CHARS} 字内，最多 {NOTE_LOWER_MAX_VISIBLE_CHARS} 个可见字符
-                  </p>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">布局模式</label>
+<section className="space-y-3" aria-label="曲目组织">                <label className="block text-xs text-gray-400 mb-1">曲目组织</label>
                 <div className="flex gap-2 text-xs">
                   {['STANDARD', 'CLASSICAL', 'COMPILATION'].map(mode => (
                     <button
@@ -1002,42 +1036,40 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                <div className="mt-3">
-                  <label className="block text-xs text-gray-400 mb-1">Short Back 模式</label>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    {SHORT_BACK_MODE_OPTIONS.map(option => (
-                      <button
-                        key={option.value}
-                        onClick={() => setData({ ...data, layout: { ...data.layout, shortBackMode: option.value } })}
-                        className={`py-1.5 rounded border transition-colors ${data.layout.shortBackMode === option.value
-                          ? 'bg-teal-600 text-white border-teal-600'
-                          : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-[11px] text-gray-400">控制最左侧折页的显示内容，不影响主封底曲目顺序。紧凑曲目会根据标题长度与可用空间自动调整显示密度。</p>
-                </div>
-
-              </div>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                  <input type="checkbox" checked={data.layout.forceCaps} onChange={(e) => setData({ ...data, layout: { ...data.layout, forceCaps: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-white border-gray-300" /> 强制大写
-                </label>
-                <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                  <input type="checkbox" disabled={theme.paletteId === 'custom'} title={theme.paletteId === 'custom' ? 'AI 完整配色已指定脊背颜色；切换预设后可使用极简脊部' : undefined} checked={data.layout.minimalSpine} onChange={(e) => setData({ ...data, layout: { ...data.layout, minimalSpine: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-white border-gray-300" /> {theme.paletteId === 'custom' ? '脊背采用 AI 配色' : '极简脊部'}
-                </label>
-                {/* [NEW] Spine Orientation Toggle */}
-                <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                  <input type="checkbox" checked={!!data.layout.spineInverted} onChange={(e) => setData({ ...data, layout: { ...data.layout, spineInverted: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-white border-gray-300" /> 翻转脊部
-                </label>
-              </div>
-            </section>
-
-            {/* Custom Metadata (Technical Specs) */}
+</section>            {/* Tracks Section */}
+            <div className="flex items-center justify-between border-b pb-2 border-gray-200">
+              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Music size={14} /> 曲目列表</h2>
+              <DisclosureMenu label="导入曲目">
+                <button onClick={() => setShowImport(true)} className="text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-orange-600"><FileText size={12} /> 粘贴文本</button>
+                <button onClick={() => setShowSearch(true)} className="text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-orange-600"><Globe size={12} /> 搜索 MusicBrainz</button>
+              </DisclosureMenu>
+            </div>
             <section className="space-y-4">
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 pb-2">元数据</h3>
+              <div className="flex items-center justify-between pl-1">
+                <h3 className="text-xs font-bold text-gray-500">A 面 (SIDE A)</h3>
+                <button onClick={() => addTrack('sideA')} className="text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-orange-600">
+                  <Plus size={12} /> 添加曲目
+                </button>
+              </div>
+              {!isTrackDragEnabled && data.layout.mode === 'CLASSICAL' && (
+                <p className="text-xs text-gray-400 pl-1">古典模式暂不支持拖拽排序。</p>
+              )}
+              {data.sideA.map((track, i) => renderTrackCard('sideA', track, i))}
+              {renderDropZone('sideA')}
+            </section>
+            <section className="space-y-4">
+              <div className="flex items-center justify-between pl-1">
+                <h3 className="text-xs font-bold text-gray-500">B 面 (SIDE B)</h3>
+                <button onClick={() => addTrack('sideB')} className="text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-orange-600">
+                  <Plus size={12} /> 添加曲目
+                </button>
+              </div>
+              {data.sideB.map((track, i) => renderTrackCard('sideB', track, i))}
+              {renderDropZone('sideB')}
+            </section>
+            {/* Custom Metadata (Technical Specs) */}
+            <details className="rounded border border-gray-200 p-3">
+<summary className="cursor-pointer text-sm font-semibold">录音与补充资料 <span className="text-xs font-normal text-gray-500">{[recordingData.equipment && '设备', recordingData.source && '音源', recordingData.recDate && '录音日期', recordingData.labelOverride && '厂牌', (data.layout.noteUpper || data.layout.noteLower) && '备注'].filter(Boolean).join(' · ') || '可选'}</span></summary><div className="space-y-4 mt-4">
               <div>
                 <label className="block text-xs text-gray-400 mb-1">录音设备 (Recording Equipment)</label>
                 <EquipmentPresets equipment={recordingData.equipment || ''} onSelect={value => updateRecordingData('equipment', value)} />
@@ -1081,107 +1113,80 @@ export default function App() {
                   placeholder="YYYY-MM-DD"
                 />
               </div>
-            </section>
-
-            {/* AI Art & Style Options */}
-            <section className="space-y-4">
-              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><ImageIcon size={14} /> 封面图片</h2>
-
-              {/* Prompt Input */}
-              <div>
-                <label className="block text-xs text-gray-400 mb-1 flex justify-between items-center">
-                  AI 图片提示词
-                  <button onClick={handleGenerateCoverPrompt} disabled={loadingStates.prompt} className="text-[10px] bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded flex items-center gap-1">
-                    {loadingStates.prompt ? <span className="animate-spin">⏳</span> : <Wand2 size={10} />}
-                    {loadingStates.prompt ? '生成中...' : '生成提示词'}
-                  </button>
-                </label>
-                <textarea
-                  className="w-full border border-gray-300 rounded p-2 text-xs h-20 focus:ring-2 focus:ring-orange-500 outline-none resize-none bg-white text-gray-900"
-                  placeholder="描述你想要的封面画面..."
-                  value={imagePrompt}
-                  onChange={(e) => setImagePrompt(e.target.value)}
-                />
-              </div>
-
-              {/* Image Upload/Generate */}
-              {/* Image Upload/Generate */}
-              <div className="space-y-3">
-                {/* Cover A */}
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="block text-xs text-gray-400 mb-1">顶部备注</label><input type="text" value={data.layout.noteUpper || ''} onChange={(e) => setData({ ...data, layout: { ...data.layout, noteUpper: e.target.value } })} className="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900" placeholder="例如：STEREO / MONO / 年份 / 录音日期" /></div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
-                    {data.layout.frontStyle === 'REVERSIBLE' ? '封面 A (上半部 Top / 正向 Upright)' : '封面图片'}
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={(e) => handleFileUpload(e, 'A')}
-                      accept="image/*"
-                      className="hidden"
-                    />
-                    <button onClick={() => fileInputRef.current?.click()} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"><Upload size={14} /> 上传图片</button>
-                    <button onClick={handleGenerateCover} disabled={loadingStates.image} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700">{loadingStates.image ? <span className="animate-spin">⏳</span> : <ImageIcon size={14} />} {loadingStates.image ? '生成中...' : 'AI 生成'}</button>
-                    {coverImage && (<button onClick={() => setCoverImage(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
-                  </div>
-                  <CoverInfoPanel snapshot={projectSnapshot} settings={aiSettings.settings} projectIdentity={projectEpoch.current}
-                    ready={projectFiles.ready && !projectFiles.busy && aiSettings.ready} onApply={applyProject} onSettings={() => setShowSettings(true)} />
+                  <label className="block text-xs text-gray-400 mb-1">底部备注</label>
+                  <input
+                    type="text"
+                    value={data.layout.noteLower || ''}
+                    onChange={(e) => setData({
+                      ...data,
+                      layout: {
+                        ...data.layout,
+                        noteLower: truncateVisibleChars(e.target.value, NOTE_LOWER_MAX_VISIBLE_CHARS)
+                      }
+                    })}
+                    className="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900"
+                    placeholder="例如：版权 / 版本信息 / 自定义说明"
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    建议 {NOTE_LOWER_RECOMMENDED_VISIBLE_CHARS} 字内，最多 {NOTE_LOWER_MAX_VISIBLE_CHARS} 个可见字符
+                  </p>
                 </div>
+              </div>
+</div></details>
 
-                {/* Cover B (Conditional) */}
-                {data.layout.frontStyle === 'REVERSIBLE' && (
-                  <div className="pt-2 border-t border-gray-100">
-                    <label className="block text-xs text-gray-400 mb-1">封面 B (下半部 Bottom / 颠倒 Rotated 180°)</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="file"
-                        ref={fileInputRefB}
-                        onChange={(e) => handleFileUpload(e, 'B')}
-                        accept="image/*"
-                        className="hidden"
-                      />
-                      <button onClick={() => fileInputRefB.current?.click()} className="flex-1 rounded text-xs py-2 flex items-center justify-center gap-1 transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700">
-                        <Upload size={14} /> 上传封面 B
+
+</div>
+<div id="editor-panel-appearance" role="tabpanel" aria-labelledby="editor-tab-appearance" hidden={editorTab !== 'appearance'} className="overflow-y-auto p-5 space-y-6 custom-scrollbar">
+            <DesignPanel data={data} theme={theme} fontTheme={fontTheme} mode={jCardThemeMode}
+              onLayout={patch => setData(prev => ({ ...prev, layout: { ...prev.layout, ...patch } }))}
+              onTheme={setTheme} onFont={value => { setFontTheme(value); setTheme(previous => ({ ...previous, typography: null })); }} onMode={setJCardThemeMode} onAutoColor={handleAutoColor} hasImage={!!coverImage} />
+            <SmartDesignPanel snapshot={projectSnapshot} settings={aiSettings.settings} projectIdentity={projectEpoch.current}
+              ready={projectFiles.ready && !projectFiles.busy && aiSettings.ready} onApply={applySmartDesign} onSettings={() => setShowSettings(true)} />
+
+<details className="rounded border border-gray-200 p-3">
+  <summary className="cursor-pointer text-sm font-semibold">脊背与内折页 <span className="text-xs font-normal text-gray-500">{data.layout.spineInverted ? '脊背已翻转' : ''}{data.spineTitle ? ' · 已填写短标题' : ''}</span></summary>
+  <div className="mt-4 space-y-4">                <div>
+                  <label className="block text-xs text-gray-400 mb-1">脊部短标题</label>
+                  <input
+                    type="text"
+                    value={data.spineTitle || ''}
+                    onChange={(e) => setData({ ...data, spineTitle: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white text-gray-900"
+                    placeholder="可选。仅在完整标题过长时启用；留空则自动生成短标题"
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500">当前脊部策略：{spineLayoutStatus.summary}</p>
+                </div>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                  <input type="checkbox" checked={data.layout.forceCaps} onChange={(e) => setData({ ...data, layout: { ...data.layout, forceCaps: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-white border-gray-300" /> 强制大写
+                </label>
+                <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                  <input type="checkbox" disabled={theme.paletteId === 'custom'} title={theme.paletteId === 'custom' ? 'AI 完整配色已指定脊背颜色；切换预设后可使用极简脊部' : undefined} checked={data.layout.minimalSpine} onChange={(e) => setData({ ...data, layout: { ...data.layout, minimalSpine: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-white border-gray-300" /> {theme.paletteId === 'custom' ? '脊背采用 AI 配色' : '极简脊部'}
+                </label>
+                {/* [NEW] Spine Orientation Toggle */}
+                <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                  <input type="checkbox" checked={!!data.layout.spineInverted} onChange={(e) => setData({ ...data, layout: { ...data.layout, spineInverted: e.target.checked } })} className="rounded text-orange-500 focus:ring-orange-500 bg-white border-gray-300" /> 翻转脊部
+                </label>
+              </div>                <div className="mt-3">
+                  <label className="block text-xs text-gray-400 mb-1">内折页内容</label>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {SHORT_BACK_MODE_OPTIONS.map(option => (
+                      <button
+                        key={option.value}
+                        onClick={() => setData({ ...data, layout: { ...data.layout, shortBackMode: option.value } })}
+                        className={`py-1.5 rounded border transition-colors ${data.layout.shortBackMode === option.value
+                          ? 'bg-teal-600 text-white border-teal-600'
+                          : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                      >
+                        {option.label}
                       </button>
-                      {coverImageB && (<button onClick={() => setCoverImageB(null)} className="w-8 bg-red-900/50 hover:bg-red-800 rounded flex items-center justify-center text-red-200"><Trash2 size={14} /></button>)}
-                    </div>
+                    ))}
                   </div>
-                )}
-              </div>
-            </section>
-
-            {/* Tracks Section */}
-            <div className="flex items-center justify-between border-b pb-2 border-gray-200">
-              <h2 className="text-sm uppercase tracking-widest text-gray-500 font-bold flex items-center gap-2"><Music size={14} /> 曲目列表</h2>
-              <div className="flex gap-2">
-                <button onClick={() => setShowImport(true)} className="text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-orange-600"><FileText size={12} /> 粘贴文本</button>
-                <button onClick={() => setShowSearch(true)} className="text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-orange-600"><Globe size={12} /> 搜索 MusicBrainz</button>
-              </div>
-            </div>
-            <section className="space-y-4">
-              <div className="flex items-center justify-between pl-1">
-                <h3 className="text-xs font-bold text-gray-500">A 面 (SIDE A)</h3>
-                <button onClick={() => addTrack('sideA')} className="text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-orange-600">
-                  <Plus size={12} /> 添加曲目
-                </button>
-              </div>
-              {!isTrackDragEnabled && data.layout.mode === 'CLASSICAL' && (
-                <p className="text-xs text-gray-400 pl-1">古典模式暂不支持拖拽排序。</p>
-              )}
-              {data.sideA.map((track, i) => renderTrackCard('sideA', track, i))}
-              {renderDropZone('sideA')}
-            </section>
-            <section className="space-y-4">
-              <div className="flex items-center justify-between pl-1">
-                <h3 className="text-xs font-bold text-gray-500">B 面 (SIDE B)</h3>
-                <button onClick={() => addTrack('sideB')} className="text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-orange-600">
-                  <Plus size={12} /> 添加曲目
-                </button>
-              </div>
-              {data.sideB.map((track, i) => renderTrackCard('sideB', track, i))}
-              {renderDropZone('sideB')}
-            </section>
-
+                  <p className="mt-2 text-[11px] text-gray-400">控制最左侧折页的显示内容，不影响主封底曲目顺序。紧凑曲目会根据标题长度与可用空间自动调整显示密度。</p>
+                </div></div></details></div>
           </div>
 
         </div >
