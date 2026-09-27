@@ -1,7 +1,7 @@
 import { normalizeTextStyles } from '../config/textStyles.mjs';
 import { normalizeAlbumSource, normalizeTrackSource } from '../musicbrainz/projectMetadata.mjs';
 import { formatDurationMs, parseDurationToMs } from '../utils/formatDuration.mjs';
-import { FRONT_STYLES, TITLE_SIZES, PALETTES, normalizePanelColors } from '../config/design.mjs';
+import { FRONT_STYLES, TITLE_SIZES, PALETTES, normalizePanelColors, normalizeCoverStrength } from '../config/design.mjs';
 
 export const PROJECT_VERSION = 3;
 export const PROJECT_FORMAT = 'jcard-project';
@@ -112,7 +112,7 @@ export function normalizeSnapshot(input) {
       credits: Object.fromEntries(['producers', 'engineers', 'performers'].map(field => [field, list(credits[field] ?? [], field).map(value => string(value, field))]))
     },
     coverImage: image(input.coverImage), coverImageB: image(input.coverImageB),
-    theme: { ...(theme.typography != null ? { typography: normalizeTextStyles(theme.typography, input.fontTheme || 'modern') } : {}), background: color(theme.background, '#121212'), accent: color(theme.accent, '#cc3300'), mood_description: string(theme.mood_description, '心情'), ...(theme.paletteId === 'custom' ? { colors: normalizePanelColors(theme.colors) } : {}), paletteId: choice(theme.paletteId, ['legacy', 'custom', ...Object.keys(PALETTES)], 'legacy', '配色方案') },
+    theme: { coverBackgroundStrength: normalizeCoverStrength(theme.coverBackgroundStrength), ...(theme.typography != null ? { typography: normalizeTextStyles(theme.typography, input.fontTheme || 'modern') } : {}), background: color(theme.background, '#121212'), accent: color(theme.accent, '#cc3300'), mood_description: string(theme.mood_description, '心情'), ...(theme.paletteId === 'custom' ? { colors: normalizePanelColors(theme.colors) } : {}), paletteId: choice(theme.paletteId, ['legacy', 'custom', ...Object.keys(PALETTES)], 'legacy', '配色方案') },
     fontTheme: choice(input.fontTheme, FONT_THEMES, 'modern', '字体主题'),
     jCardThemeMode: choice(input.jCardThemeMode, ['dark', 'light', 'cover', 'color'], 'dark', '背景主题'),
     imagePrompt: string(input.imagePrompt, '图片提示词')

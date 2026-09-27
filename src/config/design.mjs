@@ -1,5 +1,18 @@
 export const MIN_TEXT_CONTRAST = 4.5;
 const ACCENT_ADJUSTMENT_STEPS = 20;
+// Cover color remains visible through light paper; the upper bound keeps dark ink readable.
+export const COVER_BACKGROUND = {
+  paper: '#ffffff', defaultStrength: 0.32, minStrength: 0, maxStrength: 0.4,
+  strengthStep: 0.01, blur: 30, frontPaperOpacity: 0.35,
+  text: '#1a1a1a', secondary: '#282828', muted: '#303030', divider: '#777777',
+};
+export function normalizeCoverStrength(value) {
+  if (value == null) return COVER_BACKGROUND.defaultStrength;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < COVER_BACKGROUND.minStrength || value > COVER_BACKGROUND.maxStrength) {
+    throw new Error('作品文件中的“背景浓淡”无效。');
+  }
+  return value;
+}
 export const PAPER_TEXTURE = { inkAlpha: 0.15, opacity: 0.12 };
 
 // Persisted choices for the unified cover design.
@@ -43,6 +56,7 @@ export function resolvePalette(theme, mode, dominantColor) {
   }
   const preset = PALETTES[theme.paletteId];
   if (preset) return { ...preset, accent: theme.accent || preset.accent };
+  if (mode === 'cover') return { background: COVER_BACKGROUND.paper, text: COVER_BACKGROUND.text, secondary: COVER_BACKGROUND.secondary, muted: COVER_BACKGROUND.muted, divider: COVER_BACKGROUND.divider, accent: theme.accent || '#cc3300' };
   const background = mode === 'light' ? '#ffffff' : mode === 'color' ? dominantColor || '#232629' : '#232629';
   const text = contrastInk(background);
   return { background, text, secondary: readableAccent(mixColor(text, background, 0.16), background), muted: readableAccent(mixColor(text, background, 0.28), background), divider: mixColor(text, background, 0.76), accent: theme.accent || '#cc3300' };
@@ -90,10 +104,7 @@ export function panelColorFailures(colors, texture = false) {
 export function resolvePanelColors(theme, mode, dominantColor, minimalSpine = false) {
   if (theme.paletteId === 'custom') return normalizePanelColors(theme.colors);
   const p = resolvePalette(theme, mode, dominantColor);
-  const imageBackground = theme.paletteId === 'legacy' && mode === 'cover';
-  const text = imageBackground ? '#ffffff' : p.text;
-  const secondary = imageBackground ? '#e5e5e5' : p.secondary;
-  const muted = imageBackground ? '#c9c9c9' : p.muted;
+  const { text, secondary, muted } = p;
   const accent = readableAccent(p.accent, p.background);
   const spineBackground = minimalSpine ? p.background : p.accent;
   const spineText = minimalSpine ? text : contrastInk(spineBackground);

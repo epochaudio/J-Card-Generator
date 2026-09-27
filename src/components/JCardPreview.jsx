@@ -6,7 +6,7 @@ import ContentFront from './ContentFront.jsx';
 import ShortBackContent from './ShortBackContent.jsx';
 import SpineContent from './SpineContent.jsx';
 import { getJCardDimensions } from '../constants/app.js';
-import { resolvePanelColors, contrastInk, PAPER_TEXTURE } from '../config/design.mjs';
+import { resolvePanelColors, contrastInk, PAPER_TEXTURE, COVER_BACKGROUND, normalizeCoverStrength } from '../config/design.mjs';
 import { computeFrontLayout } from '../utils/FrontLayout.js';
 
 const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingData, jCardThemeMode, dominantColor, fontConfig: baseFontConfig, onBackStatus }) => {
@@ -34,8 +34,7 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
   const height = dimensions.height;
   const bgFill = colors.front.background;
   const isLight = contrastInk(bgFill) !== '#ffffff';
-  const coverMaskColor = '#000000';
-  const coverMaskOpacity = 0.86;
+  const coverStrength = normalizeCoverStrength(theme.coverBackgroundStrength);
   const textColor = colors.front.title;
   const panelTheme = panel => ({ ...theme, accent: colors[panel].accent, divider: colors[panel].divider, panelColors: customColors ? colors[panel] : undefined, exactColors: customColors });
   const frontLayout = useMemo(() => computeFrontLayout(data, fontConfig, theme), [data, fontConfig, theme]);
@@ -55,6 +54,7 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
           <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" />
           <feColorMatrix type="matrix" values={`0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 ${PAPER_TEXTURE.inkAlpha} 0`} />
         </filter>
+        <filter id={resourceId('cover-paper-blur')}><feGaussianBlur stdDeviation={COVER_BACKGROUND.blur} /></filter>
         <filter id={resourceId('bg-blur')}>
           <feGaussianBlur in="SourceGraphic" stdDeviation={30} />
           <feColorMatrix type="saturate" values={isLight ? "1.5" : "1.2"} />
@@ -75,8 +75,10 @@ const JCardPreview = ({ data, theme, coverImage, coverImageB, svgRef, recordingD
 
       {curThemeMode === 'cover' && coverImage ? (
         <>
-          <image href={coverImage} x="-10%" y="-10%" width="120%" height="120%" preserveAspectRatio="xMidYMid slice" filter={`url(#${resourceId('bg-blur')})`} />
-          <rect x="0" y="0" width={width} height={height} fill={coverMaskColor} opacity={coverMaskOpacity} />
+          <rect width={width} height={height} fill={COVER_BACKGROUND.paper} />
+          <image href={coverImage} x="-10%" y="-10%" width="120%" height="120%" preserveAspectRatio="xMidYMid slice" filter={`url(#${resourceId('cover-paper-blur')})`} />
+          <rect data-cover-paper="base" width={width} height={height} fill={COVER_BACKGROUND.paper} opacity={1 - coverStrength} />
+          <rect data-cover-paper="front" x={xFront} width={wFront} height={height} fill={COVER_BACKGROUND.paper} opacity={COVER_BACKGROUND.frontPaperOpacity} />
         </>
       ) : (
         <rect x="0" y="0" width={width} height={height} data-panel-background="front" fill={bgFill} />

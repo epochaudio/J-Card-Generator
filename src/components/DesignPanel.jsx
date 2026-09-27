@@ -1,6 +1,6 @@
 import React from 'react';
 import { Palette } from 'lucide-react';
-import { PALETTES } from '../config/design.mjs';
+import { PALETTES, COVER_BACKGROUND, normalizeCoverStrength } from '../config/design.mjs';
 import { FONT_THEMES, getFontConfig } from '../config/fonts.js';
 
 const buttonStyle = selected => `rounded-lg border px-2 py-2 text-xs transition-colors ${selected ? 'border-orange-700 bg-orange-50 text-orange-900' : 'border-gray-200 text-gray-600 hover:border-gray-400'}`;
@@ -33,6 +33,12 @@ export default function DesignPanel({ data, theme, fontTheme, mode, onLayout, on
         {[['dark', '深色'], ['light', '浅色'], ['cover', '封面背景'], ['color', '图片取色']].map(([value, label]) => <button key={value} className={buttonStyle(theme.paletteId === 'legacy' && mode === value)} aria-pressed={theme.paletteId === 'legacy' && mode === value} onClick={() => { onTheme({ ...theme, paletteId: 'legacy', colors: null }); onMode(value); }}>{label}</button>)}
       </div>
     </fieldset>
+    {theme.paletteId === 'legacy' && mode === 'cover' && <div className="space-y-2 text-xs text-gray-500">
+      <label htmlFor="cover-background-strength" className="flex justify-between"><span>背景浓淡</span><span>{Math.round(normalizeCoverStrength(theme.coverBackgroundStrength) / COVER_BACKGROUND.maxStrength * 100)}%</span></label>
+      <input id="cover-background-strength" aria-label="背景浓淡" type="range" className="w-full" min={COVER_BACKGROUND.minStrength} max={COVER_BACKGROUND.maxStrength} step={COVER_BACKGROUND.strengthStep} value={normalizeCoverStrength(theme.coverBackgroundStrength)} onChange={event => onTheme({ ...theme, coverBackgroundStrength: Number(event.target.value) })} />
+      <div className="flex justify-between"><span>淡 · 纸面</span><span>浓 · 封面色彩</span></div>
+      {!hasImage && <p>上传封面后显示色彩背景。</p>}
+    </div>}
     {theme.paletteId === 'custom' ? <div className="rounded bg-stone-100 p-3 text-xs text-stone-600 space-y-2">
       <p>当前使用 AI 完整配色，各区域与文字颜色随方案保存。选择上方预设可切换配色。</p>
       <div className="flex gap-3">{[['front', '正面'], ['back', '曲目区'], ['spine', '脊背'], ['shortBack', '折页']].map(([panel, label]) => <span key={panel} className="flex items-center gap-1"><span className="inline-block w-4 h-4 rounded border border-stone-300" style={{ background: theme.colors[panel].background }} />{label}</span>)}</div>

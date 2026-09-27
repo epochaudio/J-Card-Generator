@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PALETTES, contrastRatio, contrastInk, readableAccent, resolvePalette } from '../src/config/design.mjs';
+import { PALETTES, contrastRatio, contrastInk, readableAccent, resolvePalette, resolvePanelColors, COVER_BACKGROUND, mixColor } from '../src/config/design.mjs';
 import { normalizeSnapshot, serializeProject, parseProject } from '../src/project/projectFormat.mjs';
 
 const album = { data: { title: '夜色与回声', artist: '陈明 · Quartet', sideA: [{ id: 'a', title: '回声', duration: '3:25' }], sideB: [] } };
@@ -45,4 +45,25 @@ test('palette resolves its own background regardless of a previous image mode', 
   const resolved = resolvePalette({ paletteId: 'paper', accent: '#123456' }, 'cover', '#ff00ff');
   assert.equal(resolved.background, PALETTES.paper.background);
   assert.equal(resolved.accent, '#123456');
+});
+
+test('cover paper keeps dark text readable even over a black cover at maximum strength', () => {
+  const theme = { paletteId: 'legacy' };
+  const colors = resolvePanelColors(theme, 'cover', '#000000');
+  const darkestPaper = mixColor(COVER_BACKGROUND.paper, '#000000', COVER_BACKGROUND.maxStrength);
+  for (const panel of ['front', 'back', 'shortBack']) {
+    for (const role of ['title', 'artist', 'heading', 'track', 'duration', 'number', 'note', 'metadata', 'label']) {
+      if (colors[panel][role]) assert.ok(contrastRatio(colors[panel][role], darkestPaper) >= 4.5, `${panel}.${role}`);
+    }
+  }
+});
+test('cover strength round-trips, defaults for older projects and rejects malformed values', () => {
+  assert.equal(normalizeSnapshot(album).theme.coverBackgroundStrength, COVER_BACKGROUND.defaultStrength);
+  for (const strength of [0, 0.2, COVER_BACKGROUND.maxStrength]) {
+    const result = parseProject(serializeProject({ ...album, theme: { coverBackgroundStrength: strength } }));
+    assert.equal(result.theme.coverBackgroundStrength, strength);
+  }
+  for (const strength of [-1, 1, '0.2', NaN, Infinity]) {
+    assert.throws(() => normalizeSnapshot({ ...album, theme: { coverBackgroundStrength: strength } }), /背景浓淡/);
+  }
 });
